@@ -7,6 +7,7 @@ import Link from 'next/link'
 
 export default function SignInPage() {
   const router = useRouter()
+  const [companyCode, setCompanyCode] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -19,6 +20,7 @@ export default function SignInPage() {
 
     try {
       const result = await signIn('credentials', {
+        companyCode: companyCode || undefined,
         email,
         password,
         redirect: false,
@@ -52,6 +54,22 @@ export default function SignInPage() {
         <h1 className="text-3xl font-bold text-center mb-2 text-gray-900">らくポチ勤怠</h1>
         <p className="text-center text-gray-600 mb-6">勤怠管理システム</p>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="companyCode" className="block text-sm font-medium text-gray-700 mb-1">
+              企業番号 <span className="text-gray-500 text-xs">(任意)</span>
+            </label>
+            <input
+              id="companyCode"
+              type="text"
+              value={companyCode}
+              onChange={(e) => setCompanyCode(e.target.value.toUpperCase())}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+              placeholder="例: COMPANY001"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              新規登録の場合は企業番号を入力してください
+            </p>
+          </div>
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
               メールアドレス
