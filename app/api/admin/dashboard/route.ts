@@ -39,18 +39,29 @@ export async function GET() {
       const now = new Date()
       const currentTime = now.getHours() * 60 + now.getMinutes() // 現在時刻を分単位で取得（ローカル時間）
       
-      // 本日のシフトを取得（UTC日付で比較）
-      const todayStart = new Date(today)
-      todayStart.setUTCHours(0, 0, 0, 0)
-      const todayEnd = new Date(today)
-      todayEnd.setUTCHours(23, 59, 59, 999)
+      // 本日の日付をYYYY-MM-DD形式で取得（ローカル時間）
+      const todayYear = today.getFullYear()
+      const todayMonth = today.getMonth()
+      const todayDay = today.getDate()
+      
+      // Prismaのdateフィールドは@db.Date型なので、UTC日付として扱う
+      // ローカル日付をUTC日付に変換（正午を基準にすることでタイムゾーン問題を回避）
+      const todayStartUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 0, 0, 0, 0))
+      const todayEndUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 23, 59, 59, 999))
+      
+      console.log('[Dashboard] Today date range:', {
+        local: `${todayYear}-${todayMonth + 1}-${todayDay}`,
+        utcStart: todayStartUTC.toISOString(),
+        utcEnd: todayEndUTC.toISOString(),
+        currentTime: `${Math.floor(currentTime / 60)}:${currentTime % 60}`,
+      })
       
       const todayShifts = await prisma.shift.findMany({
         where: {
           companyId: session.user.companyId,
           date: {
-            gte: todayStart,
-            lte: todayEnd,
+            gte: todayStartUTC,
+            lte: todayEndUTC,
           },
           isPublicHoliday: false, // 公休は除外
         },
@@ -64,13 +75,15 @@ export async function GET() {
         },
       })
       
+      console.log('[Dashboard] Found shifts:', todayShifts.length)
+      
       // 本日の打刻済み従業員IDを取得（重複を避ける）
       const clockedInEmployeeIds = await prisma.attendance.findMany({
         where: {
           companyId: session.user.companyId,
           date: {
-            gte: todayStart,
-            lte: todayEnd,
+            gte: todayStartUTC,
+            lte: todayEndUTC,
           },
           clockIn: { not: null },
           isDeleted: { not: true },
@@ -82,25 +95,34 @@ export async function GET() {
       })
       const clockedInIds = new Set(clockedInEmployeeIds.map(a => a.employeeId))
       
+      console.log('[Dashboard] Clocked in employees:', clockedInIds.size, Array.from(clockedInIds))
+      
       // シフト開始時間を過ぎているが打刻していない従業員をカウント（重複を避ける）
       const missingEmployeeIds = new Set<number>()
       
       for (const shift of todayShifts) {
         // 従業員がアクティブでない場合はスキップ
-        if (!shift.employee.isActive) continue
+        if (!shift.employee.isActive) {
+          console.log('[Dashboard] Skipping inactive employee:', shift.employeeId)
+          continue
+        }
         
         // 既に打刻している場合はスキップ
-        if (clockedInIds.has(shift.employeeId)) continue
+        if (clockedInIds.has(shift.employeeId)) {
+          console.log('[Dashboard] Employee already clocked in:', shift.employeeId)
+          continue
+        }
         
         // 既にカウント済みの従業員はスキップ（同じ従業員が複数のシフトを持っている場合）
-        if (missingEmployeeIds.has(shift.employeeId)) continue
+        if (missingEmployeeIds.has(shift.employeeId)) {
+          continue
+        }
         
         // シフト開始時間を分単位で取得
         const shiftStartTime = shift.startTime
         let shiftStartMinutes = 0
         if (shiftStartTime instanceof Date) {
-          // Date型の場合、UTC時間から取得（PrismaのTime型はUTCとして解釈される）
-          // ただし、実際のシフト開始時間はローカル時間として扱う必要がある
+          // Date型の場合、UTC時間から取得
           // PrismaのTime型はUTCとして保存されるが、実際の時刻はローカル時間として扱う
           const utcHours = shiftStartTime.getUTCHours()
           const utcMinutes = shiftStartTime.getUTCMinutes()
@@ -115,13 +137,23 @@ export async function GET() {
           shiftStartMinutes = hours * 60 + minutes
         }
         
+        console.log('[Dashboard] Checking shift:', {
+          employeeId: shift.employeeId,
+          shiftStartTime: shiftStartTime,
+          shiftStartMinutes,
+          currentTime,
+          shouldCount: currentTime >= shiftStartMinutes,
+        })
+        
         // シフト開始時間を過ぎている場合のみカウント
         if (currentTime >= shiftStartMinutes) {
           missingEmployeeIds.add(shift.employeeId)
+          console.log('[Dashboard] Added missing employee:', shift.employeeId)
         }
       }
       
       missingAttendanceCount = missingEmployeeIds.size
+      console.log('[Dashboard] Missing attendance count:', missingAttendanceCount, Array.from(missingEmployeeIds))
     } catch (shiftError) {
       console.error('[Dashboard] Error calculating missing attendance:', shiftError)
       console.error('[Dashboard] Shift error stack:', shiftError instanceof Error ? shiftError.stack : 'No stack')
