@@ -90,21 +90,21 @@ export default function SignInPage() {
           >
             {loading ? 'ログイン中...' : 'ログイン'}
           </button>
-          <div className="flex justify-between mt-4">
-            <Link
-              href="/employee/register"
-              className="text-blue-500 hover:text-blue-600 text-sm font-medium"
-            >
-              新規従業員登録
-            </Link>
-            <Link
-              href="/register"
-              className="text-blue-500 hover:text-blue-600 text-sm font-medium"
-            >
-              新規企業登録
-            </Link>
-          </div>
         </form>
+        <div className="flex justify-between mt-4">
+          <Link
+            href="/employee/register"
+            className="text-blue-500 hover:text-blue-600 text-sm font-medium"
+          >
+            新規従業員登録
+          </Link>
+          <Link
+            href="/register"
+            className="text-blue-500 hover:text-blue-600 text-sm font-medium"
+          >
+            新規企業登録
+          </Link>
+        </div>
       </div>
     </div>
   )
