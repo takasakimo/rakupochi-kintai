@@ -1,26 +1,251 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Leaflet.js CSS */
+@import 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+/* 印刷用スタイル */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* サイドバーやナビゲーションを非表示 */
+  nav,
+  aside,
+  .no-print,
+  header,
+  footer,
+  [class*="sidebar"],
+  [class*="Sidebar"],
+  div[class*="flex"][class*="min-h-screen"] > div:first-child {
+    display: none !important;
+  }
+
+  /* レイアウトのflex構造を解除 */
+  div[class*="flex"][class*="min-h-screen"] {
+    display: block !important;
+  }
+
+  div[class*="flex"][class*="min-h-screen"] > main {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 印刷用コンテナ - 横幅を狭く、縦幅を伸ばす */
+  .print-container {
+    width: 95% !important;
+    max-width: 95% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    display: none !important;
+  }
+
+  /* 印刷時のみ表示 */
+  @media print {
+    .print-container {
+      display: block !important;
+    }
+  }
+
+  .print-page {
+    page-break-after: always;
+    width: 95% !important;
+    max-width: 95% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+  }
+
+  .print-page:last-child {
+    page-break-after: auto;
+  }
+
+  /* ヘッダー情報 - 横幅を狭く、上に余白を追加して下にずらす */
+  .timesheet-header {
+    margin-top: 15mm !important;
+    margin-bottom: 4px;
+    padding: 0;
+    width: 95% !important;
+    max-width: 95% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
+  .timesheet-title {
+    font-size: 14pt !important;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 4px;
+    padding: 0;
+  }
+
+  .timesheet-info {
+    font-size: 18pt !important;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  /* タイムシートテーブル - 横幅を狭く、縦幅を伸ばす */
+  .timesheet-table {
+    width: 95% !important;
+    max-width: 95% !important;
+    border-collapse: collapse !important;
+    font-size: 7pt !important;
+    page-break-inside: avoid;
+    margin: 0 auto !important;
+    padding: 0 !important;
+  }
+
+  .timesheet-table th,
+  .timesheet-table td {
+    border: 0.5px solid #000 !important;
+    padding: 2px 3px !important;
+    text-align: center !important;
+    font-size: 7pt !important;
+    line-height: 1.2 !important;
+    height: 4mm !important;
+  }
+
+  .timesheet-table th {
+    background-color: #e0e0e0 !important;
+    font-weight: bold !important;
+    font-size: 7.5pt !important;
+    padding: 2px 3px !important;
+    height: 4.5mm !important;
+  }
+
+  .timesheet-table .total-row {
+    background-color: #f0f0f0 !important;
+    font-weight: bold !important;
+  }
+
+  .timesheet-table .total-row td {
+    font-size: 7.5pt !important;
+    padding: 2px 3px !important;
+    height: 4.5mm !important;
+  }
+
+  /* ページ設定 - 縦向き、A4サイズ、上余白を増やして下にずらす */
+  @page {
+    size: A4 portrait;
+    margin: 10mm 5mm 5mm 5mm;
+  }
+
+  /* 1枚に収めるための調整 - 縦幅をさらに1.3倍に（合計1.69倍） */
+  .timesheet-table tbody tr {
+    height: 6.42mm !important;
+    min-height: 6.42mm !important;
+    max-height: 6.42mm !important;
+  }
+
+  .timesheet-table th,
+  .timesheet-table td {
+    height: 6.42mm !important;
+  }
+
+  .timesheet-table th {
+    height: 7.1mm !important;
+  }
+
+  .timesheet-table .total-row td {
+    height: 7.1mm !important;
+  }
+
+  /* 不要な余白を削除 */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* テーブルを1枚に収める - 横幅を狭く、縦幅を伸ばす */
+  .timesheet-table {
+    table-layout: fixed;
+    width: 95% !important;
+    max-width: 95% !important;
+  }
+
+  .timesheet-table th:nth-child(1),
+  .timesheet-table td:nth-child(1) {
+    width: 5% !important; /* 日 */
+  }
+
+  .timesheet-table th:nth-child(2),
+  .timesheet-table td:nth-child(2) {
+    width: 5% !important; /* 曜日 */
+  }
+
+  .timesheet-table th:nth-child(3),
+  .timesheet-table td:nth-child(3) {
+    width: 8% !important; /* 区分 */
+  }
+
+  .timesheet-table th:nth-child(4),
+  .timesheet-table td:nth-child(4) {
+    width: 11% !important; /* 開始時刻 */
+  }
+
+  .timesheet-table th:nth-child(5),
+  .timesheet-table td:nth-child(5) {
+    width: 11% !important; /* 終了時刻 */
+  }
+
+  .timesheet-table th:nth-child(6),
+  .timesheet-table td:nth-child(6) {
+    width: 11% !important; /* 基本 */
+  }
+
+  .timesheet-table th:nth-child(7),
+  .timesheet-table td:nth-child(7) {
+    width: 11% !important; /* 残業 */
+  }
+
+  .timesheet-table th:nth-child(8),
+  .timesheet-table td:nth-child(8) {
+    width: 10% !important; /* 休憩 */
+  }
+
+  .timesheet-table th:nth-child(9),
+  .timesheet-table td:nth-child(9) {
+    width: 12% !important; /* 備考 */
+  }
 }

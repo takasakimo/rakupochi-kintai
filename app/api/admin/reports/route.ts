@@ -1,0 +1,372 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
+
+// 勤怠レポート生成
+export async function GET(request: NextRequest) {
+  try {
+    console.log('[Reports] GET /api/admin/reports - Starting')
+    
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      console.log('[Reports] Unauthorized: no session or user')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (session.user.role !== 'admin') {
+      console.log('[Reports] Forbidden: not admin role')
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    console.log('[Reports] Company ID:', session.user.companyId)
+
+    const searchParams = request.nextUrl.searchParams
+    const employeeId = searchParams.get('employee_id')
+      ? parseInt(searchParams.get('employee_id')!)
+      : undefined
+    const startDate = searchParams.get('start_date')
+    const endDate = searchParams.get('end_date')
+    const month = searchParams.get('month') // YYYY-MM形式
+
+    let start: Date
+    let end: Date
+
+    if (month) {
+      // 月指定の場合
+      const [year, monthNum] = month.split('-').map(Number)
+      start = new Date(year, monthNum - 1, 1)
+      end = new Date(year, monthNum, 0)
+    } else if (startDate && endDate) {
+      // 日付範囲指定の場合
+      start = new Date(startDate)
+      end = new Date(endDate)
+    } else {
+      // デフォルトで今月
+      const now = new Date()
+      start = new Date(now.getFullYear(), now.getMonth(), 1)
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    }
+
+    const where: any = {
+      companyId: session.user.companyId,
+      date: {
+        gte: start,
+        lte: end,
+      },
+      isDeleted: { not: true },
+    }
+
+    if (employeeId) {
+      where.employeeId = employeeId
+    }
+
+    // 勤怠データを取得
+    console.log('[Reports] Fetching attendances with where clause:', JSON.stringify(where))
+    let attendances
+    try {
+      attendances = await prisma.attendance.findMany({
+        where,
+        include: {
+          employee: {
+            select: {
+              id: true,
+              name: true,
+              employeeNumber: true,
+              department: true,
+              position: true,
+            },
+          },
+        },
+        orderBy: {
+          date: 'asc',
+        },
+      })
+      console.log('[Reports] Found attendances:', attendances.length)
+    } catch (error: any) {
+      console.error('[Reports] Error fetching attendances:', error)
+      console.error('[Reports] Error name:', error?.name)
+      console.error('[Reports] Error code:', error?.code)
+      console.error('[Reports] Error message:', error?.message)
+      if (error?.stack) {
+        console.error('[Reports] Error stack:', error.stack.substring(0, 500))
+      }
+      return NextResponse.json(
+        { 
+          error: 'Failed to fetch attendances',
+          details: error?.message || 'Unknown error',
+          code: error?.code || 'UNKNOWN',
+        },
+        { status: 500 }
+      )
+    }
+
+    // 従業員ごとに集計
+    const employeeReports: Record<
+      number,
+      {
+        employee: any
+        totalWorkDays: number
+        totalWorkMinutes: number
+        totalOvertimeMinutes: number
+        totalBreakMinutes: number
+        attendances: any[]
+      }
+    > = {}
+
+    // 企業設定を取得（残業時間の閾値など）
+    let companySettings = null
+    try {
+      companySettings = await prisma.companySetting.findUnique({
+        where: { companyId: session.user.companyId },
+      })
+      console.log('Company settings found:', companySettings ? 'yes' : 'no')
+    } catch (error: any) {
+      console.error('Error fetching company settings:', error)
+      // allowPreOvertimeカラムが存在しない場合のエラーをキャッチ
+      if (error.code === 'P2022' || error.message?.includes('allowPreOvertime')) {
+        console.warn('allowPreOvertime column does not exist, using default value')
+        try {
+          // カラムを除外して再取得
+          const result = await prisma.$queryRaw`
+            SELECT 
+              id, "companyId", payday, "workStartTime", "workEndTime", 
+              "standardBreakMinutes", "overtimeThreshold40", "overtimeThreshold60",
+              "consecutiveWorkAlert", "leaveExpiryAlertDays", "createdAt", "updatedAt"
+            FROM company_settings
+            WHERE "companyId" = ${session.user.companyId}
+            LIMIT 1
+          ` as any
+          if (result && Array.isArray(result) && result.length > 0) {
+            companySettings = result[0]
+          }
+        } catch (rawError) {
+          console.error('Error fetching company settings with raw query:', rawError)
+          // デフォルト値を使用
+          companySettings = null
+        }
+      } else {
+        // その他のエラーはログに記録して続行（デフォルト値を使用）
+        console.error('Unexpected error fetching company settings:', error)
+        companySettings = null
+      }
+    }
+
+    const overtimeThreshold40 = companySettings?.overtimeThreshold40 || 40
+    const overtimeThreshold60 = companySettings?.overtimeThreshold60 || 60
+    const allowPreOvertime = (companySettings as any)?.allowPreOvertime ?? false
+
+    // 標準就業時間を取得（デフォルト: 9:00-18:00）
+    const defaultWorkStart = new Date('2000-01-01T09:00:00')
+    const defaultWorkEnd = new Date('2000-01-01T18:00:00')
+    
+    let workStartTime = defaultWorkStart
+    let workEndTime = defaultWorkEnd
+    
+    if (companySettings?.workStartTime) {
+      try {
+        if (companySettings.workStartTime instanceof Date) {
+          const hours = companySettings.workStartTime.getHours()
+          const minutes = companySettings.workStartTime.getMinutes()
+          workStartTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
+        } else if (typeof companySettings.workStartTime === 'string') {
+          workStartTime = new Date(`2000-01-01T${companySettings.workStartTime}`)
+        }
+      } catch (e) {
+        console.error('Error parsing workStartTime:', e)
+        workStartTime = defaultWorkStart
+      }
+    }
+    
+    if (companySettings?.workEndTime) {
+      try {
+        if (companySettings.workEndTime instanceof Date) {
+          const hours = companySettings.workEndTime.getHours()
+          const minutes = companySettings.workEndTime.getMinutes()
+          workEndTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
+        } else if (typeof companySettings.workEndTime === 'string') {
+          workEndTime = new Date(`2000-01-01T${companySettings.workEndTime}`)
+        }
+      } catch (e) {
+        console.error('Error parsing workEndTime:', e)
+        workEndTime = defaultWorkEnd
+      }
+    }
+
+    const standardWorkMinutes = Math.floor(
+      (workEndTime.getTime() - workStartTime.getTime()) / (1000 * 60)
+    ) - (companySettings?.standardBreakMinutes || 60)
+
+    attendances.forEach((attendance) => {
+      if (!attendance.clockIn || !attendance.clockOut) {
+        return // 出勤・退勤が揃っていない場合はスキップ
+      }
+
+      const empId = attendance.employeeId
+      if (!employeeReports[empId]) {
+        employeeReports[empId] = {
+          employee: attendance.employee,
+          totalWorkDays: 0,
+          totalWorkMinutes: 0,
+          totalOvertimeMinutes: 0,
+          totalBreakMinutes: 0,
+          attendances: [],
+        }
+      }
+
+      const report = employeeReports[empId]
+
+      // 打刻時刻を取得（PrismaのTime型はDateオブジェクトとして返される）
+      let clockInTime: Date
+      let clockOutTime: Date
+      
+      // 時刻を文字列として取得（UTC時間を考慮しない）
+      let clockInStr: string
+      let clockOutStr: string
+      
+      if (attendance.clockIn instanceof Date) {
+        // Date型の場合、UTC時間ではなくローカル時間として扱う
+        // PrismaのTime型は時刻のみを保持しているため、UTCとして解釈される可能性がある
+        // 時刻文字列を直接取得
+        const timeStr = attendance.clockIn.toISOString().split('T')[1]?.split('.')[0] || ''
+        if (timeStr) {
+          clockInStr = timeStr
+        } else {
+          // ISO形式で取得できない場合は、UTC時間からJSTに変換（+9時間）
+          const utcHours = attendance.clockIn.getUTCHours()
+          const utcMinutes = attendance.clockIn.getUTCMinutes()
+          const utcSeconds = attendance.clockIn.getUTCSeconds()
+          // JSTに変換（+9時間）
+          const jstHours = (utcHours + 9) % 24
+          clockInStr = `${String(jstHours).padStart(2, '0')}:${String(utcMinutes).padStart(2, '0')}:${String(utcSeconds).padStart(2, '0')}`
+        }
+      } else if (typeof attendance.clockIn === 'string') {
+        clockInStr = attendance.clockIn
+      } else {
+        return // 無効なデータはスキップ
+      }
+
+      if (attendance.clockOut instanceof Date) {
+        const timeStr = attendance.clockOut.toISOString().split('T')[1]?.split('.')[0] || ''
+        if (timeStr) {
+          clockOutStr = timeStr
+        } else {
+          const utcHours = attendance.clockOut.getUTCHours()
+          const utcMinutes = attendance.clockOut.getUTCMinutes()
+          const utcSeconds = attendance.clockOut.getUTCSeconds()
+          const jstHours = (utcHours + 9) % 24
+          clockOutStr = `${String(jstHours).padStart(2, '0')}:${String(utcMinutes).padStart(2, '0')}:${String(utcSeconds).padStart(2, '0')}`
+        }
+      } else if (typeof attendance.clockOut === 'string') {
+        clockOutStr = attendance.clockOut
+      } else {
+        return // 無効なデータはスキップ
+      }
+      
+      // 文字列から時刻を抽出してDateオブジェクトを作成
+      const [inHours, inMinutes, inSeconds] = clockInStr.split(':').map(Number)
+      const [outHours, outMinutes, outSeconds] = clockOutStr.split(':').map(Number)
+      clockInTime = new Date(`2000-01-01T${String(inHours).padStart(2, '0')}:${String(inMinutes).padStart(2, '0')}:${String(inSeconds || 0).padStart(2, '0')}`)
+      clockOutTime = new Date(`2000-01-01T${String(outHours).padStart(2, '0')}:${String(outMinutes).padStart(2, '0')}:${String(outSeconds || 0).padStart(2, '0')}`)
+      
+      // 総勤務時間を計算
+      const diffMs = clockOutTime.getTime() - clockInTime.getTime()
+      const totalWorkMinutes = Math.floor(diffMs / (1000 * 60))
+      
+      // 休憩時間を計算（6時間以上は1時間休憩）
+      let breakMinutes = attendance.breakMinutes || 0
+      if (breakMinutes === 0 && totalWorkMinutes >= 6 * 60) {
+        breakMinutes = 60 // 6時間以上の場合は自動的に60分の休憩
+      }
+      
+      // 実働時間を計算（休憩時間を控除）
+      const netWorkMinutes = Math.max(0, totalWorkMinutes - breakMinutes)
+      
+      // 標準勤務時間（8時間）を超えた分が残業時間
+      const standardWorkMinutes = 8 * 60
+      const basicMinutes = Math.min(Math.max(0, netWorkMinutes), standardWorkMinutes)
+      const overtimeMinutes = Math.max(0, netWorkMinutes - standardWorkMinutes)
+
+      report.totalWorkDays++
+      report.totalWorkMinutes += netWorkMinutes
+      report.totalOvertimeMinutes += overtimeMinutes
+      report.totalBreakMinutes += breakMinutes
+      
+      // 時刻を文字列形式で返すために変換（既に取得したclockInStrとclockOutStrを使用）
+      const formatTimeForResponse = (time: Date | string | null, fallbackStr?: string): string | null => {
+        if (!time && !fallbackStr) return null
+        // 既に取得した文字列がある場合はそれを使用
+        if (fallbackStr) return fallbackStr
+        if (typeof time === 'string') {
+          return time
+        }
+        if (time instanceof Date) {
+          const timeStr = time.toISOString().split('T')[1]?.split('.')[0] || ''
+          if (timeStr) {
+            return timeStr
+          }
+          const utcHours = time.getUTCHours()
+          const utcMinutes = time.getUTCMinutes()
+          const utcSeconds = time.getUTCSeconds()
+          const jstHours = (utcHours + 9) % 24
+          return `${String(jstHours).padStart(2, '0')}:${String(utcMinutes).padStart(2, '0')}:${String(utcSeconds).padStart(2, '0')}`
+        }
+        return null
+      }
+      
+      report.attendances.push({
+        ...attendance,
+        clockIn: formatTimeForResponse(attendance.clockIn, clockInStr),
+        clockOut: formatTimeForResponse(attendance.clockOut, clockOutStr),
+        wakeUpTime: formatTimeForResponse(attendance.wakeUpTime),
+        departureTime: formatTimeForResponse(attendance.departureTime),
+      })
+    })
+
+    // 配列形式に変換
+    const reports = Object.values(employeeReports).map((report) => ({
+      employee: report.employee,
+      totalWorkDays: report.totalWorkDays,
+      totalWorkHours: Math.floor(report.totalWorkMinutes / 60),
+      totalWorkMinutes: report.totalWorkMinutes % 60,
+      totalOvertimeHours: Math.floor(report.totalOvertimeMinutes / 60),
+      totalOvertimeMinutes: report.totalOvertimeMinutes % 60,
+      totalBreakMinutes: report.totalBreakMinutes,
+      overtime40Hours: Math.floor(
+        Math.max(0, report.totalOvertimeMinutes - overtimeThreshold40 * 60) / 60
+      ),
+      overtime60Hours: Math.floor(
+        Math.max(0, report.totalOvertimeMinutes - overtimeThreshold60 * 60) / 60
+      ),
+      attendances: report.attendances,
+    }))
+
+    console.log('[Reports] Returning reports:', reports.length)
+    return NextResponse.json({
+      reports,
+      period: {
+        start: start.toISOString().split('T')[0],
+        end: end.toISOString().split('T')[0],
+      },
+    })
+  } catch (error: any) {
+    console.error('[Reports] Get reports error:', error)
+    console.error('[Reports] Error name:', error?.name)
+    console.error('[Reports] Error message:', error?.message)
+    console.error('[Reports] Error code:', error?.code)
+    if (error?.stack) {
+      console.error('[Reports] Error stack:', error.stack.substring(0, 500))
+    }
+    return NextResponse.json(
+      { 
+        error: 'Internal server error',
+        details: error?.message || 'Unknown error',
+        code: error?.code || 'UNKNOWN',
+      },
+      { status: 500 }
+    )
+  }
+}
+

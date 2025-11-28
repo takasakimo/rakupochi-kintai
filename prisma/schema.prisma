@@ -1,0 +1,202 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 企業テーブル
+model Company {
+  id          Int       @id @default(autoincrement())
+  name        String
+  code        String    @unique // 企業コード
+  email       String?
+  phone       String?
+  address     String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  employees   Employee[]
+  locations   Location[]
+  shifts      Shift[]
+  applications Application[]
+  attendances Attendance[]
+  settings    CompanySetting?
+
+  @@map("companies")
+}
+
+// 従業員テーブル
+model Employee {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  employeeNumber String  @unique // 社員番号
+  name        String
+  email       String    @unique
+  password    String    // ハッシュ化されたパスワード
+  role        String    @default("employee") // employee, admin
+  department  String?
+  position    String?
+  phone       String?
+  birthDate   DateTime? @db.Date // 生年月日
+  address     String?   // 住所
+  hireDate    DateTime?
+  transportationRoutes Json?     // 交通経路 [{from, to, method, amount}]
+  transportationCost   Int?      // 交通費（月額、円）
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  attendances Attendance[]
+  applications Application[]
+  shifts      Shift[]
+  notifications Notification[]
+
+  @@map("employees")
+}
+
+// 店舗・事業所の位置情報
+model Location {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  name        String    // 店舗名・事業所名
+  address     String?
+  latitude    Float     // 緯度
+  longitude   Float     // 経度
+  radius      Int       @default(500) // 許容範囲（メートル）
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("locations")
+}
+
+// 勤怠テーブル（4段階打刻）
+model Attendance {
+  id                Int       @id @default(autoincrement())
+  companyId         Int
+  employeeId        Int
+  date              DateTime  @db.Date
+
+  // 4段階打刻
+  wakeUpTime        DateTime? @db.Time // 起床時刻
+  departureTime     DateTime? @db.Time // 出発時刻
+  clockIn           DateTime? @db.Time // 出勤時刻
+  clockOut          DateTime? @db.Time // 退勤時刻
+
+  // GPS位置情報（出勤・退勤時のみ）
+  clockInLocation   Json?     // {latitude, longitude, accuracy, locationName, distance}
+  clockOutLocation  Json?     // {latitude, longitude, accuracy, locationName, distance}
+
+  // その他
+  breakMinutes      Int       @default(0)
+  notes             String?
+  isDeleted         Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee          Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, employeeId, date])
+  @@map("attendances")
+}
+
+// シフトテーブル
+model Shift {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  employeeId  Int
+  date        DateTime  @db.Date
+  startTime   DateTime  @db.Time
+  endTime     DateTime  @db.Time
+  breakMinutes Int      @default(0)
+  notes       String?
+  status      String    @default("confirmed") // confirmed, requested, exchanged
+  
+  // 追加フィールド（PDF要件に基づく）
+  isPublicHoliday Boolean @default(false) // 公休フラグ
+  workLocation    String? // 勤務場所
+  workType        String? // 勤務種別（出勤、公休など）
+  workingHours    String? // 勤務時間（例: "8:00"）
+  timeSlot        String? // 時間帯選択
+  directDestination String? // 直行先
+  approvalNumber  String? // 稟議番号
+  leavingLocation String? // 退勤場所
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("shifts")
+}
+
+// 申請テーブル（打刻修正、残業、休暇、経費等）
+model Application {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  employeeId  Int
+  type        String    // attendance_correction, overtime, leave, expense, shift_exchange, shift_request
+  status      String    @default("pending") // pending, approved, rejected
+  title       String?
+  content     String    // 申請内容（JSON形式で種別ごとに異なる）
+  reason      String?   // 理由（打刻修正時は必須）
+  approverId  Int?      // 承認者ID
+  approvedAt  DateTime?
+  rejectedAt  DateTime?
+  rejectionReason String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("applications")
+}
+
+// 通知・アラートテーブル
+model Notification {
+  id          Int       @id @default(autoincrement())
+  employeeId  Int
+  type        String    // overtime_alert, attendance_missing, leave_expiry, consecutive_work
+  title       String
+  message     String
+  isRead      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// 企業設定テーブル
+model CompanySetting {
+  id                Int       @id @default(autoincrement())
+  companyId         Int       @unique
+  payday            Int       @default(25) // 給与締め日
+  workStartTime     DateTime? @db.Time // 標準始業時刻
+  workEndTime       DateTime? @db.Time // 標準終業時刻
+  standardBreakMinutes Int    @default(60) // 標準休憩時間（分）
+  overtimeThreshold40 Int     @default(40) // 残業40時間アラート
+  overtimeThreshold60 Int     @default(60) // 残業60時間アラート
+  consecutiveWorkAlert Int     @default(6) // 連続勤務アラート（日数）
+  leaveExpiryAlertDays Int     @default(30) // 有給失効前通知（日数）
+  allowPreOvertime     Boolean @default(false) // 前残業を認めるかどうか
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("company_settings")
+}

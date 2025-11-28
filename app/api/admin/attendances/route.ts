@@ -1,0 +1,146 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+
+export const dynamic = 'force-dynamic'
+
+export async function GET(request: NextRequest) {
+  try {
+    console.log('[Attendances] GET /api/admin/attendances - Starting')
+    
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      console.log('[Attendances] Unauthorized: no session or user')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (session.user.role !== 'admin') {
+      console.log('[Attendances] Forbidden: not admin role')
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    console.log('[Attendances] Company ID:', session.user.companyId)
+
+    const searchParams = request.nextUrl.searchParams
+    const employeeId = searchParams.get('employee_id')
+      ? parseInt(searchParams.get('employee_id')!)
+      : undefined
+    const startDate = searchParams.get('start_date')
+    const endDate = searchParams.get('end_date')
+
+    const where: any = {
+      companyId: session.user.companyId,
+      // isDeletedがtrueでないデータを取得（falseとnullの両方を含む）
+      isDeleted: { not: true },
+    }
+
+    if (employeeId) {
+      where.employeeId = employeeId
+    }
+
+    if (startDate || endDate) {
+      where.date = {}
+      if (startDate) {
+        where.date.gte = new Date(startDate)
+      }
+      if (endDate) {
+        // 終了日は23:59:59まで含める
+        const end = new Date(endDate)
+        end.setHours(23, 59, 59, 999)
+        where.date.lte = end
+      }
+    }
+    // 日付範囲が指定されていない場合は全期間を取得（過去履歴も含む）
+
+    console.log('[Attendances] Where clause:', JSON.stringify(where))
+
+    let attendances
+    try {
+      attendances = await prisma.attendance.findMany({
+        where,
+        include: {
+          employee: {
+            select: {
+              id: true,
+              name: true,
+              employeeNumber: true,
+              department: true,
+            },
+          },
+        },
+        orderBy: {
+          date: 'desc',
+        },
+      })
+      console.log('[Attendances] Found attendances:', attendances.length)
+    } catch (error: any) {
+      console.error('[Attendances] Error fetching attendances:', error)
+      console.error('[Attendances] Error name:', error?.name)
+      console.error('[Attendances] Error code:', error?.code)
+      console.error('[Attendances] Error message:', error?.message)
+      if (error?.stack) {
+        console.error('[Attendances] Error stack:', error.stack.substring(0, 500))
+      }
+      return NextResponse.json(
+        { 
+          error: 'Failed to fetch attendances',
+          details: error?.message || 'Unknown error',
+          code: error?.code || 'UNKNOWN',
+        },
+        { status: 500 }
+      )
+    }
+    
+    // 時刻データを文字列形式に変換
+    const formattedAttendances = attendances.map((attendance) => {
+      const formatTime = (time: Date | null): string | null => {
+        if (!time) return null
+        try {
+          // Date型の場合
+          if (time instanceof Date) {
+            const hours = time.getHours().toString().padStart(2, '0')
+            const minutes = time.getMinutes().toString().padStart(2, '0')
+            const seconds = time.getSeconds().toString().padStart(2, '0')
+            return `${hours}:${minutes}:${seconds}`
+          }
+          // 文字列の場合
+          if (typeof time === 'string') {
+            return time
+          }
+          return null
+        } catch (e) {
+          console.error('[Attendances] Error formatting time:', e)
+          return null
+        }
+      }
+
+      return {
+        ...attendance,
+        wakeUpTime: formatTime(attendance.wakeUpTime),
+        departureTime: formatTime(attendance.departureTime),
+        clockIn: formatTime(attendance.clockIn),
+        clockOut: formatTime(attendance.clockOut),
+      }
+    })
+    
+    return NextResponse.json({ attendances: formattedAttendances })
+  } catch (error: any) {
+    console.error('[Attendances] Get attendances error:', error)
+    console.error('[Attendances] Error name:', error?.name)
+    console.error('[Attendances] Error message:', error?.message)
+    console.error('[Attendances] Error code:', error?.code)
+    if (error?.stack) {
+      console.error('[Attendances] Error stack:', error.stack.substring(0, 500))
+    }
+    return NextResponse.json(
+      { 
+        error: 'Internal server error', 
+        details: error?.message || 'Unknown error',
+        code: error?.code || 'UNKNOWN',
+      },
+      { status: 500 }
+    )
+  }
+}
+
