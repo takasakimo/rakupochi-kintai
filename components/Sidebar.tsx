@@ -3,6 +3,7 @@
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { useState, useEffect } from 'react'
 
 interface MenuItem {
   href: string
@@ -36,10 +37,32 @@ const employeeMenuItems: MenuItem[] = [
   { href: '/employee/notifications', label: '通知', icon: '🔔' },
 ]
 
+interface Company {
+  id: number
+  code: string
+  name: string
+}
+
 export default function Sidebar() {
   const { data: session } = useSession()
   const router = useRouter()
   const pathname = usePathname()
+  const [company, setCompany] = useState<Company | null>(null)
+
+  useEffect(() => {
+    if (session?.user?.companyId) {
+      fetch('/api/user/company')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.company) {
+            setCompany(data.company)
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to fetch company:', err)
+        })
+    }
+  }, [session])
 
   if (!session) {
     return null
@@ -105,6 +128,9 @@ export default function Sidebar() {
           <div className="text-sm text-gray-400 mb-1">ログイン中</div>
           <div className="font-semibold text-white">{session.user.name}</div>
           <div className="text-xs text-gray-400 mt-1">{session.user.email}</div>
+          {company && (
+            <div className="text-xs text-gray-400 mt-1">企業ID: {company.code}</div>
+          )}
           {isSuperAdmin && (
             <div className="text-xs text-purple-400 mt-1">スーパー管理者</div>
           )}
