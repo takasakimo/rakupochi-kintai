@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 
 interface Shift {
   id?: number
@@ -54,6 +54,7 @@ interface ShiftRow {
 export default function ShiftRegisterPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const pathname = usePathname()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
   const [selectedMonth, setSelectedMonth] = useState(
@@ -414,10 +415,51 @@ export default function ShiftRegisterPage() {
     return <div className="p-8 text-center text-gray-900">読み込み中...</div>
   }
 
+  // ビュー切り替えタブ
+  const renderViewTabs = () => (
+    <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+      <div className="flex gap-2 border-b">
+        <button
+          onClick={() => router.push('/admin/shifts/manage')}
+          className={`px-6 py-3 font-medium transition ${
+            pathname === '/admin/shifts/manage'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          📋 シフト管理
+        </button>
+        <button
+          onClick={() => router.push('/admin/shifts/register')}
+          className={`px-6 py-3 font-medium transition ${
+            pathname === '/admin/shifts/register'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          📝 シフト登録
+        </button>
+        <button
+          onClick={() => router.push('/admin/shifts/manage?view=timetable')}
+          className={`px-6 py-3 font-medium transition ${
+            pathname?.includes('timetable')
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          🗓️ タイムテーブル
+        </button>
+      </div>
+    </div>
+  )
+
   return (
     <div className="p-4">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-2xl font-bold mb-6 text-gray-900">シフト登録</h1>
+        <h1 className="text-2xl font-bold mb-6 text-gray-900">シフト管理</h1>
+
+        {/* ビュー切り替えタブ */}
+        {renderViewTabs()}
 
         {/* 警告バナー */}
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
