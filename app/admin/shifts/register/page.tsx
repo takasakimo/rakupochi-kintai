@@ -63,6 +63,11 @@ export default function ShiftRegisterPage() {
   const [shifts, setShifts] = useState<Shift[]>([])
   const [shiftRows, setShiftRows] = useState<ShiftRow[]>([])
 
+  // フィルター用の状態
+  const [displayMode, setDisplayMode] = useState<'all' | 'department' | 'location'>('all')
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('')
+  const [selectedLocation, setSelectedLocation] = useState<string>('')
+
   // 基本設定
   const [defaultWorkHours, setDefaultWorkHours] = useState<string>('8') // 基本勤務種別（時間数）
   const [defaultStartTime, setDefaultStartTime] = useState<string>('10:00') // 基本勤務開始時間
@@ -95,13 +100,60 @@ export default function ShiftRegisterPage() {
       const response = await fetch('/api/admin/employees')
       const data = await response.json()
       setEmployees(data.employees || [])
-      if (data.employees && data.employees.length > 0) {
-        setSelectedEmployeeId(data.employees[0].id.toString())
-      }
     } catch (err) {
       console.error('Failed to fetch employees:', err)
     }
   }
+
+  // フィルターされた従業員を取得
+  const getFilteredEmployees = (): Employee[] => {
+    let filtered = employees
+
+    if (displayMode === 'department' && selectedDepartment) {
+      filtered = filtered.filter(emp => emp.department === selectedDepartment)
+    } else if (displayMode === 'location' && selectedLocation) {
+      // 店舗でフィルターする場合は、シフトから該当店舗の従業員を取得
+      const locationEmployeeIds = new Set(
+        shifts
+          .filter(shift => shift.workLocation === selectedLocation)
+          .map(shift => shift.employee?.id)
+          .filter((id): id is number => id !== undefined)
+      )
+      filtered = filtered.filter(emp => locationEmployeeIds.has(emp.id))
+    }
+
+    return filtered.sort((a, b) => a.employeeNumber.localeCompare(b.employeeNumber))
+  }
+
+  // 事業部の一覧を取得
+  const getDepartments = (): string[] => {
+    const departments = new Set<string>()
+    employees.forEach(emp => {
+      if (emp.department) {
+        departments.add(emp.department)
+      }
+    })
+    return Array.from(departments).sort()
+  }
+
+  // 店舗の一覧を取得
+  const getLocations = (): string[] => {
+    const locations = new Set<string>()
+    shifts.forEach(shift => {
+      if (shift.workLocation) {
+        locations.add(shift.workLocation)
+      }
+    })
+    // 既存のシフトがない場合でも、workLocationsから取得
+    workLocations.forEach(loc => locations.add(loc))
+    return Array.from(locations).sort()
+  }
+
+  // 表示モードが変更されたら従業員選択をリセット
+  useEffect(() => {
+    setSelectedEmployeeId('')
+    setShiftRows([])
+  }, [displayMode, selectedDepartment, selectedLocation])
 
   const fetchShifts = async () => {
     setLoading(true)
@@ -379,15 +431,72 @@ export default function ShiftRegisterPage() {
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                表示モード
+              </label>
+              <select
+                value={displayMode}
+                onChange={(e) => {
+                  setDisplayMode(e.target.value as 'all' | 'department' | 'location')
+                  setSelectedDepartment('')
+                  setSelectedLocation('')
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+              >
+                <option value="all">全体</option>
+                <option value="department">事業部</option>
+                <option value="location">店舗</option>
+              </select>
+            </div>
+            {displayMode === 'department' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  事業部
+                </label>
+                <select
+                  value={selectedDepartment}
+                  onChange={(e) => setSelectedDepartment(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                >
+                  <option value="">選択してください</option>
+                  {getDepartments().map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {displayMode === 'location' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  店舗
+                </label>
+                <select
+                  value={selectedLocation}
+                  onChange={(e) => setSelectedLocation(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                >
+                  <option value="">選択してください</option>
+                  {getLocations().map((loc) => (
+                    <option key={loc} value={loc}>
+                      {loc}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 従業員 *
               </label>
               <select
                 value={selectedEmployeeId}
                 onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                disabled={displayMode === 'department' && !selectedDepartment || displayMode === 'location' && !selectedLocation}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
               >
                 <option value="">選択してください</option>
-                {employees.map((emp) => (
+                {getFilteredEmployees().map((emp) => (
                   <option key={emp.id} value={emp.id.toString()}>
                     {emp.name} ({emp.employeeNumber})
                   </option>
