@@ -155,29 +155,67 @@ export default function AdminDashboard() {
             <p className="text-gray-500 text-center py-4">お知らせはありません</p>
           ) : (
             <div className="space-y-4">
-              {announcements.map((announcement) => (
-                <div
-                  key={announcement.id}
-                  className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition"
-                >
-                  <h3 className="font-semibold text-gray-900 mb-2">{announcement.title}</h3>
-                  <p className="text-sm text-gray-700 mb-2 line-clamp-2">
-                    {announcement.content}
-                  </p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-500">
-                      {new Date(announcement.createdAt).toLocaleDateString('ja-JP')}
-                    </span>
-                    {announcement.attachments &&
-                      Array.isArray(announcement.attachments) &&
-                      announcement.attachments.length > 0 && (
-                        <span className="text-xs text-blue-600">
-                          📎 {announcement.attachments.length}個の添付ファイル
-                        </span>
+              {announcements.map((announcement) => {
+                // 画像添付ファイルを取得
+                const imageAttachments = announcement.attachments &&
+                  Array.isArray(announcement.attachments)
+                  ? announcement.attachments.filter((att: any) => 
+                      att.type && att.type.startsWith('image/')
+                    )
+                  : []
+                const firstImage = imageAttachments.length > 0 ? imageAttachments[0] : null
+                const otherAttachmentsCount = announcement.attachments &&
+                  Array.isArray(announcement.attachments)
+                  ? announcement.attachments.length - imageAttachments.length
+                  : 0
+
+                return (
+                  <div
+                    key={announcement.id}
+                    className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition"
+                  >
+                    <div className="flex gap-4">
+                      {firstImage && (
+                        <div className="flex-shrink-0">
+                          <img
+                            src={firstImage.data}
+                            alt={firstImage.name || '添付画像'}
+                            className="w-24 h-24 object-cover rounded border border-gray-300"
+                          />
+                        </div>
                       )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 mb-2">{announcement.title}</h3>
+                        <p className="text-sm text-gray-700 mb-2 line-clamp-2">
+                          {announcement.content}
+                        </p>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-500">
+                            {new Date(announcement.createdAt).toLocaleDateString('ja-JP')}
+                          </span>
+                          {announcement.attachments &&
+                            Array.isArray(announcement.attachments) &&
+                            announcement.attachments.length > 0 && (
+                              <span className="text-xs text-blue-600">
+                                {imageAttachments.length > 0 && (
+                                  <span className="mr-2">
+                                    🖼️ {imageAttachments.length}個の画像
+                                  </span>
+                                )}
+                                {otherAttachmentsCount > 0 && (
+                                  <span>📎 {otherAttachmentsCount}個のファイル</span>
+                                )}
+                                {imageAttachments.length === 0 && otherAttachmentsCount === 0 && (
+                                  <span>📎 {announcement.attachments.length}個の添付ファイル</span>
+                                )}
+                              </span>
+                            )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
