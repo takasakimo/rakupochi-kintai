@@ -28,6 +28,7 @@ model Company {
   applications Application[]
   attendances Attendance[]
   settings    CompanySetting?
+  announcements Announcement[]
 
   @@map("companies")
 }
@@ -199,4 +200,20 @@ model CompanySetting {
   company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@map("company_settings")
+}
+
+// お知らせテーブル
+model Announcement {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  title       String    // タイトル
+  content     String    // 本文（コメント）
+  attachments Json?     // 添付ファイル [{name, type, data}] (Base64エンコード)
+  isActive    Boolean   @default(true) // 公開中かどうか
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("announcements")
 }

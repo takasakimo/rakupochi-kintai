@@ -11,15 +11,27 @@ interface DashboardData {
   overtimeAlertsCount: number
 }
 
+interface Announcement {
+  id: number
+  title: string
+  content: string
+  attachments: any
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export default function AdminDashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [data, setData] = useState<DashboardData | null>(null)
+  const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user.role === 'admin') {
       fetchDashboardData()
+      fetchAnnouncements()
     }
   }, [status, session])
 
@@ -64,6 +76,30 @@ export default function AdminDashboard() {
     }
   }
 
+  const fetchAnnouncements = async () => {
+    try {
+      const response = await fetch('/api/admin/announcements')
+      if (!response.ok) {
+        console.error('Failed to fetch announcements:', response.status)
+        setAnnouncements([])
+        return
+      }
+      const data = await response.json()
+      if (data.announcements && Array.isArray(data.announcements)) {
+        // 公開中のお知らせのみ、最新5件を表示
+        const activeAnnouncements = data.announcements
+          .filter((a: Announcement) => a.isActive)
+          .slice(0, 5)
+        setAnnouncements(activeAnnouncements)
+      } else {
+        setAnnouncements([])
+      }
+    } catch (err) {
+      console.error('Failed to fetch announcements:', err)
+      setAnnouncements([])
+    }
+  }
+
   if (status === 'loading' || loading) {
     return <div className="p-8 text-center text-gray-900">読み込み中...</div>
   }
@@ -102,6 +138,48 @@ export default function AdminDashboard() {
             </div>
             <div className="text-xs text-gray-500 mt-2">クリックして詳細を見る →</div>
           </Link>
+        </div>
+
+        {/* お知らせ一覧 */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">お知らせ</h2>
+            <Link
+              href="/admin/announcements"
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              すべて見る →
+            </Link>
+          </div>
+          {announcements.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">お知らせはありません</p>
+          ) : (
+            <div className="space-y-4">
+              {announcements.map((announcement) => (
+                <div
+                  key={announcement.id}
+                  className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition"
+                >
+                  <h3 className="font-semibold text-gray-900 mb-2">{announcement.title}</h3>
+                  <p className="text-sm text-gray-700 mb-2 line-clamp-2">
+                    {announcement.content}
+                  </p>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-500">
+                      {new Date(announcement.createdAt).toLocaleDateString('ja-JP')}
+                    </span>
+                    {announcement.attachments &&
+                      Array.isArray(announcement.attachments) &&
+                      announcement.attachments.length > 0 && (
+                        <span className="text-xs text-blue-600">
+                          📎 {announcement.attachments.length}個の添付ファイル
+                        </span>
+                      )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
