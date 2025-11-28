@@ -87,8 +87,11 @@ export default function HistoryPage() {
 
   const getLocationInfo = (location: any) => {
     if (!location) return null
+    if (location.address) {
+      return location.address
+    }
     if (location.locationName) {
-      return `${location.locationName} (${location.distance}m)`
+      return location.locationName
     }
     return '位置情報取得済み'
   }

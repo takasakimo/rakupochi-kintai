@@ -11,6 +11,61 @@ export interface AttendanceLocation extends LocationData {
   locationName?: string
   distance?: number
   isWithinRange?: boolean
+  address?: string // 都道府県・市区町村の住所
+}
+
+// 逆ジオコーディングで住所を取得（都道府県・市区町村）
+async function getAddressFromCoordinates(
+  latitude: number,
+  longitude: number
+): Promise<string | null> {
+  try {
+    // OpenStreetMap Nominatim APIを使用（無料、1秒に1リクエスト制限あり）
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'Rakupochi-Kintai/1.0', // 必須：User-Agentを設定
+        },
+      }
+    )
+
+    if (!response.ok) {
+      console.error('Reverse geocoding failed:', response.status)
+      return null
+    }
+
+    const data = await response.json()
+    if (!data.address) {
+      return null
+    }
+
+    // 日本の住所形式で取得
+    const address = data.address
+    const parts: string[] = []
+
+    // 都道府県
+    if (address.state || address.prefecture) {
+      parts.push(address.state || address.prefecture)
+    }
+
+    // 市区町村
+    if (address.city || address.town || address.village) {
+      parts.push(address.city || address.town || address.village)
+    } else if (address.municipality) {
+      parts.push(address.municipality)
+    }
+
+    // 町名（オプション）
+    if (address.neighbourhood || address.suburb) {
+      parts.push(address.neighbourhood || address.suburb)
+    }
+
+    return parts.length > 0 ? parts.join('') : null
+  } catch (error) {
+    console.error('Reverse geocoding error:', error)
+    return null
+  }
 }
 
 // 最寄りの店舗・事業所を検索し、距離を計算
@@ -25,10 +80,17 @@ export async function findNearestLocation(
     },
   })
 
+  // 逆ジオコーディングで住所を取得
+  const address = await getAddressFromCoordinates(
+    location.latitude,
+    location.longitude
+  )
+
   if (locations.length === 0) {
     return {
       ...location,
       isWithinRange: false,
+      address: address || undefined,
     }
   }
 
@@ -60,6 +122,7 @@ export async function findNearestLocation(
     locationName: nearestLocation.name,
     distance: Math.round(minDistance),
     isWithinRange,
+    address: address || undefined,
   }
 }
 
