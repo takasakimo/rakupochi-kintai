@@ -14,6 +14,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     pathname &&
     !pathname.startsWith('/auth') &&
     pathname !== '/register' &&
+    pathname !== '/employee/register' &&
     pathname !== '/'
 
   return (

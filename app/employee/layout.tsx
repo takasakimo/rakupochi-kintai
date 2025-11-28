@@ -1,7 +1,7 @@
 'use client'
 
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 import Sidebar from '@/components/Sidebar'
 
@@ -12,15 +12,19 @@ export default function EmployeeLayout({
 }) {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const pathname = usePathname()
+
+  // 従業員登録ページは認証不要
+  const isRegisterPage = pathname === '/employee/register'
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (!isRegisterPage && status === 'unauthenticated') {
       router.push('/auth/signin')
       return
     }
-  }, [status, router])
+  }, [status, router, isRegisterPage])
 
-  if (status === 'loading') {
+  if (status === 'loading' && !isRegisterPage) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-gray-900">読み込み中...</div>
@@ -28,8 +32,13 @@ export default function EmployeeLayout({
     )
   }
 
-  if (!session) {
+  if (!isRegisterPage && !session) {
     return null
+  }
+
+  // 従業員登録ページの場合はサイドバーなしで表示
+  if (isRegisterPage) {
+    return <>{children}</>
   }
 
   return (
