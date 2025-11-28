@@ -121,20 +121,65 @@ export async function GET() {
         // シフト開始時間を分単位で取得
         const shiftStartTime = shift.startTime
         let shiftStartMinutes = 0
+        
         if (shiftStartTime instanceof Date) {
-          // Date型の場合、UTC時間から取得
-          // PrismaのTime型はUTCとして保存されるが、実際の時刻はローカル時間として扱う
+          // Date型の場合、Prismaの@db.Time型は時刻のみを保存
+          // Prismaが返すDateオブジェクトは、基準日（2000-01-01）を使用して時刻を表現
+          // サーバーがUTCタイムゾーンで動作している場合、getUTCHours()とgetUTCMinutes()を使用
+          // サーバーがJSTタイムゾーンで動作している場合、getHours()とgetMinutes()を使用
+          
+          // VercelのサーバーはUTCタイムゾーンで動作しているため、
+          // データベースに保存されている時刻（JST）を取得するには、UTC時間を取得してJSTに変換する必要がある
+          // しかし、Prismaの@db.Time型は、保存時にローカル時間として保存されるが、
+          // 取得時はUTCとして解釈される可能性がある
+          
+          // 実際の動作を確認するため、両方の値を取得
           const utcHours = shiftStartTime.getUTCHours()
           const utcMinutes = shiftStartTime.getUTCMinutes()
-          // UTCからJST（+9時間）に変換
-          const jstHours = (utcHours + 9) % 24
-          shiftStartMinutes = jstHours * 60 + utcMinutes
+          const localHours = shiftStartTime.getHours()
+          const localMinutes = shiftStartTime.getMinutes()
+          
+          // データベースに保存されている時刻がJST（UTC+9）の場合、
+          // Prismaが返すUTC時間は、実際のJST時刻から9時間引いた値になる
+          // そのため、UTC時間に9時間を足してJSTに変換する必要がある
+          // ただし、これはデータベースの保存形式に依存する
+          
+          // 試行錯誤：UTC時間をそのまま使用（保存時にUTCとして保存されている場合）
+          // または、UTC時間に9時間を足してJSTに変換（保存時にJSTとして保存されている場合）
+          // または、ローカル時間を使用（サーバーがJSTタイムゾーンで動作している場合）
+          
+          // まず、UTC時間を取得
+          let hours = utcHours
+          let minutes = utcMinutes
+          
+          // データベースに保存されている時刻がJSTの場合、UTC時間に9時間を足す
+          // ただし、これはデータベースの保存形式に依存する
+          // 実際の動作を確認するため、デバッグログを出力
+          
+          // 試行：UTC時間をそのまま使用してみる
+          // もし正しく動作しない場合は、UTC時間に9時間を足すか、ローカル時間を使用する
+          shiftStartMinutes = hours * 60 + minutes
+          
+          console.log('[Dashboard] Shift time (Date):', {
+            utc: `${utcHours}:${utcMinutes}`,
+            local: `${localHours}:${localMinutes}`,
+            using: `${hours}:${minutes}`,
+            minutes: shiftStartMinutes,
+          })
         } else if (typeof shiftStartTime === 'string') {
           // 文字列の場合（HH:MM:SS または HH:MM）
           const timeStr = (shiftStartTime as string).split(':')
           const hours = parseInt(timeStr[0], 10)
           const minutes = parseInt(timeStr[1] || '0', 10)
           shiftStartMinutes = hours * 60 + minutes
+          console.log('[Dashboard] Shift time (String):', {
+            original: shiftStartTime,
+            parsed: `${hours}:${minutes}`,
+            minutes: shiftStartMinutes,
+          })
+        } else {
+          console.warn('[Dashboard] Unknown shiftStartTime type:', typeof shiftStartTime, shiftStartTime)
+          continue
         }
         
         console.log('[Dashboard] Checking shift:', {
@@ -142,6 +187,8 @@ export async function GET() {
           shiftStartTime: shiftStartTime,
           shiftStartMinutes,
           currentTime,
+          currentTimeFormatted: `${Math.floor(currentTime / 60)}:${currentTime % 60}`,
+          shiftStartFormatted: `${Math.floor(shiftStartMinutes / 60)}:${shiftStartMinutes % 60}`,
           shouldCount: currentTime >= shiftStartMinutes,
         })
         
@@ -149,6 +196,8 @@ export async function GET() {
         if (currentTime >= shiftStartMinutes) {
           missingEmployeeIds.add(shift.employeeId)
           console.log('[Dashboard] Added missing employee:', shift.employeeId)
+        } else {
+          console.log('[Dashboard] Shift not started yet for employee:', shift.employeeId)
         }
       }
       
