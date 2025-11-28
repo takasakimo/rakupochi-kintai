@@ -38,6 +38,7 @@ interface Shift {
   breakMinutes: number
   workLocation: string | null
   workType: string | null
+  directDestination: string | null
   isPublicHoliday: boolean
   employee: {
     id: number
@@ -59,8 +60,14 @@ export default function AdminAttendancesPage() {
   const [shifts, setShifts] = useState<Shift[]>([])
   const [shiftsWithAttendance, setShiftsWithAttendance] = useState<ShiftWithAttendance[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
+  const [locations, setLocations] = useState<{ id: number; name: string }[]>([])
+  const [departments, setDepartments] = useState<string[]>([])
+  const [directDestinations, setDirectDestinations] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
+  const [selectedLocationId, setSelectedLocationId] = useState<string>('')
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('')
+  const [selectedDirectDestination, setSelectedDirectDestination] = useState<string>('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [viewMode, setViewMode] = useState<'shifts' | 'attendances'>('shifts') // デフォルトはシフト表示
@@ -87,6 +94,9 @@ export default function AdminAttendancesPage() {
   useEffect(() => {
     if (status === 'authenticated' && session?.user.role === 'admin') {
       fetchEmployees()
+      fetchLocations()
+      fetchDepartments()
+      fetchDirectDestinations()
       if (viewMode === 'shifts') {
         fetchShiftsAndAttendances()
       } else {
@@ -103,7 +113,7 @@ export default function AdminAttendancesPage() {
         fetchAttendances()
       }
     }
-  }, [selectedEmployeeId, startDate, endDate, viewMode])
+  }, [selectedEmployeeId, selectedLocationId, selectedDepartment, selectedDirectDestination, startDate, endDate, viewMode])
 
   const fetchEmployees = async () => {
     try {
@@ -124,6 +134,66 @@ export default function AdminAttendancesPage() {
     } catch (err) {
       console.error('Failed to fetch employees:', err)
       setEmployees([])
+    }
+  }
+
+  const fetchLocations = async () => {
+    try {
+      const response = await fetch('/api/admin/locations')
+      if (!response.ok) {
+        console.error('Failed to fetch locations:', response.status)
+        setLocations([])
+        return
+      }
+      const data = await response.json()
+      if (data.locations && Array.isArray(data.locations)) {
+        setLocations(data.locations)
+      } else {
+        setLocations([])
+      }
+    } catch (err) {
+      console.error('Failed to fetch locations:', err)
+      setLocations([])
+    }
+  }
+
+  const fetchDepartments = async () => {
+    try {
+      const response = await fetch('/api/admin/departments')
+      if (!response.ok) {
+        console.error('Failed to fetch departments:', response.status)
+        setDepartments([])
+        return
+      }
+      const data = await response.json()
+      if (data.departments && Array.isArray(data.departments)) {
+        setDepartments(data.departments)
+      } else {
+        setDepartments([])
+      }
+    } catch (err) {
+      console.error('Failed to fetch departments:', err)
+      setDepartments([])
+    }
+  }
+
+  const fetchDirectDestinations = async () => {
+    try {
+      const response = await fetch('/api/admin/direct-destinations')
+      if (!response.ok) {
+        console.error('Failed to fetch direct destinations:', response.status)
+        setDirectDestinations([])
+        return
+      }
+      const data = await response.json()
+      if (data.directDestinations && Array.isArray(data.directDestinations)) {
+        setDirectDestinations(data.directDestinations)
+      } else {
+        setDirectDestinations([])
+      }
+    } catch (err) {
+      console.error('Failed to fetch direct destinations:', err)
+      setDirectDestinations([])
     }
   }
 
@@ -149,7 +219,32 @@ export default function AdminAttendancesPage() {
         return
       }
       const shiftData = await shiftResponse.json()
-      const fetchedShifts = (shiftData.shifts || []).filter((s: Shift) => !s.isPublicHoliday)
+      let fetchedShifts = (shiftData.shifts || []).filter((s: Shift) => !s.isPublicHoliday)
+
+      // フィルタリング: 店舗（workLocation）
+      if (selectedLocationId) {
+        const selectedLocation = locations.find(loc => loc.id.toString() === selectedLocationId)
+        if (selectedLocation) {
+          fetchedShifts = fetchedShifts.filter((s: Shift) => 
+            s.workLocation === selectedLocation.name
+          )
+        }
+      }
+
+      // フィルタリング: 事業部（department）
+      if (selectedDepartment) {
+        fetchedShifts = fetchedShifts.filter((s: Shift) => 
+          s.employee.department === selectedDepartment
+        )
+      }
+
+      // フィルタリング: 直行先（directDestination）
+      if (selectedDirectDestination) {
+        fetchedShifts = fetchedShifts.filter((s: Shift) => 
+          s.directDestination === selectedDirectDestination
+        )
+      }
+
       setShifts(fetchedShifts)
 
       // 打刻を取得
@@ -162,7 +257,14 @@ export default function AdminAttendancesPage() {
 
       const attendanceResponse = await fetch(`/api/admin/attendances?${attendanceParams.toString()}`)
       const attendanceData = await attendanceResponse.json()
-      const fetchedAttendances = attendanceData.attendances || []
+      let fetchedAttendances = attendanceData.attendances || []
+
+      // 打刻も同様にフィルタリング
+      if (selectedDepartment) {
+        fetchedAttendances = fetchedAttendances.filter((a: Attendance) => 
+          a.employee.department === selectedDepartment
+        )
+      }
 
       // シフトと打刻を組み合わせる
       const combined: ShiftWithAttendance[] = fetchedShifts.map((shift: Shift) => {
@@ -564,6 +666,9 @@ export default function AdminAttendancesPage() {
 
   const resetFilters = () => {
     setSelectedEmployeeId('')
+    setSelectedLocationId('')
+    setSelectedDepartment('')
+    setSelectedDirectDestination('')
     setStartDate('')
     setEndDate('')
   }
@@ -966,7 +1071,7 @@ export default function AdminAttendancesPage() {
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 従業員
@@ -984,6 +1089,59 @@ export default function AdminAttendancesPage() {
                 ))}
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                店舗
+              </label>
+              <select
+                value={selectedLocationId}
+                onChange={(e) => setSelectedLocationId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+              >
+                <option value="">全て</option>
+                {locations.map((loc) => (
+                  <option key={loc.id} value={loc.id.toString()}>
+                    {loc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                事業部
+              </label>
+              <select
+                value={selectedDepartment}
+                onChange={(e) => setSelectedDepartment(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+              >
+                <option value="">全て</option>
+                {departments.map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                直行先
+              </label>
+              <select
+                value={selectedDirectDestination}
+                onChange={(e) => setSelectedDirectDestination(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+              >
+                <option value="">全て</option>
+                {directDestinations.map((dest) => (
+                  <option key={dest} value={dest}>
+                    {dest}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 開始日

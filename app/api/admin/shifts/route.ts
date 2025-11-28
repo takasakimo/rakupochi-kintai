@@ -124,6 +124,7 @@ export async function GET(request: NextRequest) {
         date: dateStr,
         startTime: startTimeStr,
         endTime: endTimeStr,
+        directDestination: shift.directDestination || null,
       }
     })
 
