@@ -48,6 +48,7 @@ model Employee {
   birthDate   DateTime? @db.Date // 生年月日
   address     String?   // 住所
   hireDate    DateTime?
+  bankAccount String?   // 振込先口座
   transportationRoutes Json?     // 交通経路 [{from, to, method, amount}]
   transportationCost   Int?      // 交通費（月額、円）
   isActive    Boolean   @default(true)

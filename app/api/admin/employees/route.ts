@@ -44,6 +44,7 @@ export async function GET() {
           phone: true,
           birthDate: true,
           address: true,
+          bankAccount: true,
           hireDate: true,
           transportationRoutes: true,
           transportationCost: true,
@@ -118,14 +119,15 @@ export async function POST(request: NextRequest) {
       phone,
       birthDate,
       address,
+      bankAccount,
       transportationRoutes,
       transportationCost,
     } = body
 
     // バリデーション
-    if (!employeeNumber || !name || !email || !password) {
+    if (!employeeNumber || !name || !email || !password || !phone || !address) {
       return NextResponse.json(
-        { error: '必須項目が不足しています' },
+        { error: '必須項目が不足しています（社員番号、氏名、メールアドレス、パスワード、電話番号、住所は必須です）' },
         { status: 400 }
       )
     }
@@ -167,9 +169,10 @@ export async function POST(request: NextRequest) {
         role: role || 'employee',
         department: department || null,
         position: position || null,
-        phone: phone || null,
+        phone: phone,
         birthDate: birthDate ? new Date(birthDate) : null,
-        address: address || null,
+        address: address,
+        bankAccount: bankAccount || null,
         transportationRoutes: transportationRoutes || null,
         transportationCost: transportationCost ? parseInt(transportationCost) : null,
         isActive: true,

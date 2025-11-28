@@ -16,6 +16,7 @@ interface Employee {
   birthDate: string | null
   address: string | null
   hireDate: string | null
+  bankAccount: string | null
   transportationRoutes: any | null
   transportationCost: number | null
   isActive: boolean
@@ -42,6 +43,7 @@ export default function EmployeesPage() {
     phone: '',
     birthDate: '',
     address: '',
+    bankAccount: '',
     transportationRoutes: [] as Array<{ from: string; to: string; method: string; amount: string }>,
     transportationCost: '',
   })
@@ -82,6 +84,7 @@ export default function EmployeesPage() {
     try {
       const payload: any = {
         ...formData,
+        bankAccount: formData.bankAccount || null,
         transportationRoutes: formData.transportationRoutes.length > 0 ? formData.transportationRoutes : null,
         transportationCost: formData.transportationCost ? parseInt(formData.transportationCost) : null,
       }
@@ -105,6 +108,7 @@ export default function EmployeesPage() {
           phone: '',
           birthDate: '',
           address: '',
+          bankAccount: '',
           transportationRoutes: [],
           transportationCost: '',
         })
@@ -138,6 +142,7 @@ export default function EmployeesPage() {
         // モーダルからの更新の場合、employeeオブジェクトから直接取得
         updateData.birthDate = employee.birthDate || null
         updateData.address = employee.address || null
+        updateData.bankAccount = employee.bankAccount || null
         updateData.hireDate = employee.hireDate || null
         
         // パスワードが変更されている場合のみ含める
@@ -408,7 +413,7 @@ export default function EmployeesPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    電話番号
+                    電話番号 <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="tel"
@@ -416,6 +421,7 @@ export default function EmployeesPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, phone: e.target.value })
                     }
+                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                   />
                 </div>
@@ -434,7 +440,7 @@ export default function EmployeesPage() {
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    住所
+                    住所 <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -442,14 +448,31 @@ export default function EmployeesPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, address: e.target.value })
                     }
+                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    振込先口座 <span className="text-gray-500 text-xs">(任意)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.bankAccount}
+                    onChange={(e) =>
+                      setFormData({ ...formData, bankAccount: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    placeholder="例: 三菱UFJ銀行 1234567"
                   />
                 </div>
               </div>
 
               {/* 交通経路入力 */}
               <div className="border-t pt-4 mt-4">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">交通経路</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                  交通経路 <span className="text-gray-500 text-xs font-normal">(任意)</span>
+                </h3>
                 {formData.transportationRoutes.map((route, index) => (
                   <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3 p-3 bg-gray-50 rounded">
                     <div>
@@ -552,7 +575,7 @@ export default function EmployeesPage() {
               <div className="border-t pt-4 mt-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    交通費（月額・円）
+                    定期代（月額・円） <span className="text-gray-500 text-xs">(任意)</span>
                   </label>
                   <input
                     type="number"
@@ -821,7 +844,7 @@ export default function EmployeesPage() {
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        電話番号
+                        電話番号 <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="tel"
@@ -832,6 +855,7 @@ export default function EmployeesPage() {
                             phone: e.target.value,
                           })
                         }
+                        required
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                       />
                     </div>
@@ -859,7 +883,7 @@ export default function EmployeesPage() {
                     
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        住所
+                        住所 <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -870,7 +894,26 @@ export default function EmployeesPage() {
                             address: e.target.value,
                           })
                         }
+                        required
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        振込先口座 <span className="text-gray-500 text-xs">(任意)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={selectedEmployee.bankAccount || ''}
+                        onChange={(e) =>
+                          setSelectedEmployee({
+                            ...selectedEmployee,
+                            bankAccount: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                        placeholder="例: 三菱UFJ銀行 1234567"
                       />
                     </div>
                     
@@ -940,7 +983,9 @@ export default function EmployeesPage() {
 
                   {/* 交通経路入力 */}
                   <div className="border-t pt-4">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">交通経路</h3>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                      交通経路 <span className="text-gray-500 text-xs font-normal">(任意)</span>
+                    </h3>
                     {(() => {
                       const routes = selectedEmployee.transportationRoutes && Array.isArray(selectedEmployee.transportationRoutes)
                         ? selectedEmployee.transportationRoutes
@@ -1059,7 +1104,9 @@ export default function EmployeesPage() {
 
                   {/* 交通費（月額）入力 */}
                   <div className="border-t pt-4">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">交通費（月額・円）</h3>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                      定期代（月額・円） <span className="text-gray-500 text-xs font-normal">(任意)</span>
+                    </h3>
                     <input
                       type="number"
                       value={selectedEmployee.transportationCost?.toString() || ''}

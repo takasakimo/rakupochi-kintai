@@ -78,6 +78,26 @@ export async function PATCH(
     const id = parseInt(params.id)
     const body = await request.json()
 
+    // バリデーション（必須項目チェック）
+    if (body.email !== undefined && !body.email) {
+      return NextResponse.json(
+        { error: 'メールアドレスは必須です' },
+        { status: 400 }
+      )
+    }
+    if (body.phone !== undefined && !body.phone) {
+      return NextResponse.json(
+        { error: '電話番号は必須です' },
+        { status: 400 }
+      )
+    }
+    if (body.address !== undefined && !body.address) {
+      return NextResponse.json(
+        { error: '住所は必須です' },
+        { status: 400 }
+      )
+    }
+
     // 従業員が存在し、同じ企業に属しているか確認
     const existingEmployee = await prisma.employee.findFirst({
       where: {
@@ -124,6 +144,7 @@ export async function PATCH(
         ...(body.birthDate && { birthDate: new Date(body.birthDate) }),
         ...(body.birthDate === null && { birthDate: null }),
         ...(body.address !== undefined && { address: body.address }),
+        ...(body.bankAccount !== undefined && { bankAccount: body.bankAccount }),
         ...(body.hireDate && { hireDate: new Date(body.hireDate) }),
         ...(body.transportationRoutes !== undefined && { transportationRoutes: body.transportationRoutes }),
         ...(body.transportationCost !== undefined && { transportationCost: body.transportationCost ? parseInt(body.transportationCost) : null }),

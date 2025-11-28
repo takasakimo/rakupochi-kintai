@@ -20,9 +20,9 @@ export async function POST(request: NextRequest) {
     } = body
 
     // バリデーション
-    if (!companyCode || !employeeNumber || !name || !email) {
+    if (!companyCode || !employeeNumber || !name || !email || !phone || !address) {
       return NextResponse.json(
-        { error: '必須項目が不足しています' },
+        { error: '必須項目が不足しています（企業コード、社員番号、氏名、メールアドレス、電話番号、住所は必須です）' },
         { status: 400 }
       )
     }
@@ -86,9 +86,9 @@ export async function POST(request: NextRequest) {
         email,
         password: hashedPassword, // 一時的なパスワード
         role: 'employee',
-        phone: phone || null,
+        phone: phone,
         birthDate: birthDate ? new Date(birthDate) : null,
-        address: address || null,
+        address: address,
         isActive: true,
       },
       select: {
