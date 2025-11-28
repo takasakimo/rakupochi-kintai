@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 
 interface Shift {
   id: number
@@ -46,11 +46,12 @@ interface TimetableShift {
   breakEndTime: string | null
 }
 
-type ViewMode = 'list' | 'register' | 'timetable'
+type ViewMode = 'list' | 'timetable'
 
 export default function ShiftManagePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const pathname = usePathname()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
   const [selectedMonth, setSelectedMonth] = useState(
@@ -726,9 +727,9 @@ export default function ShiftManagePage() {
           📋 シフト管理
         </button>
         <button
-          onClick={() => setViewMode('register')}
+          onClick={() => router.push('/admin/shifts/register')}
           className={`px-6 py-3 font-medium transition ${
-            viewMode === 'register'
+            pathname === '/admin/shifts/register'
               ? 'border-b-2 border-blue-500 text-blue-600'
               : 'text-gray-600 hover:text-gray-900'
           }`}
@@ -1138,20 +1139,6 @@ export default function ShiftManagePage() {
     )
   }
 
-  // シフト登録ビュー（registerページの機能を統合）
-  const renderRegisterView = () => {
-    return (
-      <div>
-        <p className="text-gray-700 mb-4">シフト登録機能は別ページ（/admin/shifts/register）をご利用ください。</p>
-        <a
-          href="/admin/shifts/register"
-          className="inline-block px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-        >
-          シフト登録ページへ
-        </a>
-      </div>
-    )
-  }
 
   // タイムテーブルビュー（カレンダー表示）
   const renderTimetableView = () => {
@@ -1359,7 +1346,6 @@ export default function ShiftManagePage() {
 
         {/* ビュー表示 */}
         {viewMode === 'list' && renderListView()}
-        {viewMode === 'register' && renderRegisterView()}
         {viewMode === 'timetable' && !selectedDate && renderTimetableView()}
       </div>
     </div>

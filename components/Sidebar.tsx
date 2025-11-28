@@ -16,7 +16,6 @@ const adminMenuItems: MenuItem[] = [
   { href: '/admin/employees', label: '従業員管理', icon: '👥' },
   { href: '/admin/attendances', label: '打刻管理', icon: '📋' },
   { href: '/admin/applications', label: '申請管理', icon: '📝' },
-  { href: '/admin/shifts/register', label: 'シフト登録', icon: '📝' },
   { href: '/admin/shifts/manage', label: 'シフト管理', icon: '🗓️' },
   { href: '/admin/announcements', label: 'お知らせ管理', icon: '📢' },
   { href: '/admin/reports', label: 'レポート', icon: '📈' },
