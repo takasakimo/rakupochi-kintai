@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, usePathname } from 'next/navigation'
+import { isHolidayOrSunday } from '@/lib/holidays'
 
 interface Shift {
   id: number
@@ -885,8 +886,13 @@ export default function ShiftManagePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredShifts.map((shift) => (
-                  <tr key={shift.id} className="hover:bg-gray-50">
+                {filteredShifts.map((shift) => {
+                  const shiftDate = new Date(shift.date)
+                  const isHolidayOrSun = isHolidayOrSunday(shiftDate)
+                  const rowClassName = isHolidayOrSun ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'
+                  
+                  return (
+                  <tr key={shift.id} className={rowClassName}>
                     {editingShift?.id === shift.id ? (
                       <>
                         <td className="px-4 py-3">
@@ -1094,7 +1100,7 @@ export default function ShiftManagePage() {
                       </>
                     ) : (
                       <>
-                        <td className="px-4 py-3 text-sm text-gray-900">{formatDate(shift.date)}</td>
+                        <td className={`px-4 py-3 text-sm ${isHolidayOrSun ? 'text-red-700 font-semibold' : 'text-gray-900'}`}>{formatDate(shift.date)}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{shift.employee.name}</td>
                         {displayMode === 'all' && (
                           <td className="px-4 py-3 text-sm text-gray-900">{shift.employee.department || '-'}</td>
@@ -1130,7 +1136,8 @@ export default function ShiftManagePage() {
                       </>
                     )}
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -1186,7 +1193,7 @@ export default function ShiftManagePage() {
                   {week.map((day, dayIndex) => {
                     const dateStr = day.date.toISOString().split('T')[0]
                     const isCurrentMonth = day.date.getMonth() + 1 === month
-                    const isSunday = dayIndex === 0
+                    const isHolidayOrSun = isHolidayOrSunday(day.date)
                     const isToday = dateStr === new Date().toISOString().split('T')[0]
 
                     return (
@@ -1194,7 +1201,7 @@ export default function ShiftManagePage() {
                         key={dayIndex}
                         className={`border p-2 align-top h-32 ${
                           !isCurrentMonth ? 'bg-gray-50 text-gray-400' : ''
-                        } ${isSunday ? 'bg-red-50' : ''} ${
+                        } ${isHolidayOrSun ? 'bg-red-50' : ''} ${
                           isToday ? 'ring-2 ring-blue-500' : ''
                         } cursor-pointer hover:bg-blue-50`}
                         onClick={() => isCurrentMonth && handleDateClick(dateStr)}

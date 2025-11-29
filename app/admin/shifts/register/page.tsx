@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, usePathname } from 'next/navigation'
+import { isHolidayOrSunday } from '@/lib/holidays'
 
 interface Shift {
   id?: number
@@ -205,20 +206,23 @@ export default function ShiftRegisterPage() {
         return shiftDateStr === targetDateStr
       })
 
+      // 祝日判定（既存のシフトで祝日として登録されている場合、または実際の祝日・日曜日の場合）
+      const isHoliday = existingShift?.isPublicHoliday || isHolidayOrSunday(date)
+      
       rows.push({
         date,
         dayOfWeek,
-        isPublicHoliday: existingShift?.isPublicHoliday || false,
+        isPublicHoliday: isHoliday,
         workLocation: existingShift?.workLocation || '',
-        workType: existingShift?.workType || (existingShift?.isPublicHoliday ? '公休' : '出勤'),
+        workType: existingShift?.workType || (isHoliday ? '公休' : '出勤'),
         workingHours: existingShift?.workingHours || '', // デフォルト値なし
         timeSlot: existingShift?.timeSlot || '-',
         startTime: existingShift?.startTime && typeof existingShift.startTime === 'string'
           ? existingShift.startTime.slice(0, 5)
-          : (existingShift?.isPublicHoliday ? '' : ''),
+          : (isHoliday ? '' : ''),
         endTime: existingShift?.endTime && typeof existingShift.endTime === 'string'
           ? existingShift.endTime.slice(0, 5)
-          : (existingShift?.isPublicHoliday ? '' : ''),
+          : (isHoliday ? '' : ''),
         directDestination: existingShift?.directDestination || '',
         approvalNumber: existingShift?.approvalNumber || '',
         leavingLocation: existingShift?.leavingLocation || '',
@@ -404,10 +408,9 @@ export default function ShiftRegisterPage() {
   }
 
   const getRowClassName = (row: ShiftRow) => {
-    const day = row.date.getDay()
     // 祝日または日曜日は赤色
-    if (row.isPublicHoliday || day === 0) return 'bg-red-50 text-red-700' // 祝日または日曜日
-    if (day === 6) return 'bg-blue-50' // 土曜日
+    if (isHolidayOrSunday(row.date)) return 'bg-red-50 text-red-700' // 祝日または日曜日
+    if (row.date.getDay() === 6) return 'bg-blue-50' // 土曜日
     return 'bg-white'
   }
 
@@ -647,14 +650,13 @@ export default function ShiftRegisterPage() {
                 </thead>
                 <tbody>
                   {shiftRows.map((row, index) => {
-                    const day = row.date.getDay()
-                    const isHolidayOrSunday = row.isPublicHoliday || day === 0
+                    const isHolidayOrSun = isHolidayOrSunday(row.date)
                     return (
                       <tr key={index} className={getRowClassName(row)}>
-                        <td className={`px-3 py-2 text-sm border-r border-b ${isHolidayOrSunday ? 'text-red-700' : 'text-gray-900'}`}>
+                        <td className={`px-3 py-2 text-sm border-r border-b ${isHolidayOrSun ? 'text-red-700' : 'text-gray-900'}`}>
                           {row.date.getMonth() + 1}/{row.date.getDate()}
                         </td>
-                        <td className={`px-3 py-2 text-sm border-r border-b ${isHolidayOrSunday ? 'text-red-700' : 'text-gray-900'}`}>
+                        <td className={`px-3 py-2 text-sm border-r border-b ${isHolidayOrSun ? 'text-red-700' : 'text-gray-900'}`}>
                           {row.dayOfWeek}
                         </td>
                       <td className="px-3 py-2 border-r border-b">
