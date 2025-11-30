@@ -1034,6 +1034,11 @@ export default function ShiftManagePage() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">日付</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">従業員</th>
+                  {displayMode === 'all' && (
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">事業部</th>
+                  )}
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
                     <input
                       type="checkbox"
@@ -1042,11 +1047,6 @@ export default function ShiftManagePage() {
                       className="w-4 h-4"
                     />
                   </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">日付</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">従業員</th>
-                  {displayMode === 'all' && (
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">事業部</th>
-                  )}
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">公休</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">勤務場所</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">勤務種別</th>
@@ -1074,14 +1074,6 @@ export default function ShiftManagePage() {
                       <>
                         <td className="px-4 py-3">
                           <input
-                            type="checkbox"
-                            checked={selectedShiftIds.has(shift.id)}
-                            onChange={(e) => handleSelectShift(shift.id, e.target.checked)}
-                            className="w-4 h-4"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <input
                             type="date"
                             value={editingShift.date.split('T')[0]}
                             onChange={(e) =>
@@ -1097,6 +1089,14 @@ export default function ShiftManagePage() {
                         {displayMode === 'all' && (
                           <td className="px-4 py-3 text-sm text-gray-900">{shift.employee.department || '-'}</td>
                         )}
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedShiftIds.has(shift.id)}
+                            onChange={(e) => handleSelectShift(shift.id, e.target.checked)}
+                            className="w-4 h-4"
+                          />
+                        </td>
                         <td className="px-4 py-3">
                           <input
                             type="checkbox"
@@ -1285,6 +1285,11 @@ export default function ShiftManagePage() {
                       </>
                     ) : (
                       <>
+                        <td className={`px-4 py-3 text-sm ${isHolidayOrSun ? 'text-red-700 font-semibold' : 'text-gray-900'}`}>{formatDate(shift.date)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{shift.employee.name}</td>
+                        {displayMode === 'all' && (
+                          <td className="px-4 py-3 text-sm text-gray-900">{shift.employee.department || '-'}</td>
+                        )}
                         <td className="px-4 py-3">
                           <input
                             type="checkbox"
@@ -1293,11 +1298,6 @@ export default function ShiftManagePage() {
                             className="w-4 h-4"
                           />
                         </td>
-                        <td className={`px-4 py-3 text-sm ${isHolidayOrSun ? 'text-red-700 font-semibold' : 'text-gray-900'}`}>{formatDate(shift.date)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{shift.employee.name}</td>
-                        {displayMode === 'all' && (
-                          <td className="px-4 py-3 text-sm text-gray-900">{shift.employee.department || '-'}</td>
-                        )}
                         <td className="px-4 py-3 text-sm text-gray-900">{shift.isPublicHoliday ? '✓' : '-'}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{shift.workLocation || '-'}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{shift.workType || '-'}</td>
