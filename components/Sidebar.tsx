@@ -43,7 +43,12 @@ interface Company {
   name: string
 }
 
-export default function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean
+  onClose?: () => void
+}
+
+export default function Sidebar({ isOpen = true, onClose }: SidebarProps = {}) {
   const { data: session } = useSession()
   const router = useRouter()
   const pathname = usePathname()
@@ -91,12 +96,40 @@ export default function Sidebar() {
   }
 
   return (
-    <div className="w-64 bg-gray-800 text-white min-h-screen flex flex-col no-print">
-      {/* ロゴ・タイトル */}
-      <div className="p-6 border-b border-gray-700">
-        <h1 className="text-xl font-bold">らくポチ勤怠</h1>
-        <p className="text-sm text-gray-400 mt-1">勤怠管理システム</p>
-      </div>
+    <>
+      {/* モバイル用オーバーレイ */}
+      {onClose && (
+        <div
+          className={`fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden transition-opacity ${
+            isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+          onClick={onClose}
+        />
+      )}
+      
+      {/* サイドバー */}
+      <div
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-gray-800 text-white min-h-screen flex flex-col no-print transform transition-transform duration-300 ease-in-out ${
+          isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
+        {/* モバイル用閉じるボタン */}
+        {onClose && (
+          <div className="flex justify-end p-4 border-b border-gray-700 md:hidden">
+            <button
+              onClick={onClose}
+              className="text-white hover:text-gray-300 text-2xl font-bold"
+            >
+              ×
+            </button>
+          </div>
+        )}
+        
+        {/* ロゴ・タイトル */}
+        <div className="p-6 border-b border-gray-700">
+          <h1 className="text-xl font-bold">らくポチ勤怠</h1>
+          <p className="text-sm text-gray-400 mt-1">勤怠管理システム</p>
+        </div>
 
       {/* ログイン者情報とログアウト */}
       <div className="p-4 border-b border-gray-700">
@@ -146,5 +179,6 @@ export default function Sidebar() {
         </ul>
       </nav>
     </div>
+    </>
   )
 }
