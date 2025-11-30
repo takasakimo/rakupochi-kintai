@@ -31,6 +31,13 @@ export default function EmployeesPage() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  
+  // フィルター用の状態
+  const [displayMode, setDisplayMode] = useState<'all' | 'department' | 'location'>('all')
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('')
+  const [selectedLocation, setSelectedLocation] = useState<string>('')
+  const [locations, setLocations] = useState<string[]>([])
+  const [locationEmployeeIds, setLocationEmployeeIds] = useState<Set<number>>(new Set())
 
   const [formData, setFormData] = useState({
     employeeNumber: '',
@@ -51,8 +58,63 @@ export default function EmployeesPage() {
   useEffect(() => {
     if (status === 'authenticated' && session?.user.role === 'admin') {
       fetchEmployees()
+      fetchLocations()
     }
   }, [status, session])
+  
+  const fetchLocations = async () => {
+    try {
+      const response = await fetch('/api/admin/locations')
+      if (response.ok) {
+        const data = await response.json()
+        setLocations(data.locations || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch locations:', err)
+    }
+  }
+  
+  // 店舗でフィルターする場合、シフトから該当店舗の従業員IDを取得
+  useEffect(() => {
+    if (displayMode === 'location' && selectedLocation) {
+      fetchLocationEmployees()
+    } else {
+      setLocationEmployeeIds(new Set())
+    }
+  }, [displayMode, selectedLocation])
+  
+  const fetchLocationEmployees = async () => {
+    try {
+      // 現在の月のシフトデータを取得
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = now.getMonth() + 1
+      const daysInMonth = new Date(year, month, 0).getDate()
+      const startDateStr = `${year}-${String(month).padStart(2, '0')}-01`
+      const endDateStr = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
+      
+      const params = new URLSearchParams()
+      params.append('start_date', startDateStr)
+      params.append('end_date', endDateStr)
+      params.append('workLocation', selectedLocation)
+      
+      const response = await fetch(`/api/admin/shifts?${params.toString()}`)
+      const data = await response.json()
+      
+      if (data.shifts && Array.isArray(data.shifts)) {
+        const employeeIds = new Set<number>(
+          data.shifts
+            .filter((shift: any) => shift.workLocation === selectedLocation)
+            .map((shift: any) => shift.employee.id)
+            .filter((id: any): id is number => typeof id === 'number')
+        )
+        setLocationEmployeeIds(employeeIds)
+      }
+    } catch (err) {
+      console.error('Failed to fetch location employees:', err)
+      setLocationEmployeeIds(new Set())
+    }
+  }
 
   const fetchEmployees = async () => {
     try {
@@ -283,6 +345,31 @@ export default function EmployeesPage() {
       transportationRoutes: routes,
     })
     setShowCreateForm(false)
+  }
+  
+  // 事業部の一覧を取得
+  const getDepartments = (): string[] => {
+    const departments = new Set<string>()
+    employees.forEach(emp => {
+      if (emp.department) {
+        departments.add(emp.department)
+      }
+    })
+    return Array.from(departments).sort()
+  }
+  
+  // フィルターされた従業員を取得
+  const getFilteredEmployees = (): Employee[] => {
+    let filtered = employees
+    
+    if (displayMode === 'department' && selectedDepartment) {
+      filtered = filtered.filter(emp => emp.department === selectedDepartment)
+    } else if (displayMode === 'location' && selectedLocation) {
+      // 店舗でフィルターする場合、シフトデータから該当店舗の従業員IDを使用
+      filtered = filtered.filter(emp => locationEmployeeIds.has(emp.id))
+    }
+    
+    return filtered
   }
 
   if (status === 'loading' || loading) {
@@ -609,13 +696,83 @@ export default function EmployeesPage() {
           </div>
         )}
 
+        {/* フィルター */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                表示モード
+              </label>
+              <select
+                value={displayMode}
+                onChange={(e) => {
+                  setDisplayMode(e.target.value as 'all' | 'department' | 'location')
+                  setSelectedDepartment('')
+                  setSelectedLocation('')
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+              >
+                <option value="all">全体</option>
+                <option value="department">事業部</option>
+                <option value="location">店舗</option>
+              </select>
+            </div>
+            {displayMode === 'department' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  事業部
+                </label>
+                <select
+                  value={selectedDepartment}
+                  onChange={(e) => setSelectedDepartment(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                >
+                  <option value="">選択してください</option>
+                  {getDepartments().map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {displayMode === 'location' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  店舗
+                </label>
+                <select
+                  value={selectedLocation}
+                  onChange={(e) => setSelectedLocation(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                >
+                  <option value="">選択してください</option>
+                  {locations.map((loc) => (
+                    <option key={loc} value={loc}>
+                      {loc}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* 従業員一覧 - カード形式 */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          {employees.length === 0 ? (
-            <div className="p-6 text-center text-gray-700">従業員がありません</div>
+          {getFilteredEmployees().length === 0 ? (
+            <div className="p-6 text-center text-gray-700">
+              {displayMode === 'all' 
+                ? '従業員がありません'
+                : displayMode === 'department' && selectedDepartment
+                ? `${selectedDepartment}の従業員がありません`
+                : displayMode === 'location' && selectedLocation
+                ? `${selectedLocation}の従業員がありません`
+                : 'フィルター条件を選択してください'}
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {employees.map((employee) => (
+              {getFilteredEmployees().map((employee) => (
                 <div
                   key={employee.id}
                   className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
