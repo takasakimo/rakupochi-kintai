@@ -551,6 +551,54 @@ export default function ShiftManagePage() {
     setDraggingShift({ shiftId, type, initialX: e.clientX })
   }
 
+  const handleDeleteBreak = async (shiftId: number) => {
+    if (!confirm('休憩を削除しますか？')) return
+
+    try {
+      // 元のshiftデータを取得
+      const originalShift = shifts.find(s => s.id === shiftId)
+      if (!originalShift) return
+
+      // notesフィールドからbreakStartTimeを削除
+      let notesData: { breakStartTime?: string; originalNotes?: string } = {}
+      if (originalShift.notes) {
+        try {
+          notesData = JSON.parse(originalShift.notes) as { breakStartTime?: string; originalNotes?: string }
+        } catch (e) {
+          // notesがJSON形式でない場合は、既存のnotesを保持
+          notesData = { originalNotes: originalShift.notes }
+        }
+      }
+      
+      // breakStartTimeを削除
+      delete notesData.breakStartTime
+      
+      // originalNotesがあればそれをnotesに、なければnullに
+      const updatedNotes = notesData.originalNotes || null
+
+      const response = await fetch(`/api/admin/shifts/${shiftId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          breakMinutes: 0,
+          notes: updatedNotes,
+        }),
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        await fetchShifts()
+      } else {
+        alert('休憩の削除に失敗しました')
+        await fetchShifts()
+      }
+    } catch (err) {
+      console.error('Failed to delete break:', err)
+      alert('休憩の削除に失敗しました')
+      await fetchShifts()
+    }
+  }
+
   const generateTimeSlots = () => {
     const slots: string[] = []
     for (let hour = 6; hour <= 20; hour++) {
@@ -692,8 +740,21 @@ export default function ShiftManagePage() {
                               >
                                 休憩開始 {timetableShift.breakStartTime}
                               </div>
-                              <div className="text-white text-xs">
-                                休憩 {timetableShift.breakStartTime}-{timetableShift.breakEndTime}
+                              <div className="flex items-center gap-2">
+                                <div className="text-white text-xs">
+                                  休憩 {timetableShift.breakStartTime}-{timetableShift.breakEndTime}
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    handleDeleteBreak(timetableShift.shiftId)
+                                  }}
+                                  className="bg-red-600 text-white text-xs px-2 py-1 rounded hover:bg-red-700 select-none"
+                                  title="休憩を削除"
+                                >
+                                  ×
+                                </button>
                               </div>
                               <div
                                 className="bg-orange-600 text-white text-xs px-2 py-1 rounded cursor-move hover:bg-orange-700 select-none"
