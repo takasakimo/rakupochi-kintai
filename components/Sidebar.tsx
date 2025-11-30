@@ -49,10 +49,10 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
-  // モバイルの場合（onCloseが提供されている場合）はisOpenの状態を使用、デスクトップでは常に表示
-  const isMobile = onClose !== undefined
-  // モバイルではisOpenがtrueの時のみ表示、デスクトップでは常に表示
-  const shouldShow = isMobile ? (isOpen === true) : true
+  // onCloseが提供されている場合はハンバーガーメニューモード
+  const isHamburgerMode = onClose !== undefined
+  // ハンバーガーメニューモードではisOpenがtrueの時のみ表示
+  const shouldShow = isHamburgerMode ? (isOpen === true) : true
   const { data: session } = useSession()
   const router = useRouter()
   const pathname = usePathname()
@@ -101,10 +101,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
 
   return (
     <>
-      {/* モバイル用オーバーレイ */}
-      {isMobile && (
+      {/* オーバーレイ */}
+      {isHamburgerMode && (
         <div
-          className={`fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden transition-opacity ${
+          className={`fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity ${
             shouldShow ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
           onClick={onClose}
@@ -113,19 +113,19 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
       
       {/* サイドバー */}
       <div
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-gray-800 text-white min-h-screen flex flex-col no-print transform transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-gray-800 text-white min-h-screen flex flex-col no-print transform transition-transform duration-300 ease-in-out ${
           shouldShow 
             ? 'translate-x-0' 
-            : '-translate-x-full md:translate-x-0'
+            : '-translate-x-full'
         }`}
         style={{
-          // モバイルで非表示の場合は確実に非表示にする
-          display: isMobile && !shouldShow ? 'none' : 'flex',
+          // ハンバーガーメニューモードで非表示の場合は確実に非表示にする
+          display: isHamburgerMode && !shouldShow ? 'none' : 'flex',
         }}
       >
-        {/* モバイル用閉じるボタン */}
-        {isMobile && (
-          <div className="flex justify-end p-4 border-b border-gray-700 md:hidden">
+        {/* 閉じるボタン */}
+        {isHamburgerMode && (
+          <div className="flex justify-end p-4 border-b border-gray-700">
             <button
               onClick={onClose}
               className="text-white hover:text-gray-300 text-2xl font-bold"
@@ -174,7 +174,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  onClick={isMobile ? onClose : undefined}
+                  onClick={isHamburgerMode ? onClose : undefined}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition ${
                     isActive
                       ? 'bg-blue-600 text-white'

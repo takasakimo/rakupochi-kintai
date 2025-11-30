@@ -2,28 +2,13 @@
 
 import { useSession } from 'next-auth/react'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Sidebar from './Sidebar'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession()
   const pathname = usePathname()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(true) // 初期値をtrueにして、モバイルファーストにする
-
-  // モバイルかどうかを判定
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768) // md breakpoint
-    }
-    
-    // クライアントサイドでのみ実行
-    if (typeof window !== 'undefined') {
-      checkMobile()
-      window.addEventListener('resize', checkMobile)
-      return () => window.removeEventListener('resize', checkMobile)
-    }
-  }, [])
 
   // 認証が必要なページ以外ではサイドバーを表示しない
   const showSidebar =
@@ -46,10 +31,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen">
       {showSidebar && (
         <>
-          {/* ハンバーガーメニューボタン（モバイルのみ） */}
+          {/* ハンバーガーメニューボタン（全デバイス） */}
           <button
             onClick={toggleSidebar}
-            className="fixed top-4 left-4 z-50 md:hidden bg-gray-800 text-white p-2 rounded-lg shadow-lg hover:bg-gray-700"
+            className="fixed top-4 left-4 z-50 bg-gray-800 text-white p-2 rounded-lg shadow-lg hover:bg-gray-700"
           >
             <svg
               className="w-6 h-6"
@@ -66,17 +51,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </svg>
           </button>
           
-          {/* モバイルの場合はonCloseを渡す、デスクトップでは渡さない */}
-          {isMobile ? (
-            <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
-          ) : (
-            <Sidebar />
-          )}
+          <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
         </>
       )}
-      <main
-        className={`flex-1 ${showSidebar ? 'md:ml-64' : ''} transition-all pt-16 md:pt-0`}
-      >
+      <main className="flex-1 transition-all pt-16">
         {children}
       </main>
     </div>
