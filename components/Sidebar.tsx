@@ -48,7 +48,10 @@ interface SidebarProps {
   onClose?: () => void
 }
 
-export default function Sidebar({ isOpen = true, onClose }: SidebarProps = {}) {
+export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
+  // モバイルの場合（onCloseが提供されている場合）はisOpenの状態を使用、デスクトップでは常に表示
+  const isMobile = onClose !== undefined
+  const shouldShow = isMobile ? (isOpen ?? false) : true
   const { data: session } = useSession()
   const router = useRouter()
   const pathname = usePathname()
@@ -98,10 +101,10 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps = {}) {
   return (
     <>
       {/* モバイル用オーバーレイ */}
-      {onClose && (
+      {isMobile && (
         <div
           className={`fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden transition-opacity ${
-            isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            shouldShow ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
           onClick={onClose}
         />
@@ -110,11 +113,11 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps = {}) {
       {/* サイドバー */}
       <div
         className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-gray-800 text-white min-h-screen flex flex-col no-print transform transition-transform duration-300 ease-in-out ${
-          isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          shouldShow ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
         {/* モバイル用閉じるボタン */}
-        {onClose && (
+        {isMobile && (
           <div className="flex justify-end p-4 border-b border-gray-700 md:hidden">
             <button
               onClick={onClose}
@@ -164,6 +167,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps = {}) {
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  onClick={isMobile ? onClose : undefined}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition ${
                     isActive
                       ? 'bg-blue-600 text-white'
