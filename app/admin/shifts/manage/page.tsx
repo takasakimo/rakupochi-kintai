@@ -1305,7 +1305,7 @@ export default function ShiftManagePage() {
                         <td className="px-4 py-3 text-sm text-gray-900">{shift.timeSlot || '-'}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{formatTime(shift.startTime, shift.isPublicHoliday)}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{formatTime(shift.endTime, shift.isPublicHoliday)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{shift.breakMinutes}分</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{shift.isPublicHoliday ? '-' : `${shift.breakMinutes}分`}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{shift.directDestination || '-'}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{shift.approvalNumber || '-'}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{shift.leavingLocation || '-'}</td>
