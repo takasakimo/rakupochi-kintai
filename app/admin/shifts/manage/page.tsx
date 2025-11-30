@@ -921,9 +921,12 @@ export default function ShiftManagePage() {
       return `${month}/${day} (${dayOfWeek})`
     }
 
-    const formatTime = (timeStr: string | null) => {
+    const formatTime = (timeStr: string | null, isPublicHoliday?: boolean) => {
+      if (isPublicHoliday) return '-'
       if (!timeStr) return '-'
       if (typeof timeStr === 'string' && timeStr.length >= 5) {
+        // 00:00の場合は公休として扱う
+        if (timeStr.slice(0, 5) === '00:00') return '-'
         return timeStr.slice(0, 5)
       }
       return timeStr
@@ -1300,8 +1303,8 @@ export default function ShiftManagePage() {
                         <td className="px-4 py-3 text-sm text-gray-900">{shift.workType || '-'}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{shift.workingHours || '-'}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{shift.timeSlot || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{formatTime(shift.startTime)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{formatTime(shift.endTime)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{formatTime(shift.startTime, shift.isPublicHoliday)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{formatTime(shift.endTime, shift.isPublicHoliday)}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{shift.breakMinutes}分</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{shift.directDestination || '-'}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{shift.approvalNumber || '-'}</td>
@@ -1399,8 +1402,20 @@ export default function ShiftManagePage() {
                         <div className="font-semibold mb-1">{day.date.getDate()}</div>
                         <div className="space-y-1">
                           {day.shifts.slice(0, 3).map((shift) => {
-                            const startTime = shift.startTime ? shift.startTime.slice(0, 5) : '00:00'
-                            const endTime = shift.endTime ? shift.endTime.slice(0, 5) : '00:00'
+                            if (shift.isPublicHoliday) {
+                              return (
+                                <div
+                                  key={shift.id}
+                                  className="bg-gray-200 text-gray-600 text-xs p-1 rounded truncate"
+                                  title={`${shift.employee.name}: 公休`}
+                                >
+                                  <div className="font-medium">{shift.employee.name}</div>
+                                  <div className="text-xs">公休</div>
+                                </div>
+                              )
+                            }
+                            const startTime = shift.startTime && shift.startTime !== '00:00' ? shift.startTime.slice(0, 5) : '-'
+                            const endTime = shift.endTime && shift.endTime !== '00:00' ? shift.endTime.slice(0, 5) : '-'
                             return (
                               <div
                                 key={shift.id}

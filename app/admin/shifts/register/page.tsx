@@ -731,44 +731,50 @@ export default function ShiftRegisterPage() {
                         </select>
                       </td>
                       <td className="px-3 py-2 border-r border-b">
-                        <input
-                          type="time"
-                          value={row.startTime}
-                          onChange={(e) => {
-                            const newStartTime = e.target.value
-                            handleRowChange(index, 'startTime', newStartTime)
-                            
-                            // 開始時間が変更された場合、終了時間を再計算
-                            if (newStartTime && row.workingHours && !row.isPublicHoliday) {
-                              const [hours, minutes] = newStartTime.split(':').map(Number)
-                              const workHours = parseInt(row.workingHours.split(':')[0])
-                              const breakHours = calculateBreakHours(workHours) // 休憩時間を計算
+                        {row.isPublicHoliday ? (
+                          <div className="w-full px-2 py-1 text-sm text-gray-900 text-center">-</div>
+                        ) : (
+                          <input
+                            type="time"
+                            value={row.startTime || ''}
+                            onChange={(e) => {
+                              const newStartTime = e.target.value
+                              handleRowChange(index, 'startTime', newStartTime)
                               
-                              const startDate = new Date(2000, 0, 1, hours, minutes)
-                              const endDate = new Date(
-                                startDate.getTime() + (workHours + breakHours) * 60 * 60 * 1000
-                              )
-                              
-                              const newRows = [...shiftRows]
-                              newRows[index].endTime = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`
-                              setShiftRows(newRows)
-                            }
-                          }}
-                          disabled={row.isPublicHoliday}
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white disabled:bg-gray-100"
-                        />
+                              // 開始時間が変更された場合、終了時間を再計算
+                              if (newStartTime && row.workingHours && !row.isPublicHoliday) {
+                                const [hours, minutes] = newStartTime.split(':').map(Number)
+                                const workHours = parseInt(row.workingHours.split(':')[0])
+                                const breakHours = calculateBreakHours(workHours) // 休憩時間を計算
+                                
+                                const startDate = new Date(2000, 0, 1, hours, minutes)
+                                const endDate = new Date(
+                                  startDate.getTime() + (workHours + breakHours) * 60 * 60 * 1000
+                                )
+                                
+                                const newRows = [...shiftRows]
+                                newRows[index].endTime = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`
+                                setShiftRows(newRows)
+                              }
+                            }}
+                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+                          />
+                        )}
                       </td>
                       <td className="px-3 py-2 border-r border-b">
-                        <input
-                          type="time"
-                          value={row.endTime}
-                          onChange={(e) =>
-                            handleRowChange(index, 'endTime', e.target.value)
-                          }
-                          disabled={row.isPublicHoliday}
-                          readOnly
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-gray-50 disabled:bg-gray-100"
-                        />
+                        {row.isPublicHoliday ? (
+                          <div className="w-full px-2 py-1 text-sm text-gray-900 text-center">-</div>
+                        ) : (
+                          <input
+                            type="time"
+                            value={row.endTime || ''}
+                            onChange={(e) =>
+                              handleRowChange(index, 'endTime', e.target.value)
+                            }
+                            readOnly
+                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-gray-50"
+                          />
+                        )}
                       </td>
                       <td className="px-3 py-2 border-r border-b">
                         <input
