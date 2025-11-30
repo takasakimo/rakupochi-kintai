@@ -778,6 +778,7 @@ export default function ShiftManagePage() {
         } else {
           newSet.delete(shiftId)
         }
+        console.log('Selected shifts:', Array.from(newSet))
         return newSet
       })
     }
@@ -791,6 +792,8 @@ export default function ShiftManagePage() {
     }
     
     const handleBulkUpdate = async () => {
+      console.log('handleBulkUpdate called', { selectedShiftIds: Array.from(selectedShiftIds), bulkUpdateData })
+      
       if (selectedShiftIds.size === 0) {
         alert('反映するシフトを選択してください')
         return
@@ -802,7 +805,11 @@ export default function ShiftManagePage() {
       if (bulkUpdateData.breakMinutes !== undefined) updateData.breakMinutes = bulkUpdateData.breakMinutes
       if (bulkUpdateData.workLocation !== undefined) updateData.workLocation = bulkUpdateData.workLocation || null
       if (bulkUpdateData.workType !== undefined) updateData.workType = bulkUpdateData.workType || null
-      if (bulkUpdateData.timeSlot !== undefined) updateData.timeSlot = bulkUpdateData.timeSlot || null
+      if (bulkUpdateData.timeSlot !== undefined && bulkUpdateData.timeSlot !== '') {
+        updateData.timeSlot = bulkUpdateData.timeSlot
+      }
+      
+      console.log('Update data:', updateData)
       
       if (Object.keys(updateData).length === 0) {
         alert('反映する項目を入力してください')
@@ -814,28 +821,36 @@ export default function ShiftManagePage() {
       }
       
       try {
-        const updatePromises = Array.from(selectedShiftIds).map(shiftId =>
-          fetch(`/api/admin/shifts/${shiftId}`, {
+        console.log('Starting bulk update for', selectedShiftIds.size, 'shifts')
+        const updatePromises = Array.from(selectedShiftIds).map(async (shiftId) => {
+          console.log('Updating shift', shiftId, 'with data', updateData)
+          const response = await fetch(`/api/admin/shifts/${shiftId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updateData),
           })
-        )
+          const data = await response.json()
+          console.log('Response for shift', shiftId, ':', { status: response.status, data })
+          return { response, data, shiftId }
+        })
         
         const results = await Promise.all(updatePromises)
-        const failed = results.filter(r => !r.ok)
+        const failed = results.filter(r => !r.response.ok)
+        
+        console.log('Bulk update results:', { total: results.length, failed: failed.length })
         
         if (failed.length > 0) {
+          console.error('Failed updates:', failed)
           alert(`${failed.length}件のシフトの更新に失敗しました`)
         } else {
           alert(`${selectedShiftIds.size}件のシフトを更新しました`)
           setSelectedShiftIds(new Set())
           setBulkUpdateData({})
-          fetchShifts()
+          await fetchShifts()
         }
       } catch (err) {
         console.error('Failed to bulk update shifts:', err)
-        alert('一括更新に失敗しました')
+        alert('一括更新に失敗しました: ' + (err instanceof Error ? err.message : String(err)))
       }
     }
 
