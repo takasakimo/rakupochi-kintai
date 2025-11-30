@@ -9,7 +9,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession()
   const pathname = usePathname()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
+  const [isMobile, setIsMobile] = useState(true) // 初期値をtrueにして、モバイルファーストにする
 
   // モバイルかどうかを判定
   useEffect(() => {
@@ -17,9 +17,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       setIsMobile(window.innerWidth < 768) // md breakpoint
     }
     
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
+    // クライアントサイドでのみ実行
+    if (typeof window !== 'undefined') {
+      checkMobile()
+      window.addEventListener('resize', checkMobile)
+      return () => window.removeEventListener('resize', checkMobile)
+    }
   }, [])
 
   // 認証が必要なページ以外ではサイドバーを表示しない

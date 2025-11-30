@@ -51,7 +51,8 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
   // モバイルの場合（onCloseが提供されている場合）はisOpenの状態を使用、デスクトップでは常に表示
   const isMobile = onClose !== undefined
-  const shouldShow = isMobile ? (isOpen ?? false) : true
+  // モバイルではisOpenがtrueの時のみ表示、デスクトップでは常に表示
+  const shouldShow = isMobile ? (isOpen === true) : true
   const { data: session } = useSession()
   const router = useRouter()
   const pathname = usePathname()
@@ -113,8 +114,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
       {/* サイドバー */}
       <div
         className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-gray-800 text-white min-h-screen flex flex-col no-print transform transition-transform duration-300 ease-in-out ${
-          shouldShow ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          shouldShow 
+            ? 'translate-x-0' 
+            : '-translate-x-full md:translate-x-0'
         }`}
+        style={{
+          // モバイルで非表示の場合は確実に非表示にする
+          display: isMobile && !shouldShow ? 'none' : 'flex',
+        }}
       >
         {/* モバイル用閉じるボタン */}
         {isMobile && (
