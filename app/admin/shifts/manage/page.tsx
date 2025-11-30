@@ -36,6 +36,11 @@ interface Employee {
   department: string | null
 }
 
+interface BreakPeriod {
+  startTime: string
+  endTime: string
+}
+
 interface TimetableShift {
   shiftId: number
   employeeId: number
@@ -43,8 +48,7 @@ interface TimetableShift {
   employeeNumber: string
   startTime: string
   endTime: string
-  breakStartTime: string | null
-  breakEndTime: string | null
+  breaks: BreakPeriod[]
 }
 
 type ViewMode = 'list' | 'timetable'
@@ -65,7 +69,8 @@ export default function ShiftManagePage() {
   const [timetableShifts, setTimetableShifts] = useState<TimetableShift[]>([])
   const [draggingShift, setDraggingShift] = useState<{
     shiftId: number
-    type: 'start' | 'end' | 'breakStart' | 'breakEnd'
+    type: 'start' | 'end' | 'breakStart' | 'breakEnd' | string
+    breakIndex?: number
     initialX: number
   } | null>(null)
   const [editingShift, setEditingShift] = useState<Shift | null>(null)
@@ -218,46 +223,49 @@ export default function ShiftManagePage() {
       const endTime = shift.endTime || '00:00'
       const breakMinutes = shift.breakMinutes || 0
 
-      // 休憩時間を計算
-      let breakStartTime: string | null = null
-      let breakEndTime: string | null = null
-      if (breakMinutes > 0) {
-        // notesフィールドから休憩開始時間を取得
-        let savedBreakStartTime: string | null = null
-        try {
-          if (shift.notes) {
-            const notesData = JSON.parse(shift.notes) as { breakStartTime?: string; originalNotes?: string }
-            if (notesData.breakStartTime && typeof notesData.breakStartTime === 'string') {
-              savedBreakStartTime = notesData.breakStartTime
-            }
+      // notesフィールドから複数の休憩時間帯を取得
+      let breaks: BreakPeriod[] = []
+      try {
+        if (shift.notes) {
+          const notesData = JSON.parse(shift.notes) as { 
+            breaks?: BreakPeriod[]
+            breakStartTime?: string  // 旧形式との互換性
+            originalNotes?: string 
           }
-        } catch (e) {
-          // notesがJSON形式でない場合は無視
-        }
-
-        if (savedBreakStartTime) {
-          // 保存された休憩開始時間を使用
-          breakStartTime = savedBreakStartTime
-          const [startHour, startMin] = breakStartTime.split(':').map(Number)
-          const breakStartTotalMinutes = startHour * 60 + startMin
-          const breakEndTotalMinutes = breakStartTotalMinutes + breakMinutes
-          const breakEndHour = Math.floor(breakEndTotalMinutes / 60)
-          const breakEndMin = breakEndTotalMinutes % 60
-          breakEndTime = `${String(breakEndHour).padStart(2, '0')}:${String(breakEndMin).padStart(2, '0')}`
-        } else {
-          // デフォルト：開始時間から4時間後を休憩開始とする
-          const [startHour, startMin] = startTime.split(':').map(Number)
-          const startTotalMinutes = startHour * 60 + startMin
-          const breakStartTotalMinutes = startTotalMinutes + 4 * 60
-          const breakStartHour = Math.floor(breakStartTotalMinutes / 60)
-          const breakStartMin = breakStartTotalMinutes % 60
-          breakStartTime = `${String(breakStartHour).padStart(2, '0')}:${String(breakStartMin).padStart(2, '0')}`
           
-          const breakEndTotalMinutes = breakStartTotalMinutes + breakMinutes
-          const breakEndHour = Math.floor(breakEndTotalMinutes / 60)
-          const breakEndMin = breakEndTotalMinutes % 60
-          breakEndTime = `${String(breakEndHour).padStart(2, '0')}:${String(breakEndMin).padStart(2, '0')}`
+          if (notesData.breaks && Array.isArray(notesData.breaks)) {
+            // 新しい形式：複数の休憩
+            breaks = notesData.breaks.filter(b => b.startTime && b.endTime)
+          } else if (notesData.breakStartTime && breakMinutes > 0) {
+            // 旧形式：1つの休憩（互換性のため）
+            const breakStartTime = notesData.breakStartTime
+            const [startHour, startMin] = breakStartTime.split(':').map(Number)
+            const breakStartTotalMinutes = startHour * 60 + startMin
+            const breakEndTotalMinutes = breakStartTotalMinutes + breakMinutes
+            const breakEndHour = Math.floor(breakEndTotalMinutes / 60)
+            const breakEndMin = breakEndTotalMinutes % 60
+            const breakEndTime = `${String(breakEndHour).padStart(2, '0')}:${String(breakEndMin).padStart(2, '0')}`
+            breaks = [{ startTime: breakStartTime, endTime: breakEndTime }]
+          }
         }
+      } catch (e) {
+        // notesがJSON形式でない場合は無視
+      }
+
+      // 休憩がなく、breakMinutesがある場合はデフォルトの休憩を作成
+      if (breaks.length === 0 && breakMinutes > 0) {
+        const [startHour, startMin] = startTime.split(':').map(Number)
+        const startTotalMinutes = startHour * 60 + startMin
+        const breakStartTotalMinutes = startTotalMinutes + 4 * 60
+        const breakStartHour = Math.floor(breakStartTotalMinutes / 60)
+        const breakStartMin = breakStartTotalMinutes % 60
+        const breakStartTime = `${String(breakStartHour).padStart(2, '0')}:${String(breakStartMin).padStart(2, '0')}`
+        
+        const breakEndTotalMinutes = breakStartTotalMinutes + breakMinutes
+        const breakEndHour = Math.floor(breakEndTotalMinutes / 60)
+        const breakEndMin = breakEndTotalMinutes % 60
+        const breakEndTime = `${String(breakEndHour).padStart(2, '0')}:${String(breakEndMin).padStart(2, '0')}`
+        breaks = [{ startTime: breakStartTime, endTime: breakEndTime }]
       }
 
       return {
@@ -267,8 +275,7 @@ export default function ShiftManagePage() {
         employeeNumber: shift.employee.employeeNumber,
         startTime,
         endTime,
-        breakStartTime,
-        breakEndTime,
+        breaks,
       }
     })
 
@@ -355,14 +362,14 @@ export default function ShiftManagePage() {
     return ((totalMinutes - startMinutes) / range) * 100
   }
 
-  const positionToTime = (position: number): string => {
+  const positionToTime = (position: number, roundToMinutes: number = 5): string => {
     const startMinutes = 6 * 60
     const endMinutes = 20 * 60
     const range = endMinutes - startMinutes
     const totalMinutes = Math.round(startMinutes + (position / 100) * range)
     
-    // 30分刻みに丸める
-    const roundedMinutes = Math.round(totalMinutes / 30) * 30
+    // 指定した分単位に丸める（デフォルト5分）
+    const roundedMinutes = Math.round(totalMinutes / roundToMinutes) * roundToMinutes
     const hours = Math.floor(roundedMinutes / 60)
     const minutes = roundedMinutes % 60
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
@@ -385,7 +392,7 @@ export default function ShiftManagePage() {
       const shift = timetableShifts.find(s => s.shiftId === draggingShift.shiftId)
       if (!shift) return
 
-      const newTime = positionToTime(relativeX)
+      const newTime = positionToTime(relativeX, 5) // 5分単位
 
       // 開始時間が終了時間を超えないように、終了時間が開始時間を下回らないようにする
       if (draggingShift.type === 'start') {
@@ -412,56 +419,70 @@ export default function ShiftManagePage() {
             ? { ...s, endTime: newTime }
             : s
         ))
-      } else if (draggingShift.type === 'breakStart') {
-        // 休憩開始時間を更新（休憩時間は1時間固定）
-        if (!shift.breakStartTime || !shift.breakEndTime) return
+      } else if (draggingShift.type.startsWith('breakStart-')) {
+        // 複数の休憩の開始時間を更新
+        const breakIndex = draggingShift.breakIndex ?? parseInt(draggingShift.type.split('-')[1])
+        if (breakIndex === undefined || !shift.breaks[breakIndex]) return
         
         const [newHours, newMins] = newTime.split(':').map(Number)
         const newTotal = newHours * 60 + newMins
         
-        // 休憩終了時間を1時間後にする
-        const breakEndTotal = newTotal + 60
-        const breakEndHours = Math.floor(breakEndTotal / 60)
-        const breakEndMins = breakEndTotal % 60
-        const breakEndTime = `${String(breakEndHours).padStart(2, '0')}:${String(breakEndMins).padStart(2, '0')}`
+        const currentBreak = shift.breaks[breakIndex]
+        const [endHours, endMins] = currentBreak.endTime.split(':').map(Number)
+        const endTotal = endHours * 60 + endMins
+        
+        // 開始時間が終了時間を超えないように
+        if (newTotal >= endTotal) return
         
         // 勤務時間内に収まるようにチェック
         const [startHours, startMins] = shift.startTime.split(':').map(Number)
-        const [endHours, endMins] = shift.endTime.split(':').map(Number)
+        const [shiftEndHours, shiftEndMins] = shift.endTime.split(':').map(Number)
         const startTotal = startHours * 60 + startMins
-        const endTotal = endHours * 60 + endMins
+        const shiftEndTotal = shiftEndHours * 60 + shiftEndMins
         
-        if (newTotal < startTotal || breakEndTotal > endTotal) return
+        if (newTotal < startTotal || endTotal > shiftEndTotal) return
         
         setTimetableShifts(prev => prev.map(s => 
           s.shiftId === shift.shiftId
-            ? { ...s, breakStartTime: newTime, breakEndTime }
+            ? { 
+                ...s, 
+                breaks: s.breaks.map((b, idx) => 
+                  idx === breakIndex ? { ...b, startTime: newTime } : b
+                )
+              }
             : s
         ))
-      } else if (draggingShift.type === 'breakEnd') {
-        // 休憩終了時間を更新（休憩時間は1時間固定）
-        if (!shift.breakStartTime || !shift.breakEndTime) return
+      } else if (draggingShift.type.startsWith('breakEnd-')) {
+        // 複数の休憩の終了時間を更新
+        const breakIndex = draggingShift.breakIndex ?? parseInt(draggingShift.type.split('-')[1])
+        if (breakIndex === undefined || !shift.breaks[breakIndex]) return
         
         const [newHours, newMins] = newTime.split(':').map(Number)
         const newTotal = newHours * 60 + newMins
         
-        // 休憩開始時間を1時間前にする
-        const breakStartTotal = newTotal - 60
-        const breakStartHours = Math.floor(breakStartTotal / 60)
-        const breakStartMins = breakStartTotal % 60
-        const breakStartTime = `${String(breakStartHours).padStart(2, '0')}:${String(breakStartMins).padStart(2, '0')}`
+        const currentBreak = shift.breaks[breakIndex]
+        const [startHours, startMins] = currentBreak.startTime.split(':').map(Number)
+        const startTotal = startHours * 60 + startMins
+        
+        // 終了時間が開始時間を下回らないように
+        if (newTotal <= startTotal) return
         
         // 勤務時間内に収まるようにチェック
-        const [startHours, startMins] = shift.startTime.split(':').map(Number)
-        const [endHours, endMins] = shift.endTime.split(':').map(Number)
-        const startTotal = startHours * 60 + startMins
-        const endTotal = endHours * 60 + endMins
+        const [shiftStartHours, shiftStartMins] = shift.startTime.split(':').map(Number)
+        const [shiftEndHours, shiftEndMins] = shift.endTime.split(':').map(Number)
+        const shiftStartTotal = shiftStartHours * 60 + shiftStartMins
+        const shiftEndTotal = shiftEndHours * 60 + shiftEndMins
         
-        if (breakStartTotal < startTotal || newTotal > endTotal) return
+        if (startTotal < shiftStartTotal || newTotal > shiftEndTotal) return
         
         setTimetableShifts(prev => prev.map(s => 
           s.shiftId === shift.shiftId
-            ? { ...s, breakStartTime, breakEndTime: newTime }
+            ? { 
+                ...s, 
+                breaks: s.breaks.map((b, idx) => 
+                  idx === breakIndex ? { ...b, endTime: newTime } : b
+                )
+              }
             : s
         ))
       }
@@ -484,31 +505,36 @@ export default function ShiftManagePage() {
           updateData.startTime = timetableShift.startTime
         } else if (draggingShift.type === 'end') {
           updateData.endTime = timetableShift.endTime
-        } else if (draggingShift.type === 'breakStart' || draggingShift.type === 'breakEnd') {
-          // 休憩時間を更新（breakMinutesを計算し、notesに休憩開始時間を保存）
-          if (timetableShift.breakStartTime && timetableShift.breakEndTime) {
-            const [startHours, startMins] = timetableShift.breakStartTime.split(':').map(Number)
-            const [endHours, endMins] = timetableShift.breakEndTime.split(':').map(Number)
-            const startTotal = startHours * 60 + startMins
-            const endTotal = endHours * 60 + endMins
-            const breakMinutes = endTotal - startTotal
-            updateData.breakMinutes = breakMinutes
+        } else if (draggingShift.type.startsWith('breakStart-') || draggingShift.type.startsWith('breakEnd-')) {
+          // 複数の休憩時間を更新（breakMinutesを合計し、notesに複数の休憩を保存）
+          if (timetableShift.breaks.length > 0) {
+            // 全休憩時間の合計を計算
+            const totalBreakMinutes = timetableShift.breaks.reduce((total, b) => {
+              const [startHours, startMins] = b.startTime.split(':').map(Number)
+              const [endHours, endMins] = b.endTime.split(':').map(Number)
+              const startTotal = startHours * 60 + startMins
+              const endTotal = endHours * 60 + endMins
+              return total + (endTotal - startTotal)
+            }, 0)
+            updateData.breakMinutes = totalBreakMinutes
             
-            // notesフィールドに休憩開始時間を保存
+            // notesフィールドに複数の休憩を保存
             try {
-              let notesData: { breakStartTime?: string; originalNotes?: string } = {}
+              let notesData: { breaks?: BreakPeriod[]; breakStartTime?: string; originalNotes?: string } = {}
               if (originalShift.notes) {
                 try {
-                  notesData = JSON.parse(originalShift.notes) as { breakStartTime?: string; originalNotes?: string }
+                  notesData = JSON.parse(originalShift.notes) as { breaks?: BreakPeriod[]; breakStartTime?: string; originalNotes?: string }
                 } catch (e) {
                   // notesがJSON形式でない場合は、既存のnotesを保持
                   notesData = { originalNotes: originalShift.notes }
                 }
               }
-              notesData.breakStartTime = timetableShift.breakStartTime
+              // 複数の休憩を保存（旧形式のbreakStartTimeは削除）
+              notesData.breaks = timetableShift.breaks
+              delete notesData.breakStartTime
               updateData.notes = JSON.stringify(notesData)
             } catch (e) {
-              console.error('Failed to save break start time:', e)
+              console.error('Failed to save breaks:', e)
             }
           }
         }
@@ -545,42 +571,64 @@ export default function ShiftManagePage() {
     }
   }, [draggingShift, timetableShifts])
 
-  const handleMouseDown = (e: React.MouseEvent, shiftId: number, type: 'start' | 'end' | 'breakStart' | 'breakEnd') => {
+  const handleMouseDown = (e: React.MouseEvent, shiftId: number, type: 'start' | 'end' | string) => {
     e.preventDefault()
     e.stopPropagation()
-    setDraggingShift({ shiftId, type, initialX: e.clientX })
+    const breakIndex = type.startsWith('breakStart-') || type.startsWith('breakEnd-') 
+      ? parseInt(type.split('-')[1]) 
+      : undefined
+    setDraggingShift({ shiftId, type, breakIndex, initialX: e.clientX })
   }
 
-  const handleDeleteBreak = async (shiftId: number) => {
-    if (!confirm('休憩を削除しますか？')) return
+  const handleDeleteBreakPeriod = async (shiftId: number, breakIndex: number) => {
+    if (!confirm('この休憩を削除しますか？')) return
 
     try {
+      const timetableShift = timetableShifts.find(s => s.shiftId === shiftId)
+      if (!timetableShift || !timetableShift.breaks[breakIndex]) return
+
+      // 指定された休憩を削除
+      const updatedBreaks = timetableShift.breaks.filter((_, idx) => idx !== breakIndex)
+      
       // 元のshiftデータを取得
       const originalShift = shifts.find(s => s.id === shiftId)
       if (!originalShift) return
 
-      // notesフィールドからbreakStartTimeを削除
-      let notesData: { breakStartTime?: string; originalNotes?: string } = {}
+      // 全休憩時間の合計を計算
+      const totalBreakMinutes = updatedBreaks.reduce((total, b) => {
+        const [startHours, startMins] = b.startTime.split(':').map(Number)
+        const [endHours, endMins] = b.endTime.split(':').map(Number)
+        const startTotal = startHours * 60 + startMins
+        const endTotal = endHours * 60 + endMins
+        return total + (endTotal - startTotal)
+      }, 0)
+
+      // notesフィールドを更新
+      let notesData: { breaks?: BreakPeriod[]; breakStartTime?: string; originalNotes?: string } = {}
       if (originalShift.notes) {
         try {
-          notesData = JSON.parse(originalShift.notes) as { breakStartTime?: string; originalNotes?: string }
+          notesData = JSON.parse(originalShift.notes) as { breaks?: BreakPeriod[]; breakStartTime?: string; originalNotes?: string }
         } catch (e) {
-          // notesがJSON形式でない場合は、既存のnotesを保持
           notesData = { originalNotes: originalShift.notes }
         }
       }
       
-      // breakStartTimeを削除
-      delete notesData.breakStartTime
+      if (updatedBreaks.length > 0) {
+        notesData.breaks = updatedBreaks
+      } else {
+        delete notesData.breaks
+      }
+      delete notesData.breakStartTime // 旧形式を削除
       
-      // originalNotesがあればそれをnotesに、なければnullに
-      const updatedNotes = notesData.originalNotes || null
+      const updatedNotes = updatedBreaks.length > 0 
+        ? JSON.stringify(notesData)
+        : (notesData.originalNotes || null)
 
       const response = await fetch(`/api/admin/shifts/${shiftId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          breakMinutes: 0,
+          breakMinutes: totalBreakMinutes,
           notes: updatedNotes,
         }),
       })
@@ -593,8 +641,93 @@ export default function ShiftManagePage() {
         await fetchShifts()
       }
     } catch (err) {
-      console.error('Failed to delete break:', err)
+      console.error('Failed to delete break period:', err)
       alert('休憩の削除に失敗しました')
+      await fetchShifts()
+    }
+  }
+
+  const handleAddBreak = async (shiftId: number) => {
+    try {
+      const timetableShift = timetableShifts.find(s => s.shiftId === shiftId)
+      if (!timetableShift) return
+
+      // デフォルトの休憩時間（30分）を追加
+      const [startHours, startMins] = timetableShift.startTime.split(':').map(Number)
+      const startTotal = startHours * 60 + startMins
+      
+      // 既存の休憩の後、または開始時間から4時間後に配置
+      let breakStartTotal = startTotal + 4 * 60
+      if (timetableShift.breaks.length > 0) {
+        const lastBreak = timetableShift.breaks[timetableShift.breaks.length - 1]
+        const [lastEndHours, lastEndMins] = lastBreak.endTime.split(':').map(Number)
+        breakStartTotal = lastEndHours * 60 + lastEndMins + 30 // 最後の休憩の30分後
+      }
+      
+      // 勤務終了時間を超えないように
+      const [endHours, endMins] = timetableShift.endTime.split(':').map(Number)
+      const endTotal = endHours * 60 + endMins
+      if (breakStartTotal + 30 > endTotal) {
+        breakStartTotal = endTotal - 30
+      }
+      
+      const breakStartHour = Math.floor(breakStartTotal / 60)
+      const breakStartMin = breakStartTotal % 60
+      const breakStartTime = `${String(breakStartHour).padStart(2, '0')}:${String(breakStartMin).padStart(2, '0')}`
+      
+      const breakEndTotal = breakStartTotal + 30
+      const breakEndHour = Math.floor(breakEndTotal / 60)
+      const breakEndMin = breakEndTotal % 60
+      const breakEndTime = `${String(breakEndHour).padStart(2, '0')}:${String(breakEndMin).padStart(2, '0')}`
+
+      const newBreak: BreakPeriod = { startTime: breakStartTime, endTime: breakEndTime }
+      const updatedBreaks = [...timetableShift.breaks, newBreak]
+
+      // 元のshiftデータを取得
+      const originalShift = shifts.find(s => s.id === shiftId)
+      if (!originalShift) return
+
+      // 全休憩時間の合計を計算
+      const totalBreakMinutes = updatedBreaks.reduce((total, b) => {
+        const [sHours, sMins] = b.startTime.split(':').map(Number)
+        const [eHours, eMins] = b.endTime.split(':').map(Number)
+        const sTotal = sHours * 60 + sMins
+        const eTotal = eHours * 60 + eMins
+        return total + (eTotal - sTotal)
+      }, 0)
+
+      // notesフィールドを更新
+      let notesData: { breaks?: BreakPeriod[]; breakStartTime?: string; originalNotes?: string } = {}
+      if (originalShift.notes) {
+        try {
+          notesData = JSON.parse(originalShift.notes) as { breaks?: BreakPeriod[]; breakStartTime?: string; originalNotes?: string }
+        } catch (e) {
+          notesData = { originalNotes: originalShift.notes }
+        }
+      }
+      
+      notesData.breaks = updatedBreaks
+      delete notesData.breakStartTime // 旧形式を削除
+
+      const response = await fetch(`/api/admin/shifts/${shiftId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          breakMinutes: totalBreakMinutes,
+          notes: JSON.stringify(notesData),
+        }),
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        await fetchShifts()
+      } else {
+        alert('休憩の追加に失敗しました')
+        await fetchShifts()
+      }
+    } catch (err) {
+      console.error('Failed to add break:', err)
+      alert('休憩の追加に失敗しました')
       await fetchShifts()
     }
   }
@@ -678,16 +811,6 @@ export default function ShiftManagePage() {
                   const endPos = timeToPosition(timetableShift.endTime)
                   const width = endPos - startPos
 
-                  // 休憩ブロックの位置と幅を計算（時間軸全体に対する絶対位置）
-                  let breakLeft = 0
-                  let breakWidth = 0
-                  if (timetableShift.breakStartTime && timetableShift.breakEndTime) {
-                    const breakStartPos = timeToPosition(timetableShift.breakStartTime)
-                    const breakEndPos = timeToPosition(timetableShift.breakEndTime)
-                    breakLeft = breakStartPos
-                    breakWidth = breakEndPos - breakStartPos
-                  }
-
                   return (
                     <div key={timetableShift.shiftId} className="flex border-b border-gray-200">
                       <div className="w-32 p-2 text-sm text-gray-900 bg-gray-50 border-r">
@@ -721,34 +844,41 @@ export default function ShiftManagePage() {
                           </div>
                         </div>
 
-                        {/* 休憩ブロック（勤務ブロックの上に重ねて表示） */}
-                        {timetableShift.breakStartTime && timetableShift.breakEndTime && (
-                          <div
-                            className="absolute bg-orange-500 h-full flex items-center justify-between px-2"
-                            style={{
-                              left: `${breakLeft}%`,
-                              width: `${breakWidth}%`,
-                              top: '0',
-                              zIndex: 10,
-                              backgroundColor: '#f97316',
-                              opacity: 1,
-                            }}
-                          >
+                        {/* 複数の休憩ブロック（勤務ブロックの上に重ねて表示） */}
+                        {timetableShift.breaks.map((breakPeriod, breakIndex) => {
+                          const breakStartPos = timeToPosition(breakPeriod.startTime)
+                          const breakEndPos = timeToPosition(breakPeriod.endTime)
+                          const breakLeft = breakStartPos
+                          const breakWidth = breakEndPos - breakStartPos
+
+                          return (
+                            <div
+                              key={breakIndex}
+                              className="absolute bg-orange-500 h-full flex items-center justify-between px-2"
+                              style={{
+                                left: `${breakLeft}%`,
+                                width: `${breakWidth}%`,
+                                top: '0',
+                                zIndex: 10,
+                                backgroundColor: '#f97316',
+                                opacity: 1,
+                              }}
+                            >
                               <div
                                 className="bg-orange-600 text-white text-xs px-2 py-1 rounded cursor-move hover:bg-orange-700 select-none"
-                                onMouseDown={(e) => handleMouseDown(e, timetableShift.shiftId, 'breakStart')}
+                                onMouseDown={(e) => handleMouseDown(e, timetableShift.shiftId, `breakStart-${breakIndex}` as any)}
                               >
-                                休憩開始 {timetableShift.breakStartTime}
+                                休憩開始 {breakPeriod.startTime}
                               </div>
                               <div className="flex items-center gap-2">
                                 <div className="text-white text-xs">
-                                  休憩 {timetableShift.breakStartTime}-{timetableShift.breakEndTime}
+                                  休憩 {breakPeriod.startTime}-{breakPeriod.endTime}
                                 </div>
                                 <button
                                   onClick={(e) => {
                                     e.preventDefault()
                                     e.stopPropagation()
-                                    handleDeleteBreak(timetableShift.shiftId)
+                                    handleDeleteBreakPeriod(timetableShift.shiftId, breakIndex)
                                   }}
                                   className="bg-red-600 text-white text-xs px-2 py-1 rounded hover:bg-red-700 select-none"
                                   title="休憩を削除"
@@ -758,12 +888,27 @@ export default function ShiftManagePage() {
                               </div>
                               <div
                                 className="bg-orange-600 text-white text-xs px-2 py-1 rounded cursor-move hover:bg-orange-700 select-none"
-                                onMouseDown={(e) => handleMouseDown(e, timetableShift.shiftId, 'breakEnd')}
+                                onMouseDown={(e) => handleMouseDown(e, timetableShift.shiftId, `breakEnd-${breakIndex}` as any)}
                               >
-                                休憩終了 {timetableShift.breakEndTime}
+                                休憩終了 {breakPeriod.endTime}
                               </div>
                             </div>
-                        )}
+                          )
+                        })}
+
+                        {/* 休憩追加ボタン */}
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            handleAddBreak(timetableShift.shiftId)
+                          }}
+                          className="absolute top-0 right-0 bg-green-600 text-white text-xs px-2 py-1 rounded hover:bg-green-700 z-20"
+                          title="休憩を追加"
+                          style={{ marginTop: '4px', marginRight: '4px' }}
+                        >
+                          + 休憩追加
+                        </button>
                       </div>
                     </div>
                   )
