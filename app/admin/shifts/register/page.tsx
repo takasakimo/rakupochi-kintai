@@ -464,13 +464,6 @@ export default function ShiftRegisterPage() {
         {/* ビュー切り替えタブ */}
         {renderViewTabs()}
 
-        {/* 警告バナー */}
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <p className="text-sm text-red-800">
-            ※休暇は計画的有給のみ設定できます。その他の休暇についてはワークフローより申請してください。
-          </p>
-        </div>
-
         {/* フィルター */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
