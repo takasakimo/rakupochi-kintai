@@ -2,13 +2,25 @@
 
 import { useSession } from 'next-auth/react'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Sidebar from './Sidebar'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession()
   const pathname = usePathname()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  // モバイルかどうかを判定
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768) // md breakpoint
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   // 認証が必要なページ以外ではサイドバーを表示しない
   const showSidebar =
@@ -51,7 +63,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </svg>
           </button>
           
-          <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
+          {/* モバイルの場合はonCloseを渡す、デスクトップでは渡さない */}
+          {isMobile ? (
+            <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
+          ) : (
+            <Sidebar />
+          )}
         </>
       )}
       <main
