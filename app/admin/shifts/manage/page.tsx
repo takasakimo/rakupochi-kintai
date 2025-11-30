@@ -74,6 +74,17 @@ export default function ShiftManagePage() {
   const [displayMode, setDisplayMode] = useState<'all' | 'department' | 'location'>('all')
   const [selectedDepartment, setSelectedDepartment] = useState<string>('')
   const [selectedLocation, setSelectedLocation] = useState<string>('')
+  
+  // 一括反映用の状態
+  const [selectedShiftIds, setSelectedShiftIds] = useState<Set<number>>(new Set())
+  const [bulkUpdateData, setBulkUpdateData] = useState<{
+    startTime?: string
+    endTime?: string
+    breakMinutes?: number
+    workLocation?: string
+    workType?: string
+    timeSlot?: string
+  }>({})
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user.role === 'admin') {
@@ -758,6 +769,75 @@ export default function ShiftManagePage() {
     const handleEdit = (shift: Shift) => {
       setEditingShift({ ...shift })
     }
+    
+    const handleSelectShift = (shiftId: number, checked: boolean) => {
+      setSelectedShiftIds(prev => {
+        const newSet = new Set(prev)
+        if (checked) {
+          newSet.add(shiftId)
+        } else {
+          newSet.delete(shiftId)
+        }
+        return newSet
+      })
+    }
+    
+    const handleSelectAll = (checked: boolean) => {
+      if (checked) {
+        setSelectedShiftIds(new Set(filteredShifts.map(s => s.id)))
+      } else {
+        setSelectedShiftIds(new Set())
+      }
+    }
+    
+    const handleBulkUpdate = async () => {
+      if (selectedShiftIds.size === 0) {
+        alert('反映するシフトを選択してください')
+        return
+      }
+      
+      const updateData: any = {}
+      if (bulkUpdateData.startTime) updateData.startTime = bulkUpdateData.startTime
+      if (bulkUpdateData.endTime) updateData.endTime = bulkUpdateData.endTime
+      if (bulkUpdateData.breakMinutes !== undefined) updateData.breakMinutes = bulkUpdateData.breakMinutes
+      if (bulkUpdateData.workLocation !== undefined) updateData.workLocation = bulkUpdateData.workLocation || null
+      if (bulkUpdateData.workType !== undefined) updateData.workType = bulkUpdateData.workType || null
+      if (bulkUpdateData.timeSlot !== undefined) updateData.timeSlot = bulkUpdateData.timeSlot || null
+      
+      if (Object.keys(updateData).length === 0) {
+        alert('反映する項目を入力してください')
+        return
+      }
+      
+      if (!confirm(`選択した${selectedShiftIds.size}件のシフトに反映しますか？`)) {
+        return
+      }
+      
+      try {
+        const updatePromises = Array.from(selectedShiftIds).map(shiftId =>
+          fetch(`/api/admin/shifts/${shiftId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData),
+          })
+        )
+        
+        const results = await Promise.all(updatePromises)
+        const failed = results.filter(r => !r.ok)
+        
+        if (failed.length > 0) {
+          alert(`${failed.length}件のシフトの更新に失敗しました`)
+        } else {
+          alert(`${selectedShiftIds.size}件のシフトを更新しました`)
+          setSelectedShiftIds(new Set())
+          setBulkUpdateData({})
+          fetchShifts()
+        }
+      } catch (err) {
+        console.error('Failed to bulk update shifts:', err)
+        alert('一括更新に失敗しました')
+      }
+    }
 
     const handleUpdate = async () => {
       if (!editingShift) return
@@ -858,6 +938,77 @@ export default function ShiftManagePage() {
 
     return (
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        {/* 一括反映UI */}
+        {selectedShiftIds.size > 0 && (
+          <div className="bg-blue-50 border-b border-blue-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-semibold text-gray-900">
+                選択中: {selectedShiftIds.size}件
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedShiftIds(new Set())
+                  setBulkUpdateData({})
+                }}
+                className="text-sm text-gray-600 hover:text-gray-900"
+              >
+                選択解除
+              </button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+              <div>
+                <label className="block text-xs text-gray-700 mb-1">開始時間</label>
+                <input
+                  type="time"
+                  value={bulkUpdateData.startTime || ''}
+                  onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, startTime: e.target.value })}
+                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-700 mb-1">終了時間</label>
+                <input
+                  type="time"
+                  value={bulkUpdateData.endTime || ''}
+                  onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, endTime: e.target.value })}
+                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-700 mb-1">休憩時間（分）</label>
+                <input
+                  type="number"
+                  value={bulkUpdateData.breakMinutes !== undefined ? bulkUpdateData.breakMinutes : ''}
+                  onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, breakMinutes: e.target.value ? parseInt(e.target.value) : undefined })}
+                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+                  placeholder="60"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-700 mb-1">時間帯</label>
+                <select
+                  value={bulkUpdateData.timeSlot || ''}
+                  onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, timeSlot: e.target.value || undefined })}
+                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+                >
+                  <option value="">変更なし</option>
+                  <option value="早番">早番</option>
+                  <option value="中番">中番</option>
+                  <option value="遅番">遅番</option>
+                </select>
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={handleBulkUpdate}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700"
+                >
+                  一括反映
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {filteredShifts.length === 0 ? (
           <div className="p-6 text-center text-gray-700">シフトがありません</div>
         ) : (
@@ -865,6 +1016,14 @@ export default function ShiftManagePage() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                    <input
+                      type="checkbox"
+                      checked={selectedShiftIds.size > 0 && selectedShiftIds.size === filteredShifts.length}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">日付</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">従業員</th>
                   {displayMode === 'all' && (
@@ -895,6 +1054,14 @@ export default function ShiftManagePage() {
                   <tr key={shift.id} className={rowClassName}>
                     {editingShift?.id === shift.id ? (
                       <>
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedShiftIds.has(shift.id)}
+                            onChange={(e) => handleSelectShift(shift.id, e.target.checked)}
+                            className="w-4 h-4"
+                          />
+                        </td>
                         <td className="px-4 py-3">
                           <input
                             type="date"
@@ -1100,6 +1267,14 @@ export default function ShiftManagePage() {
                       </>
                     ) : (
                       <>
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedShiftIds.has(shift.id)}
+                            onChange={(e) => handleSelectShift(shift.id, e.target.checked)}
+                            className="w-4 h-4"
+                          />
+                        </td>
                         <td className={`px-4 py-3 text-sm ${isHolidayOrSun ? 'text-red-700 font-semibold' : 'text-gray-900'}`}>{formatDate(shift.date)}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{shift.employee.name}</td>
                         {displayMode === 'all' && (
