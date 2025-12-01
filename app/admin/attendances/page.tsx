@@ -90,6 +90,23 @@ export default function AdminAttendancesPage() {
       locationName: '',
     },
   })
+  const [editFormData, setEditFormData] = useState({
+    wakeUpTime: '',
+    departureTime: '',
+    clockIn: '',
+    clockOut: '',
+    clockInLocation: {
+      latitude: '',
+      longitude: '',
+      locationName: '',
+    },
+    clockOutLocation: {
+      latitude: '',
+      longitude: '',
+      locationName: '',
+    },
+    breakMinutes: 0,
+  })
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user.role === 'admin') {
@@ -676,6 +693,46 @@ export default function AdminAttendancesPage() {
   const handleEdit = (attendance: Attendance) => {
     setEditingAttendance(attendance)
     setShowManualForm(false)
+    
+    // 編集フォームに既存のデータを設定
+    const formatTime = (time: string | null | Date) => {
+      if (!time) return ''
+      if (typeof time === 'string') {
+        // ISO形式の文字列から時刻部分を抽出
+        if (time.includes('T')) {
+          return time.split('T')[1]?.slice(0, 5) || ''
+        }
+        return time.slice(0, 5)
+      }
+      if (time instanceof Date) {
+        const hours = String(time.getHours()).padStart(2, '0')
+        const minutes = String(time.getMinutes()).padStart(2, '0')
+        return `${hours}:${minutes}`
+      }
+      return ''
+    }
+
+    const formatLocation = (location: any) => {
+      if (!location) return { latitude: '', longitude: '', locationName: '' }
+      if (typeof location === 'object') {
+        return {
+          latitude: location.latitude?.toString() || '',
+          longitude: location.longitude?.toString() || '',
+          locationName: location.locationName || location.address || '',
+        }
+      }
+      return { latitude: '', longitude: '', locationName: '' }
+    }
+
+    setEditFormData({
+      wakeUpTime: formatTime(attendance.wakeUpTime),
+      departureTime: formatTime(attendance.departureTime),
+      clockIn: formatTime(attendance.clockIn),
+      clockOut: formatTime(attendance.clockOut),
+      clockInLocation: formatLocation(attendance.clockInLocation),
+      clockOutLocation: formatLocation(attendance.clockOutLocation),
+      breakMinutes: attendance.breakMinutes || 0,
+    })
   }
 
   const handleDelete = async (id: number) => {
@@ -710,30 +767,30 @@ export default function AdminAttendancesPage() {
     try {
       const updateData: any = {}
       
-      // 各時刻フィールドを更新
-      if (manualFormData.type === 'wake_up' && manualFormData.time) {
-        updateData.wakeUpTime = manualFormData.time
-      } else if (manualFormData.type === 'departure' && manualFormData.time) {
-        updateData.departureTime = manualFormData.time
-      } else if (manualFormData.type === 'clock_in' && manualFormData.time) {
-        updateData.clockIn = manualFormData.time
-        if (manualFormData.location.latitude || manualFormData.location.locationName) {
-          updateData.clockInLocation = {
-            latitude: manualFormData.location.latitude ? parseFloat(manualFormData.location.latitude) : null,
-            longitude: manualFormData.location.longitude ? parseFloat(manualFormData.location.longitude) : null,
-            locationName: manualFormData.location.locationName || null,
-            isManual: true,
-          }
+      // すべての打刻時間を更新（空の場合はnullに設定）
+      updateData.wakeUpTime = editFormData.wakeUpTime || null
+      updateData.departureTime = editFormData.departureTime || null
+      updateData.clockIn = editFormData.clockIn || null
+      updateData.clockOut = editFormData.clockOut || null
+      updateData.breakMinutes = editFormData.breakMinutes || 0
+
+      // 出勤位置情報
+      if (editFormData.clockIn) {
+        updateData.clockInLocation = {
+          latitude: editFormData.clockInLocation.latitude ? parseFloat(editFormData.clockInLocation.latitude) : null,
+          longitude: editFormData.clockInLocation.longitude ? parseFloat(editFormData.clockInLocation.longitude) : null,
+          locationName: editFormData.clockInLocation.locationName || null,
+          isManual: true,
         }
-      } else if (manualFormData.type === 'clock_out' && manualFormData.time) {
-        updateData.clockOut = manualFormData.time
-        if (manualFormData.location.latitude || manualFormData.location.locationName) {
-          updateData.clockOutLocation = {
-            latitude: manualFormData.location.latitude ? parseFloat(manualFormData.location.latitude) : null,
-            longitude: manualFormData.location.longitude ? parseFloat(manualFormData.location.longitude) : null,
-            locationName: manualFormData.location.locationName || null,
-            isManual: true,
-          }
+      }
+
+      // 退勤位置情報
+      if (editFormData.clockOut) {
+        updateData.clockOutLocation = {
+          latitude: editFormData.clockOutLocation.latitude ? parseFloat(editFormData.clockOutLocation.latitude) : null,
+          longitude: editFormData.clockOutLocation.longitude ? parseFloat(editFormData.clockOutLocation.longitude) : null,
+          locationName: editFormData.clockOutLocation.locationName || null,
+          isManual: true,
         }
       }
 
@@ -747,16 +804,14 @@ export default function AdminAttendancesPage() {
       if (data.success) {
         alert('打刻を更新しました')
         setEditingAttendance(null)
-        setManualFormData({
-          employeeId: '',
-          date: new Date().toISOString().split('T')[0],
-          type: 'clock_in',
-          time: '',
-          location: {
-            latitude: '',
-            longitude: '',
-            locationName: '',
-          },
+        setEditFormData({
+          wakeUpTime: '',
+          departureTime: '',
+          clockIn: '',
+          clockOut: '',
+          clockInLocation: { latitude: '', longitude: '', locationName: '' },
+          clockOutLocation: { latitude: '', longitude: '', locationName: '' },
+          breakMinutes: 0,
         })
         if (viewMode === 'shifts') {
           fetchShiftsAndAttendances()
@@ -855,30 +910,22 @@ export default function AdminAttendancesPage() {
           </button>
         </div>
 
-        {/* 打刻登録・編集フォーム */}
-        {(showManualForm || editingAttendance) && (
+        {/* 打刻登録フォーム */}
+        {showManualForm && !editingAttendance && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900">
-              {editingAttendance ? '打刻を編集' : '打刻を登録'}
-            </h2>
-            <form onSubmit={editingAttendance ? handleUpdate : handleManualAttendance} className="space-y-4">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900">打刻を登録</h2>
+            <form onSubmit={handleManualAttendance} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    従業員 *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">従業員 *</label>
                   <select
-                    value={editingAttendance ? editingAttendance.employee.id.toString() : manualFormData.employeeId}
-                    onChange={(e) =>
-                      setManualFormData({ ...manualFormData, employeeId: e.target.value })
-                    }
+                    value={manualFormData.employeeId}
+                    onChange={(e) => setManualFormData({ ...manualFormData, employeeId: e.target.value })}
                     required
-                    disabled={employees.length === 0 || !!editingAttendance}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    disabled={employees.length === 0}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white disabled:bg-gray-100"
                   >
-                    <option value="">
-                      {employees.length > 0 ? '選択してください' : '従業員データを読み込み中...'}
-                    </option>
+                    <option value="">{employees.length > 0 ? '選択してください' : '従業員データを読み込み中...'}</option>
                     {employees.map((emp) => (
                       <option key={emp.id} value={emp.id.toString()}>
                         {emp.name} ({emp.employeeNumber})
@@ -887,29 +934,20 @@ export default function AdminAttendancesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    日付 *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">日付 *</label>
                   <input
                     type="date"
-                    value={editingAttendance ? new Date(editingAttendance.date).toISOString().split('T')[0] : manualFormData.date}
-                    onChange={(e) =>
-                      setManualFormData({ ...manualFormData, date: e.target.value })
-                    }
+                    value={manualFormData.date}
+                    onChange={(e) => setManualFormData({ ...manualFormData, date: e.target.value })}
                     required
-                    disabled={!!editingAttendance}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white disabled:bg-gray-100"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    打刻タイプ *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">打刻タイプ *</label>
                   <select
                     value={manualFormData.type}
-                    onChange={(e) =>
-                      setManualFormData({ ...manualFormData, type: e.target.value })
-                    }
+                    onChange={(e) => setManualFormData({ ...manualFormData, type: e.target.value })}
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                   >
@@ -920,129 +958,216 @@ export default function AdminAttendancesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    時刻 *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">時刻 *</label>
                   <input
                     type="time"
                     value={manualFormData.time}
-                    onChange={(e) =>
-                      setManualFormData({ ...manualFormData, time: e.target.value })
-                    }
+                    onChange={(e) => setManualFormData({ ...manualFormData, time: e.target.value })}
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                   />
                 </div>
               </div>
-
-              {/* 出勤・退勤の場合は位置情報入力（オプション） */}
               {(manualFormData.type === 'clock_in' || manualFormData.type === 'clock_out') && (
                 <div className="border-t pt-4">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                    位置情報（オプション）
-                  </h3>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">位置情報（オプション）</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        緯度
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">緯度</label>
                       <input
                         type="number"
                         step="any"
                         value={manualFormData.location.latitude}
-                        onChange={(e) =>
-                          setManualFormData({
-                            ...manualFormData,
-                            location: {
-                              ...manualFormData.location,
-                              latitude: e.target.value,
-                            },
-                          })
-                        }
+                        onChange={(e) => setManualFormData({ ...manualFormData, location: { ...manualFormData.location, latitude: e.target.value } })}
                         placeholder="例: 36.5658"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        経度
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">経度</label>
                       <input
                         type="number"
                         step="any"
                         value={manualFormData.location.longitude}
-                        onChange={(e) =>
-                          setManualFormData({
-                            ...manualFormData,
-                            location: {
-                              ...manualFormData.location,
-                              longitude: e.target.value,
-                            },
-                          })
-                        }
+                        onChange={(e) => setManualFormData({ ...manualFormData, location: { ...manualFormData.location, longitude: e.target.value } })}
                         placeholder="例: 139.8827"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        場所名
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">場所名</label>
                       <input
                         type="text"
                         value={manualFormData.location.locationName}
-                        onChange={(e) =>
-                          setManualFormData({
-                            ...manualFormData,
-                            location: {
-                              ...manualFormData.location,
-                              locationName: e.target.value,
-                            },
-                          })
-                        }
+                        onChange={(e) => setManualFormData({ ...manualFormData, location: { ...manualFormData.location, locationName: e.target.value } })}
                         placeholder="例: 本社"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                       />
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    ※位置情報は省略可能です。省略した場合は「手動入力」として記録されます。
-                  </p>
                 </div>
               )}
+              <div className="flex gap-2">
+                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium">登録</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowManualForm(false)
+                    setManualFormData({ employeeId: '', date: new Date().toISOString().split('T')[0], type: 'clock_in', time: '', location: { latitude: '', longitude: '', locationName: '' } })
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-medium"
+                >
+                  キャンセル
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* 打刻編集フォーム（全項目編集可能） */}
+        {editingAttendance && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900">
+              打刻を強制編集 - {editingAttendance.employee.name} ({new Date(editingAttendance.date).toLocaleDateString('ja-JP')})
+            </h2>
+            <form onSubmit={handleUpdate} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">起床時刻</label>
+                  <input
+                    type="time"
+                    value={editFormData.wakeUpTime}
+                    onChange={(e) => setEditFormData({ ...editFormData, wakeUpTime: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">出発時刻</label>
+                  <input
+                    type="time"
+                    value={editFormData.departureTime}
+                    onChange={(e) => setEditFormData({ ...editFormData, departureTime: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">出勤時刻</label>
+                  <input
+                    type="time"
+                    value={editFormData.clockIn}
+                    onChange={(e) => setEditFormData({ ...editFormData, clockIn: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">退勤時刻</label>
+                  <input
+                    type="time"
+                    value={editFormData.clockOut}
+                    onChange={(e) => setEditFormData({ ...editFormData, clockOut: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">休憩時間（分）</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editFormData.breakMinutes}
+                    onChange={(e) => setEditFormData({ ...editFormData, breakMinutes: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* 出勤位置情報 */}
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">出勤位置情報</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">緯度</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={editFormData.clockInLocation.latitude}
+                      onChange={(e) => setEditFormData({ ...editFormData, clockInLocation: { ...editFormData.clockInLocation, latitude: e.target.value } })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">経度</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={editFormData.clockInLocation.longitude}
+                      onChange={(e) => setEditFormData({ ...editFormData, clockInLocation: { ...editFormData.clockInLocation, longitude: e.target.value } })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">場所名</label>
+                    <input
+                      type="text"
+                      value={editFormData.clockInLocation.locationName}
+                      onChange={(e) => setEditFormData({ ...editFormData, clockInLocation: { ...editFormData.clockInLocation, locationName: e.target.value } })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 退勤位置情報 */}
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">退勤位置情報</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">緯度</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={editFormData.clockOutLocation.latitude}
+                      onChange={(e) => setEditFormData({ ...editFormData, clockOutLocation: { ...editFormData.clockOutLocation, latitude: e.target.value } })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">経度</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={editFormData.clockOutLocation.longitude}
+                      onChange={(e) => setEditFormData({ ...editFormData, clockOutLocation: { ...editFormData.clockOutLocation, longitude: e.target.value } })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">場所名</label>
+                    <input
+                      type="text"
+                      value={editFormData.clockOutLocation.locationName}
+                      onChange={(e) => setEditFormData({ ...editFormData, clockOutLocation: { ...editFormData.clockOutLocation, locationName: e.target.value } })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
 
               <div className="flex gap-2">
+                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium">強制更新</button>
                 <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium"
+                  type="button"
+                  onClick={() => {
+                    setEditingAttendance(null)
+                    setEditFormData({ wakeUpTime: '', departureTime: '', clockIn: '', clockOut: '', clockInLocation: { latitude: '', longitude: '', locationName: '' }, clockOutLocation: { latitude: '', longitude: '', locationName: '' }, breakMinutes: 0 })
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-medium"
                 >
-                  {editingAttendance ? '更新' : '登録'}
+                  キャンセル
                 </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowManualForm(false)
-                      setEditingAttendance(null)
-                      setManualFormData({
-                        employeeId: '',
-                        date: new Date().toISOString().split('T')[0],
-                        type: 'clock_in',
-                        time: '',
-                        location: {
-                          latitude: '',
-                          longitude: '',
-                          locationName: '',
-                        },
-                      })
-                    }}
-                    className="px-4 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-medium"
-                  >
-                    キャンセル
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
+              </div>
+            </form>
+          </div>
+        )}
 
         {/* フィルター */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
