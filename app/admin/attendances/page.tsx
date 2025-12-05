@@ -691,8 +691,14 @@ export default function AdminAttendancesPage() {
   }
 
   const handleEdit = (attendance: Attendance) => {
+    console.log('handleEdit called with attendance:', attendance)
+    if (!attendance) {
+      console.error('Attendance is null or undefined')
+      return
+    }
     setEditingAttendance(attendance)
     setShowManualForm(false)
+    console.log('Editing attendance set:', attendance.id)
     
     // 編集フォームに既存のデータを設定
     const formatTime = (time: string | null | Date) => {
@@ -1024,9 +1030,9 @@ export default function AdminAttendancesPage() {
           </div>
         )}
 
-        {/* 打刻編集フォーム（全項目編集可能） */}
+        {/* 打刻編集フォーム（全項目編集可能） - ページ上部に表示 */}
         {editingAttendance && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6 border-2 border-blue-500 sticky top-4 z-10">
             <h2 className="text-lg font-semibold mb-4 text-gray-900">
               打刻を強制編集 - {editingAttendance.employee.name} ({new Date(editingAttendance.date).toLocaleDateString('ja-JP')})
             </h2>
