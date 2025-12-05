@@ -899,6 +899,16 @@ export default function AdminAttendancesPage() {
     }
   }
 
+  // デバッグ用：editingAttendanceの状態をログに出力
+  useEffect(() => {
+    if (editingAttendance) {
+      console.log('editingAttendance state changed:', editingAttendance)
+      console.log('editFormData:', editFormData)
+    } else {
+      console.log('editingAttendance is null')
+    }
+  }, [editingAttendance, editFormData])
+
   if (status === 'loading' || loading) {
     return <div className="p-8 text-center text-gray-900">読み込み中...</div>
   }
@@ -916,9 +926,16 @@ export default function AdminAttendancesPage() {
           </button>
         </div>
 
+        {/* デバッグ表示 */}
+        {editingAttendance && (
+          <div className="bg-yellow-100 border-2 border-yellow-500 text-yellow-800 px-4 py-3 rounded mb-4">
+            <strong>デバッグ:</strong> editingAttendance is set - ID: {editingAttendance.id}, Employee: {editingAttendance.employee?.name || 'N/A'}
+          </div>
+        )}
+
         {/* 打刻編集フォーム（全項目編集可能） - ページ上部に表示 */}
         {editingAttendance && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6 border-2 border-blue-500">
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6 border-4 border-blue-500" style={{ backgroundColor: '#f0f9ff', minHeight: '200px' }}>
             <h2 className="text-lg font-semibold mb-4 text-gray-900">
               打刻を強制編集 - {editingAttendance.employee.name} ({new Date(editingAttendance.date).toLocaleDateString('ja-JP')})
             </h2>
