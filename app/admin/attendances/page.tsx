@@ -1425,53 +1425,7 @@ export default function AdminAttendancesPage() {
                             {attendance ? (
                               <div className="flex gap-2">
                                 <button
-                                  onClick={() => {
-                                    let type = 'clock_in'
-                                    let time = ''
-                                    let location = { latitude: '', longitude: '', locationName: '' }
-                                    
-                                    if (attendance.wakeUpTime) {
-                                      type = 'wake_up'
-                                      const timeStr = formatTime(attendance.wakeUpTime)
-                                      time = timeStr !== '-' ? timeStr : ''
-                                    } else if (attendance.departureTime) {
-                                      type = 'departure'
-                                      const timeStr = formatTime(attendance.departureTime)
-                                      time = timeStr !== '-' ? timeStr : ''
-                                    } else if (attendance.clockIn) {
-                                      type = 'clock_in'
-                                      const timeStr = formatTime(attendance.clockIn)
-                                      time = timeStr !== '-' ? timeStr : ''
-                                      if (attendance.clockInLocation) {
-                                        location = {
-                                          latitude: attendance.clockInLocation.latitude?.toString() || '',
-                                          longitude: attendance.clockInLocation.longitude?.toString() || '',
-                                          locationName: attendance.clockInLocation.locationName || '',
-                                        }
-                                      }
-                                    } else if (attendance.clockOut) {
-                                      type = 'clock_out'
-                                      const timeStr = formatTime(attendance.clockOut)
-                                      time = timeStr !== '-' ? timeStr : ''
-                                      if (attendance.clockOutLocation) {
-                                        location = {
-                                          latitude: attendance.clockOutLocation.latitude?.toString() || '',
-                                          longitude: attendance.clockOutLocation.longitude?.toString() || '',
-                                          locationName: attendance.clockOutLocation.locationName || '',
-                                        }
-                                      }
-                                    }
-                                    
-                                    setEditingAttendance(attendance)
-                                    setManualFormData({
-                                      employeeId: attendance.employee.id.toString(),
-                                      date: new Date(attendance.date).toISOString().split('T')[0],
-                                      type,
-                                      time,
-                                      location,
-                                    })
-                                    setShowManualForm(false)
-                                  }}
+                                  onClick={() => handleEdit(attendance)}
                                   className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
                                 >
                                   編集
@@ -1626,53 +1580,7 @@ export default function AdminAttendancesPage() {
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
                             <button
-                              onClick={() => {
-                                let type = 'clock_in'
-                                let time = ''
-                                let location = { latitude: '', longitude: '', locationName: '' }
-                                
-                                if (attendance.wakeUpTime) {
-                                  type = 'wake_up'
-                                  const timeStr = formatTime(attendance.wakeUpTime)
-                                  time = timeStr !== '-' ? timeStr : ''
-                                } else if (attendance.departureTime) {
-                                  type = 'departure'
-                                  const timeStr = formatTime(attendance.departureTime)
-                                  time = timeStr !== '-' ? timeStr : ''
-                                } else if (attendance.clockIn) {
-                                  type = 'clock_in'
-                                  const timeStr = formatTime(attendance.clockIn)
-                                  time = timeStr !== '-' ? timeStr : ''
-                                  if (attendance.clockInLocation) {
-                                    location = {
-                                      latitude: attendance.clockInLocation.latitude?.toString() || '',
-                                      longitude: attendance.clockInLocation.longitude?.toString() || '',
-                                      locationName: attendance.clockInLocation.locationName || '',
-                                    }
-                                  }
-                                } else if (attendance.clockOut) {
-                                  type = 'clock_out'
-                                  const timeStr = formatTime(attendance.clockOut)
-                                  time = timeStr !== '-' ? timeStr : ''
-                                  if (attendance.clockOutLocation) {
-                                    location = {
-                                      latitude: attendance.clockOutLocation.latitude?.toString() || '',
-                                      longitude: attendance.clockOutLocation.longitude?.toString() || '',
-                                      locationName: attendance.clockOutLocation.locationName || '',
-                                    }
-                                  }
-                                }
-                                
-                                setEditingAttendance(attendance)
-                                setManualFormData({
-                                  employeeId: attendance.employee.id.toString(),
-                                  date: new Date(attendance.date).toISOString().split('T')[0],
-                                  type,
-                                  time,
-                                  location,
-                                })
-                                setShowManualForm(false)
-                              }}
+                              onClick={() => handleEdit(attendance)}
                               className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
                             >
                               編集
