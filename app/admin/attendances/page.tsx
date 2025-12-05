@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 interface Attendance {
   id: number
@@ -73,7 +74,6 @@ export default function AdminAttendancesPage() {
   const [endDate, setEndDate] = useState('')
   const [viewMode, setViewMode] = useState<'shifts' | 'attendances'>('shifts') // デフォルトはシフト表示
   const [showManualForm, setShowManualForm] = useState(false)
-  const [editingAttendance, setEditingAttendance] = useState<Attendance | null>(null)
   const [showMapModal, setShowMapModal] = useState(false)
   const [mapLocation, setMapLocation] = useState<{ latitude: number; longitude: number; locationName?: string } | null>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
@@ -90,23 +90,6 @@ export default function AdminAttendancesPage() {
       longitude: '',
       locationName: '',
     },
-  })
-  const [editFormData, setEditFormData] = useState({
-    wakeUpTime: '',
-    departureTime: '',
-    clockIn: '',
-    clockOut: '',
-    clockInLocation: {
-      latitude: '',
-      longitude: '',
-      locationName: '',
-    },
-    clockOutLocation: {
-      latitude: '',
-      longitude: '',
-      locationName: '',
-    },
-    breakMinutes: 0,
   })
 
   useEffect(() => {
@@ -691,138 +674,6 @@ export default function AdminAttendancesPage() {
     setEndDate('')
   }
 
-  const handleEdit = (attendance: Attendance) => {
-    console.log('handleEdit called with attendance:', attendance)
-    if (!attendance) {
-      console.error('Attendance is null or undefined')
-      return
-    }
-    
-    // employee情報が欠落している場合は、employeesから取得
-    if (!attendance.employee) {
-      console.warn('Attendance.employee is missing, trying to find from employees list')
-      // attendanceオブジェクトからemployeeIdを取得（APIレスポンスの構造による）
-      const employeeId = attendance.employeeId || (attendance as any).employeeId
-      if (employeeId) {
-        const employee = employees.find(emp => emp.id === employeeId)
-        if (employee) {
-          // attendanceオブジェクトを更新（型アサーションを使用）
-          const updatedAttendance = {
-            ...attendance,
-            employee: {
-              id: employee.id,
-              name: employee.name,
-              employeeNumber: employee.employeeNumber,
-              department: employee.department,
-            }
-          }
-          console.log('Found employee from employees list:', updatedAttendance.employee)
-          setEditingAttendance(updatedAttendance)
-          setShowManualForm(false)
-          console.log('Editing attendance set:', updatedAttendance.id)
-          
-          // 編集フォームに既存のデータを設定
-          const formatTime = (time: string | null | Date) => {
-            if (!time) return ''
-            if (typeof time === 'string') {
-              if (time.includes('T')) {
-                return time.split('T')[1]?.slice(0, 5) || ''
-              }
-              return time.slice(0, 5)
-            }
-            if (time instanceof Date) {
-              const hours = String(time.getHours()).padStart(2, '0')
-              const minutes = String(time.getMinutes()).padStart(2, '0')
-              return `${hours}:${minutes}`
-            }
-            return ''
-          }
-
-          const formatLocation = (location: any) => {
-            if (!location) return { latitude: '', longitude: '', locationName: '' }
-            if (typeof location === 'object') {
-              return {
-                latitude: location.latitude?.toString() || '',
-                longitude: location.longitude?.toString() || '',
-                locationName: location.locationName || location.address || '',
-              }
-            }
-            return { latitude: '', longitude: '', locationName: '' }
-          }
-
-          setEditFormData({
-            wakeUpTime: formatTime(updatedAttendance.wakeUpTime),
-            departureTime: formatTime(updatedAttendance.departureTime),
-            clockIn: formatTime(updatedAttendance.clockIn),
-            clockOut: formatTime(updatedAttendance.clockOut),
-            clockInLocation: formatLocation(updatedAttendance.clockInLocation),
-            clockOutLocation: formatLocation(updatedAttendance.clockOutLocation),
-            breakMinutes: updatedAttendance.breakMinutes || 0,
-          })
-          return
-        } else {
-          console.error('Could not find employee for attendance:', attendance)
-          alert('従業員情報が見つかりません。ページをリロードしてください。')
-          return
-        }
-      } else {
-        console.error('Could not find employeeId in attendance:', attendance)
-        alert('従業員情報が見つかりません。ページをリロードしてください。')
-        return
-      }
-    }
-    
-    // employee情報が存在する場合でも、必ず新しいオブジェクトを作成して状態を更新
-    const finalAttendance: Attendance = attendance.employee 
-      ? { ...attendance, employee: { ...attendance.employee } }
-      : attendance
-    
-    console.log('Setting editingAttendance with employee:', finalAttendance.employee?.name || 'N/A')
-    console.log('Final attendance object:', JSON.stringify(finalAttendance, null, 2))
-    setEditingAttendance(finalAttendance)
-    setShowManualForm(false)
-    console.log('Editing attendance set:', finalAttendance.id)
-    
-    // 編集フォームに既存のデータを設定
-    const formatTime = (time: string | null | Date) => {
-      if (!time) return ''
-      if (typeof time === 'string') {
-        // ISO形式の文字列から時刻部分を抽出
-        if (time.includes('T')) {
-          return time.split('T')[1]?.slice(0, 5) || ''
-        }
-        return time.slice(0, 5)
-      }
-      if (time instanceof Date) {
-        const hours = String(time.getHours()).padStart(2, '0')
-        const minutes = String(time.getMinutes()).padStart(2, '0')
-        return `${hours}:${minutes}`
-      }
-      return ''
-    }
-
-    const formatLocation = (location: any) => {
-      if (!location) return { latitude: '', longitude: '', locationName: '' }
-      if (typeof location === 'object') {
-        return {
-          latitude: location.latitude?.toString() || '',
-          longitude: location.longitude?.toString() || '',
-          locationName: location.locationName || location.address || '',
-        }
-      }
-      return { latitude: '', longitude: '', locationName: '' }
-    }
-
-    setEditFormData({
-      wakeUpTime: formatTime(attendance.wakeUpTime),
-      departureTime: formatTime(attendance.departureTime),
-      clockIn: formatTime(attendance.clockIn),
-      clockOut: formatTime(attendance.clockOut),
-      clockInLocation: formatLocation(attendance.clockInLocation),
-      clockOutLocation: formatLocation(attendance.clockOutLocation),
-      breakMinutes: attendance.breakMinutes || 0,
-    })
-  }
 
   const handleDelete = async (id: number) => {
     if (!confirm('この打刻を削除しますか？')) return
@@ -849,72 +700,6 @@ export default function AdminAttendancesPage() {
     }
   }
 
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!editingAttendance) return
-
-    try {
-      const updateData: any = {}
-      
-      // すべての打刻時間を更新（空の場合はnullに設定）
-      updateData.wakeUpTime = editFormData.wakeUpTime || null
-      updateData.departureTime = editFormData.departureTime || null
-      updateData.clockIn = editFormData.clockIn || null
-      updateData.clockOut = editFormData.clockOut || null
-      updateData.breakMinutes = editFormData.breakMinutes || 0
-
-      // 出勤位置情報
-      if (editFormData.clockIn) {
-        updateData.clockInLocation = {
-          latitude: editFormData.clockInLocation.latitude ? parseFloat(editFormData.clockInLocation.latitude) : null,
-          longitude: editFormData.clockInLocation.longitude ? parseFloat(editFormData.clockInLocation.longitude) : null,
-          locationName: editFormData.clockInLocation.locationName || null,
-          isManual: true,
-        }
-      }
-
-      // 退勤位置情報
-      if (editFormData.clockOut) {
-        updateData.clockOutLocation = {
-          latitude: editFormData.clockOutLocation.latitude ? parseFloat(editFormData.clockOutLocation.latitude) : null,
-          longitude: editFormData.clockOutLocation.longitude ? parseFloat(editFormData.clockOutLocation.longitude) : null,
-          locationName: editFormData.clockOutLocation.locationName || null,
-          isManual: true,
-        }
-      }
-
-      const response = await fetch(`/api/admin/attendances/${editingAttendance.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData),
-      })
-
-      const data = await response.json()
-      if (data.success) {
-        alert('打刻を更新しました')
-        setEditingAttendance(null)
-        setEditFormData({
-          wakeUpTime: '',
-          departureTime: '',
-          clockIn: '',
-          clockOut: '',
-          clockInLocation: { latitude: '', longitude: '', locationName: '' },
-          clockOutLocation: { latitude: '', longitude: '', locationName: '' },
-          breakMinutes: 0,
-        })
-        if (viewMode === 'shifts') {
-          fetchShiftsAndAttendances()
-        } else {
-          fetchAttendances()
-        }
-      } else {
-        alert(data.error || '打刻の更新に失敗しました')
-      }
-    } catch (err) {
-      console.error('Failed to update attendance:', err)
-      alert('打刻の更新に失敗しました')
-    }
-  }
 
   const handleManualAttendance = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1000,153 +785,8 @@ export default function AdminAttendancesPage() {
           </button>
         </div>
 
-        {/* 打刻編集フォーム（全項目編集可能） - ページ上部に表示 */}
-        {editingAttendance && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6 border-2 border-blue-500">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900">
-              打刻を強制編集 - {editingAttendance.employee?.name || employees.find(e => e.id === (editingAttendance as any).employeeId)?.name || 'N/A'} ({editingAttendance.date ? new Date(editingAttendance.date).toLocaleDateString('ja-JP') : 'N/A'})
-            </h2>
-            <form onSubmit={handleUpdate} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">起床時刻</label>
-                  <input
-                    type="time"
-                    value={editFormData.wakeUpTime}
-                    onChange={(e) => setEditFormData({ ...editFormData, wakeUpTime: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">出発時刻</label>
-                  <input
-                    type="time"
-                    value={editFormData.departureTime}
-                    onChange={(e) => setEditFormData({ ...editFormData, departureTime: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">出勤時刻</label>
-                  <input
-                    type="time"
-                    value={editFormData.clockIn}
-                    onChange={(e) => setEditFormData({ ...editFormData, clockIn: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">退勤時刻</label>
-                  <input
-                    type="time"
-                    value={editFormData.clockOut}
-                    onChange={(e) => setEditFormData({ ...editFormData, clockOut: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">休憩時間（分）</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editFormData.breakMinutes}
-                    onChange={(e) => setEditFormData({ ...editFormData, breakMinutes: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-              </div>
-
-              {/* 出勤位置情報 */}
-              <div className="border-t pt-4">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">出勤位置情報</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">緯度</label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={editFormData.clockInLocation.latitude}
-                      onChange={(e) => setEditFormData({ ...editFormData, clockInLocation: { ...editFormData.clockInLocation, latitude: e.target.value } })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">経度</label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={editFormData.clockInLocation.longitude}
-                      onChange={(e) => setEditFormData({ ...editFormData, clockInLocation: { ...editFormData.clockInLocation, longitude: e.target.value } })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">場所名</label>
-                    <input
-                      type="text"
-                      value={editFormData.clockInLocation.locationName}
-                      onChange={(e) => setEditFormData({ ...editFormData, clockInLocation: { ...editFormData.clockInLocation, locationName: e.target.value } })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* 退勤位置情報 */}
-              <div className="border-t pt-4">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">退勤位置情報</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">緯度</label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={editFormData.clockOutLocation.latitude}
-                      onChange={(e) => setEditFormData({ ...editFormData, clockOutLocation: { ...editFormData.clockOutLocation, latitude: e.target.value } })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">経度</label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={editFormData.clockOutLocation.longitude}
-                      onChange={(e) => setEditFormData({ ...editFormData, clockOutLocation: { ...editFormData.clockOutLocation, longitude: e.target.value } })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">場所名</label>
-                    <input
-                      type="text"
-                      value={editFormData.clockOutLocation.locationName}
-                      onChange={(e) => setEditFormData({ ...editFormData, clockOutLocation: { ...editFormData.clockOutLocation, locationName: e.target.value } })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium">強制更新</button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingAttendance(null)
-                    setEditFormData({ wakeUpTime: '', departureTime: '', clockIn: '', clockOut: '', clockInLocation: { latitude: '', longitude: '', locationName: '' }, clockOutLocation: { latitude: '', longitude: '', locationName: '' }, breakMinutes: 0 })
-                  }}
-                  className="px-4 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-medium"
-                >
-                  キャンセル
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
         {/* 打刻登録フォーム */}
-        {showManualForm && !editingAttendance && (
+        {showManualForm && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-lg font-semibold mb-4 text-gray-900">打刻を登録</h2>
             <form onSubmit={handleManualAttendance} className="space-y-4">
@@ -1514,12 +1154,12 @@ export default function AdminAttendancesPage() {
                           <td className="px-4 py-3">
                             {attendance ? (
                               <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleEdit(attendance)}
-                                  className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                                <Link
+                                  href={`/admin/attendances/${attendance.id}/edit`}
+                                  className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 inline-block text-center"
                                 >
                                   編集
-                                </button>
+                                </Link>
                                 <button
                                   onClick={() => handleDelete(attendance.id)}
                                   className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
@@ -1545,7 +1185,6 @@ export default function AdminAttendancesPage() {
                                     },
                                   })
                                   setShowManualForm(true)
-                                  setEditingAttendance(null)
                                 }}
                                 className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600"
                               >
@@ -1669,12 +1308,12 @@ export default function AdminAttendancesPage() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
-                            <button
-                              onClick={() => handleEdit(attendance)}
-                              className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                            <Link
+                              href={`/admin/attendances/${attendance.id}/edit`}
+                              className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 inline-block text-center"
                             >
                               編集
-                            </button>
+                            </Link>
                             <button
                               onClick={() => handleDelete(attendance.id)}
                               className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"

@@ -2,105 +2,118 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { findNearestLocation, LocationData } from '@/lib/attendance'
 
-export const dynamic = 'force-dynamic'
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session || session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-// 打刻更新
+    const attendanceId = parseInt(params.id)
+    if (isNaN(attendanceId)) {
+      return NextResponse.json({ error: 'Invalid attendance ID' }, { status: 400 })
+    }
+
+    const attendance = await prisma.attendance.findFirst({
+      where: {
+        id: attendanceId,
+        companyId: session.user.companyId,
+      },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            name: true,
+            employeeNumber: true,
+            department: true,
+          },
+        },
+      },
+    })
+
+    if (!attendance) {
+      return NextResponse.json({ error: 'Attendance not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ attendance })
+  } catch (error) {
+    console.error('Failed to fetch attendance:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
+    if (!session || session.user.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const attendanceId = parseInt(params.id)
+    if (isNaN(attendanceId)) {
+      return NextResponse.json({ error: 'Invalid attendance ID' }, { status: 400 })
     }
 
-    const attendanceId = parseInt(params.id)
     const body = await request.json()
+    const {
+      wakeUpTime,
+      departureTime,
+      clockIn,
+      clockOut,
+      breakMinutes,
+      clockInLocation,
+      clockOutLocation,
+    } = body
 
-    // 既存の打刻を確認
-    const existingAttendance = await prisma.attendance.findUnique({
-      where: { id: attendanceId },
+    // 打刻データが存在し、同じ会社のものか確認
+    const existingAttendance = await prisma.attendance.findFirst({
+      where: {
+        id: attendanceId,
+        companyId: session.user.companyId,
+      },
     })
 
-    if (!existingAttendance || existingAttendance.companyId !== session.user.companyId) {
-      return NextResponse.json(
-        { error: 'Attendance not found or unauthorized' },
-        { status: 404 }
-      )
+    if (!existingAttendance) {
+      return NextResponse.json({ error: 'Attendance not found' }, { status: 404 })
     }
 
-    const updateData: any = {}
-
-    // 各時刻フィールドを更新
-    if (body.wakeUpTime !== undefined) {
-      updateData.wakeUpTime = body.wakeUpTime
-        ? new Date(`2000-01-01T${body.wakeUpTime}`)
-        : null
-    }
-    if (body.departureTime !== undefined) {
-      updateData.departureTime = body.departureTime
-        ? new Date(`2000-01-01T${body.departureTime}`)
-        : null
-    }
-    if (body.clockIn !== undefined) {
-      updateData.clockIn = body.clockIn
-        ? new Date(`2000-01-01T${body.clockIn}`)
-        : null
-    }
-    if (body.clockOut !== undefined) {
-      updateData.clockOut = body.clockOut
-        ? new Date(`2000-01-01T${body.clockOut}`)
-        : null
+    // 時刻データの変換
+    const formatTime = (time: string | null) => {
+      if (!time) return null
+      const [hours, minutes] = time.split(':')
+      const date = new Date(existingAttendance.date)
+      date.setHours(parseInt(hours), parseInt(minutes), 0, 0)
+      return date
     }
 
-    // 位置情報の更新
-    if (body.clockInLocation) {
-      if (body.clockInLocation.latitude && body.clockInLocation.longitude) {
-        const locationData = await findNearestLocation(
-          session.user.companyId,
-          {
-            latitude: body.clockInLocation.latitude,
-            longitude: body.clockInLocation.longitude,
-          } as LocationData
-        )
-        updateData.clockInLocation = locationData as any
-      } else if (body.clockInLocation.locationName) {
-        updateData.clockInLocation = {
-          locationName: body.clockInLocation.locationName,
-          isManual: true,
-        } as any
-      }
-    }
-    if (body.clockOutLocation) {
-      if (body.clockOutLocation.latitude && body.clockOutLocation.longitude) {
-        const locationData = await findNearestLocation(
-          session.user.companyId,
-          {
-            latitude: body.clockOutLocation.latitude,
-            longitude: body.clockOutLocation.longitude,
-          } as LocationData
-        )
-        updateData.clockOutLocation = locationData as any
-      } else if (body.clockOutLocation.locationName) {
-        updateData.clockOutLocation = {
-          locationName: body.clockOutLocation.locationName,
-          isManual: true,
-        } as any
-      }
+    const updateData: any = {
+      breakMinutes: breakMinutes || 0,
     }
 
-    if (body.breakMinutes !== undefined) {
-      updateData.breakMinutes = body.breakMinutes
+    if (wakeUpTime !== undefined) {
+      updateData.wakeUpTime = formatTime(wakeUpTime)
     }
-    if (body.notes !== undefined) {
-      updateData.notes = body.notes
+    if (departureTime !== undefined) {
+      updateData.departureTime = formatTime(departureTime)
+    }
+    if (clockIn !== undefined) {
+      updateData.clockIn = formatTime(clockIn)
+    }
+    if (clockOut !== undefined) {
+      updateData.clockOut = formatTime(clockOut)
+    }
+    if (clockInLocation !== undefined) {
+      updateData.clockInLocation = clockInLocation
+    }
+    if (clockOutLocation !== undefined) {
+      updateData.clockOutLocation = clockOutLocation
     }
 
     const updatedAttendance = await prisma.attendance.update({
@@ -119,55 +132,8 @@ export async function PATCH(
     })
 
     return NextResponse.json({ success: true, attendance: updatedAttendance })
-  } catch (error: any) {
-    console.error('Update attendance error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error', details: error?.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    console.error('Failed to update attendance:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-
-// 打刻削除
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    if (session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    const attendanceId = parseInt(params.id)
-
-    // 既存の打刻を確認
-    const existingAttendance = await prisma.attendance.findUnique({
-      where: { id: attendanceId },
-    })
-
-    if (!existingAttendance || existingAttendance.companyId !== session.user.companyId) {
-      return NextResponse.json(
-        { error: 'Attendance not found or unauthorized' },
-        { status: 404 }
-      )
-    }
-
-    await prisma.attendance.delete({
-      where: { id: attendanceId },
-    })
-
-    return NextResponse.json({ success: true })
-  } catch (error: any) {
-    console.error('Delete attendance error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error', details: error?.message },
-      { status: 500 }
-    )
-  }
-}
-
