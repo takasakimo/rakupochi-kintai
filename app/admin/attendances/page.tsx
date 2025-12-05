@@ -989,9 +989,11 @@ export default function AdminAttendancesPage() {
       console.log('Has employee?', !!editingAttendance.employee)
       console.log('Employee name:', editingAttendance.employee?.name)
       console.log('editFormData:', editFormData)
-      // フォームが表示されるべき条件をチェック
-      const shouldShowForm = editingAttendance && (editingAttendance.employee || (editingAttendance as any).employeeId)
-      console.log('Should show form?', shouldShowForm)
+      // フォームが表示されるべき条件をチェック（明示的にbooleanに変換）
+      const hasEmployee = !!editingAttendance.employee
+      const hasEmployeeId = !!(editingAttendance as any).employeeId
+      const shouldShowForm = !!(editingAttendance && (hasEmployee || hasEmployeeId))
+      console.log('Should show form?', shouldShowForm, '(hasEmployee:', hasEmployee, ', hasEmployeeId:', hasEmployeeId, ')')
     } else {
       console.log('editingAttendance is null')
     }
