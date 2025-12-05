@@ -73,24 +73,12 @@ export default function AdminAttendancesPage() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [viewMode, setViewMode] = useState<'shifts' | 'attendances'>('shifts') // デフォルトはシフト表示
-  const [showManualForm, setShowManualForm] = useState(false)
   const [showMapModal, setShowMapModal] = useState(false)
   const [mapLocation, setMapLocation] = useState<{ latitude: number; longitude: number; locationName?: string } | null>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
   const mapInstanceRef = useRef<any>(null)
   const markerInstanceRef = useRef<any>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
-  const [manualFormData, setManualFormData] = useState({
-    employeeId: '',
-    date: new Date().toISOString().split('T')[0],
-    type: 'clock_in',
-    time: '',
-    location: {
-      latitude: '',
-      longitude: '',
-      locationName: '',
-    },
-  })
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user.role === 'admin') {
@@ -701,71 +689,6 @@ export default function AdminAttendancesPage() {
   }
 
 
-  const handleManualAttendance = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!manualFormData.employeeId || !manualFormData.date || !manualFormData.time) {
-      alert('従業員、日付、時刻を入力してください')
-      return
-    }
-
-    try {
-      const payload: any = {
-        employeeId: manualFormData.employeeId,
-        date: manualFormData.date,
-        type: manualFormData.type,
-        time: manualFormData.time,
-      }
-
-      // 出勤・退勤の場合は位置情報も送信（オプション）
-      if (
-        (manualFormData.type === 'clock_in' || manualFormData.type === 'clock_out') &&
-        (manualFormData.location.latitude || manualFormData.location.locationName)
-      ) {
-        payload.location = {
-          latitude: manualFormData.location.latitude
-            ? parseFloat(manualFormData.location.latitude)
-            : null,
-          longitude: manualFormData.location.longitude
-            ? parseFloat(manualFormData.location.longitude)
-            : null,
-          locationName: manualFormData.location.locationName || null,
-        }
-      }
-
-      const response = await fetch('/api/admin/attendance/manual', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      const data = await response.json()
-      if (data.success) {
-        alert('打刻を登録しました')
-        setShowManualForm(false)
-        setManualFormData({
-          employeeId: '',
-          date: new Date().toISOString().split('T')[0],
-          type: 'clock_in',
-          time: '',
-          location: {
-            latitude: '',
-            longitude: '',
-            locationName: '',
-          },
-        })
-        if (viewMode === 'shifts') {
-          fetchShiftsAndAttendances()
-        } else {
-          fetchAttendances()
-        }
-      } else {
-        alert(data.error || '打刻の登録に失敗しました')
-      }
-    } catch (err) {
-      console.error('Failed to register manual attendance:', err)
-      alert('打刻の登録に失敗しました')
-    }
-  }
 
 
   if (status === 'loading' || loading) {
@@ -777,127 +700,13 @@ export default function AdminAttendancesPage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-900">打刻管理</h1>
-          <button
-            onClick={() => setShowManualForm(!showManualForm)}
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium"
+          <Link
+            href="/admin/attendances/new"
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium inline-block"
           >
-            {showManualForm ? 'キャンセル' : '+ 打刻を登録'}
-          </button>
+            + 打刻を登録
+          </Link>
         </div>
-
-        {/* 打刻登録フォーム */}
-        {showManualForm && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900">打刻を登録</h2>
-            <form onSubmit={handleManualAttendance} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">従業員 *</label>
-                  <select
-                    value={manualFormData.employeeId}
-                    onChange={(e) => setManualFormData({ ...manualFormData, employeeId: e.target.value })}
-                    required
-                    disabled={employees.length === 0}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white disabled:bg-gray-100"
-                  >
-                    <option value="">{employees.length > 0 ? '選択してください' : '従業員データを読み込み中...'}</option>
-                    {employees.map((emp) => (
-                      <option key={emp.id} value={emp.id.toString()}>
-                        {emp.name} ({emp.employeeNumber})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">日付 *</label>
-                  <input
-                    type="date"
-                    value={manualFormData.date}
-                    onChange={(e) => setManualFormData({ ...manualFormData, date: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">打刻タイプ *</label>
-                  <select
-                    value={manualFormData.type}
-                    onChange={(e) => setManualFormData({ ...manualFormData, type: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                  >
-                    <option value="wake_up">起床</option>
-                    <option value="departure">出発</option>
-                    <option value="clock_in">出勤</option>
-                    <option value="clock_out">退勤</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">時刻 *</label>
-                  <input
-                    type="time"
-                    value={manualFormData.time}
-                    onChange={(e) => setManualFormData({ ...manualFormData, time: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-              </div>
-              {(manualFormData.type === 'clock_in' || manualFormData.type === 'clock_out') && (
-                <div className="border-t pt-4">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">位置情報（オプション）</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">緯度</label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={manualFormData.location.latitude}
-                        onChange={(e) => setManualFormData({ ...manualFormData, location: { ...manualFormData.location, latitude: e.target.value } })}
-                        placeholder="例: 36.5658"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">経度</label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={manualFormData.location.longitude}
-                        onChange={(e) => setManualFormData({ ...manualFormData, location: { ...manualFormData.location, longitude: e.target.value } })}
-                        placeholder="例: 139.8827"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">場所名</label>
-                      <input
-                        type="text"
-                        value={manualFormData.location.locationName}
-                        onChange={(e) => setManualFormData({ ...manualFormData, location: { ...manualFormData.location, locationName: e.target.value } })}
-                        placeholder="例: 本社"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium">登録</button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowManualForm(false)
-                    setManualFormData({ employeeId: '', date: new Date().toISOString().split('T')[0], type: 'clock_in', time: '', location: { latitude: '', longitude: '', locationName: '' } })
-                  }}
-                  className="px-4 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-medium"
-                >
-                  キャンセル
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
 
         {/* フィルター */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -1173,18 +982,7 @@ export default function AdminAttendancesPage() {
                                   const shiftDate = typeof shift.date === 'string' 
                                 ? shift.date.split('T')[0] 
                                 : new Date(shift.date).toISOString().split('T')[0]
-                              setManualFormData({
-                                    employeeId: shift.employee.id.toString(),
-                                    date: shiftDate,
-                                    type: 'clock_in',
-                                    time: '',
-                                    location: {
-                                      latitude: '',
-                                      longitude: '',
-                                      locationName: '',
-                                    },
-                                  })
-                                  setShowManualForm(true)
+                              router.push(`/admin/attendances/new?employeeId=${shift.employee.id}&date=${shiftDate}&type=clock_in`)
                                 }}
                                 className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600"
                               >
