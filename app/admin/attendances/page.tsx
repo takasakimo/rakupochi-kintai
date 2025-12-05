@@ -772,10 +772,16 @@ export default function AdminAttendancesPage() {
       }
     }
     
-    console.log('Setting editingAttendance with employee:', attendance.employee.name)
-    setEditingAttendance({ ...attendance })
+    // employee情報が存在する場合でも、必ず新しいオブジェクトを作成して状態を更新
+    const finalAttendance: Attendance = attendance.employee 
+      ? { ...attendance, employee: { ...attendance.employee } }
+      : attendance
+    
+    console.log('Setting editingAttendance with employee:', finalAttendance.employee?.name || 'N/A')
+    console.log('Final attendance object:', JSON.stringify(finalAttendance, null, 2))
+    setEditingAttendance(finalAttendance)
     setShowManualForm(false)
-    console.log('Editing attendance set:', attendance.id)
+    console.log('Editing attendance set:', finalAttendance.id)
     
     // 編集フォームに既存のデータを設定
     const formatTime = (time: string | null | Date) => {
