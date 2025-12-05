@@ -916,123 +916,9 @@ export default function AdminAttendancesPage() {
           </button>
         </div>
 
-        {/* 打刻登録フォーム */}
-        {showManualForm && !editingAttendance && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900">打刻を登録</h2>
-            <form onSubmit={handleManualAttendance} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">従業員 *</label>
-                  <select
-                    value={manualFormData.employeeId}
-                    onChange={(e) => setManualFormData({ ...manualFormData, employeeId: e.target.value })}
-                    required
-                    disabled={employees.length === 0}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white disabled:bg-gray-100"
-                  >
-                    <option value="">{employees.length > 0 ? '選択してください' : '従業員データを読み込み中...'}</option>
-                    {employees.map((emp) => (
-                      <option key={emp.id} value={emp.id.toString()}>
-                        {emp.name} ({emp.employeeNumber})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">日付 *</label>
-                  <input
-                    type="date"
-                    value={manualFormData.date}
-                    onChange={(e) => setManualFormData({ ...manualFormData, date: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">打刻タイプ *</label>
-                  <select
-                    value={manualFormData.type}
-                    onChange={(e) => setManualFormData({ ...manualFormData, type: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                  >
-                    <option value="wake_up">起床</option>
-                    <option value="departure">出発</option>
-                    <option value="clock_in">出勤</option>
-                    <option value="clock_out">退勤</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">時刻 *</label>
-                  <input
-                    type="time"
-                    value={manualFormData.time}
-                    onChange={(e) => setManualFormData({ ...manualFormData, time: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-              </div>
-              {(manualFormData.type === 'clock_in' || manualFormData.type === 'clock_out') && (
-                <div className="border-t pt-4">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">位置情報（オプション）</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">緯度</label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={manualFormData.location.latitude}
-                        onChange={(e) => setManualFormData({ ...manualFormData, location: { ...manualFormData.location, latitude: e.target.value } })}
-                        placeholder="例: 36.5658"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">経度</label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={manualFormData.location.longitude}
-                        onChange={(e) => setManualFormData({ ...manualFormData, location: { ...manualFormData.location, longitude: e.target.value } })}
-                        placeholder="例: 139.8827"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">場所名</label>
-                      <input
-                        type="text"
-                        value={manualFormData.location.locationName}
-                        onChange={(e) => setManualFormData({ ...manualFormData, location: { ...manualFormData.location, locationName: e.target.value } })}
-                        placeholder="例: 本社"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium">登録</button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowManualForm(false)
-                    setManualFormData({ employeeId: '', date: new Date().toISOString().split('T')[0], type: 'clock_in', time: '', location: { latitude: '', longitude: '', locationName: '' } })
-                  }}
-                  className="px-4 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-medium"
-                >
-                  キャンセル
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
         {/* 打刻編集フォーム（全項目編集可能） - ページ上部に表示 */}
         {editingAttendance && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6 border-2 border-blue-500 sticky top-4 z-10">
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6 border-2 border-blue-500">
             <h2 className="text-lg font-semibold mb-4 text-gray-900">
               打刻を強制編集 - {editingAttendance.employee.name} ({new Date(editingAttendance.date).toLocaleDateString('ja-JP')})
             </h2>
@@ -1165,6 +1051,120 @@ export default function AdminAttendancesPage() {
                   onClick={() => {
                     setEditingAttendance(null)
                     setEditFormData({ wakeUpTime: '', departureTime: '', clockIn: '', clockOut: '', clockInLocation: { latitude: '', longitude: '', locationName: '' }, clockOutLocation: { latitude: '', longitude: '', locationName: '' }, breakMinutes: 0 })
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-medium"
+                >
+                  キャンセル
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* 打刻登録フォーム */}
+        {showManualForm && !editingAttendance && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900">打刻を登録</h2>
+            <form onSubmit={handleManualAttendance} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">従業員 *</label>
+                  <select
+                    value={manualFormData.employeeId}
+                    onChange={(e) => setManualFormData({ ...manualFormData, employeeId: e.target.value })}
+                    required
+                    disabled={employees.length === 0}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white disabled:bg-gray-100"
+                  >
+                    <option value="">{employees.length > 0 ? '選択してください' : '従業員データを読み込み中...'}</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id.toString()}>
+                        {emp.name} ({emp.employeeNumber})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">日付 *</label>
+                  <input
+                    type="date"
+                    value={manualFormData.date}
+                    onChange={(e) => setManualFormData({ ...manualFormData, date: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">打刻タイプ *</label>
+                  <select
+                    value={manualFormData.type}
+                    onChange={(e) => setManualFormData({ ...manualFormData, type: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  >
+                    <option value="wake_up">起床</option>
+                    <option value="departure">出発</option>
+                    <option value="clock_in">出勤</option>
+                    <option value="clock_out">退勤</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">時刻 *</label>
+                  <input
+                    type="time"
+                    value={manualFormData.time}
+                    onChange={(e) => setManualFormData({ ...manualFormData, time: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+              </div>
+              {(manualFormData.type === 'clock_in' || manualFormData.type === 'clock_out') && (
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">位置情報（オプション）</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">緯度</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={manualFormData.location.latitude}
+                        onChange={(e) => setManualFormData({ ...manualFormData, location: { ...manualFormData.location, latitude: e.target.value } })}
+                        placeholder="例: 36.5658"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">経度</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={manualFormData.location.longitude}
+                        onChange={(e) => setManualFormData({ ...manualFormData, location: { ...manualFormData.location, longitude: e.target.value } })}
+                        placeholder="例: 139.8827"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">場所名</label>
+                      <input
+                        type="text"
+                        value={manualFormData.location.locationName}
+                        onChange={(e) => setManualFormData({ ...manualFormData, location: { ...manualFormData.location, locationName: e.target.value } })}
+                        placeholder="例: 本社"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium">登録</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowManualForm(false)
+                    setManualFormData({ employeeId: '', date: new Date().toISOString().split('T')[0], type: 'clock_in', time: '', location: { latitude: '', longitude: '', locationName: '' } })
                   }}
                   className="px-4 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-medium"
                 >
