@@ -986,7 +986,12 @@ export default function AdminAttendancesPage() {
   useEffect(() => {
     if (editingAttendance) {
       console.log('editingAttendance state changed:', editingAttendance)
+      console.log('Has employee?', !!editingAttendance.employee)
+      console.log('Employee name:', editingAttendance.employee?.name)
       console.log('editFormData:', editFormData)
+      // フォームが表示されるべき条件をチェック
+      const shouldShowForm = editingAttendance && (editingAttendance.employee || (editingAttendance as any).employeeId)
+      console.log('Should show form?', shouldShowForm)
     } else {
       console.log('editingAttendance is null')
     }
@@ -1019,7 +1024,7 @@ export default function AdminAttendancesPage() {
         )}
 
         {/* 打刻編集フォーム（全項目編集可能） - ページ上部に表示 */}
-        {editingAttendance && (editingAttendance.employee || (editingAttendance as any).employeeId) && (
+        {editingAttendance && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6 border-4 border-blue-500" style={{ backgroundColor: '#f0f9ff', minHeight: '200px', position: 'relative', zIndex: 1000 }}>
             <h2 className="text-lg font-semibold mb-4 text-gray-900">
               打刻を強制編集 - {editingAttendance.employee?.name || employees.find(e => e.id === (editingAttendance as any).employeeId)?.name || 'N/A'} ({editingAttendance.date ? new Date(editingAttendance.date).toLocaleDateString('ja-JP') : 'N/A'})
