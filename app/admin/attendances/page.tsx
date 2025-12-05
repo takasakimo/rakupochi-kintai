@@ -21,6 +21,7 @@ interface Attendance {
     employeeNumber: string
     department: string | null
   }
+  employeeId?: number // APIレスポンスに含まれる可能性がある
 }
 
 interface Employee {
@@ -696,7 +697,83 @@ export default function AdminAttendancesPage() {
       console.error('Attendance is null or undefined')
       return
     }
-    setEditingAttendance(attendance)
+    
+    // employee情報が欠落している場合は、employeesから取得
+    if (!attendance.employee) {
+      console.warn('Attendance.employee is missing, trying to find from employees list')
+      // attendanceオブジェクトからemployeeIdを取得（APIレスポンスの構造による）
+      const employeeId = attendance.employeeId || (attendance as any).employeeId
+      if (employeeId) {
+        const employee = employees.find(emp => emp.id === employeeId)
+        if (employee) {
+          // attendanceオブジェクトを更新（型アサーションを使用）
+          const updatedAttendance = {
+            ...attendance,
+            employee: {
+              id: employee.id,
+              name: employee.name,
+              employeeNumber: employee.employeeNumber,
+              department: employee.department,
+            }
+          }
+          console.log('Found employee from employees list:', updatedAttendance.employee)
+          setEditingAttendance(updatedAttendance)
+          setShowManualForm(false)
+          console.log('Editing attendance set:', updatedAttendance.id)
+          
+          // 編集フォームに既存のデータを設定
+          const formatTime = (time: string | null | Date) => {
+            if (!time) return ''
+            if (typeof time === 'string') {
+              if (time.includes('T')) {
+                return time.split('T')[1]?.slice(0, 5) || ''
+              }
+              return time.slice(0, 5)
+            }
+            if (time instanceof Date) {
+              const hours = String(time.getHours()).padStart(2, '0')
+              const minutes = String(time.getMinutes()).padStart(2, '0')
+              return `${hours}:${minutes}`
+            }
+            return ''
+          }
+
+          const formatLocation = (location: any) => {
+            if (!location) return { latitude: '', longitude: '', locationName: '' }
+            if (typeof location === 'object') {
+              return {
+                latitude: location.latitude?.toString() || '',
+                longitude: location.longitude?.toString() || '',
+                locationName: location.locationName || location.address || '',
+              }
+            }
+            return { latitude: '', longitude: '', locationName: '' }
+          }
+
+          setEditFormData({
+            wakeUpTime: formatTime(updatedAttendance.wakeUpTime),
+            departureTime: formatTime(updatedAttendance.departureTime),
+            clockIn: formatTime(updatedAttendance.clockIn),
+            clockOut: formatTime(updatedAttendance.clockOut),
+            clockInLocation: formatLocation(updatedAttendance.clockInLocation),
+            clockOutLocation: formatLocation(updatedAttendance.clockOutLocation),
+            breakMinutes: updatedAttendance.breakMinutes || 0,
+          })
+          return
+        } else {
+          console.error('Could not find employee for attendance:', attendance)
+          alert('従業員情報が見つかりません。ページをリロードしてください。')
+          return
+        }
+      } else {
+        console.error('Could not find employeeId in attendance:', attendance)
+        alert('従業員情報が見つかりません。ページをリロードしてください。')
+        return
+      }
+    }
+    
+    console.log('Setting editingAttendance with employee:', attendance.employee.name)
+    setEditingAttendance({ ...attendance })
     setShowManualForm(false)
     console.log('Editing attendance set:', attendance.id)
     
@@ -934,10 +1011,10 @@ export default function AdminAttendancesPage() {
         )}
 
         {/* 打刻編集フォーム（全項目編集可能） - ページ上部に表示 */}
-        {editingAttendance && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6 border-4 border-blue-500" style={{ backgroundColor: '#f0f9ff', minHeight: '200px' }}>
+        {editingAttendance && editingAttendance.employee && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6 border-4 border-blue-500" style={{ backgroundColor: '#f0f9ff', minHeight: '200px', position: 'relative', zIndex: 1000 }}>
             <h2 className="text-lg font-semibold mb-4 text-gray-900">
-              打刻を強制編集 - {editingAttendance.employee.name} ({new Date(editingAttendance.date).toLocaleDateString('ja-JP')})
+              打刻を強制編集 - {editingAttendance.employee?.name || 'N/A'} ({editingAttendance.date ? new Date(editingAttendance.date).toLocaleDateString('ja-JP') : 'N/A'})
             </h2>
             <form onSubmit={handleUpdate} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
