@@ -1006,15 +1006,17 @@ export default function AdminAttendancesPage() {
         {/* デバッグ表示 */}
         {editingAttendance && (
           <div className="bg-yellow-100 border-2 border-yellow-500 text-yellow-800 px-4 py-3 rounded mb-4">
-            <strong>デバッグ:</strong> editingAttendance is set - ID: {editingAttendance.id}, Employee: {editingAttendance.employee?.name || 'N/A'}
+            <strong>デバッグ:</strong> editingAttendance is set - ID: {editingAttendance.id}, Employee: {editingAttendance.employee?.name || 'N/A'}, Has Employee: {editingAttendance.employee ? 'YES' : 'NO'}
+            <br />
+            <pre className="text-xs mt-2 overflow-auto">{JSON.stringify(editingAttendance, null, 2)}</pre>
           </div>
         )}
 
         {/* 打刻編集フォーム（全項目編集可能） - ページ上部に表示 */}
-        {editingAttendance && editingAttendance.employee && (
+        {editingAttendance && (editingAttendance.employee || (editingAttendance as any).employeeId) && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6 border-4 border-blue-500" style={{ backgroundColor: '#f0f9ff', minHeight: '200px', position: 'relative', zIndex: 1000 }}>
             <h2 className="text-lg font-semibold mb-4 text-gray-900">
-              打刻を強制編集 - {editingAttendance.employee?.name || 'N/A'} ({editingAttendance.date ? new Date(editingAttendance.date).toLocaleDateString('ja-JP') : 'N/A'})
+              打刻を強制編集 - {editingAttendance.employee?.name || employees.find(e => e.id === (editingAttendance as any).employeeId)?.name || 'N/A'} ({editingAttendance.date ? new Date(editingAttendance.date).toLocaleDateString('ja-JP') : 'N/A'})
             </h2>
             <form onSubmit={handleUpdate} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
