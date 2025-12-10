@@ -1025,6 +1025,8 @@ export default function ShiftManagePage() {
       updateData.startTime = null
       updateData.endTime = null
       updateData.breakMinutes = 0
+      updateData.workingHours = null
+      updateData.timeSlot = null
     } else {
       // 公休でない場合のみ時間関連を設定
       if (bulkUpdateData.startTime && bulkUpdateData.startTime !== '') {
@@ -1151,6 +1153,8 @@ export default function ShiftManagePage() {
           updateData.startTime = null
           updateData.endTime = null
           updateData.breakMinutes = 0
+          updateData.workingHours = null
+          updateData.timeSlot = null
         } else {
           if (editingShift.startTime) updateData.startTime = editingShift.startTime
           if (editingShift.endTime) updateData.endTime = editingShift.endTime
@@ -1744,8 +1748,8 @@ export default function ShiftManagePage() {
                         <td className="px-2 py-2 text-xs text-gray-900">{shift.isPublicHoliday ? '✓' : '-'}</td>
                         <td className="px-2 py-2 text-xs text-gray-900">{shift.workLocation || '-'}</td>
                         <td className="px-2 py-2 text-xs text-gray-900">{shift.workType || '-'}</td>
-                        <td className="px-2 py-2 text-xs text-gray-900">{shift.workingHours || '-'}</td>
-                        <td className="px-2 py-2 text-xs text-gray-900">{shift.timeSlot || '-'}</td>
+                        <td className="px-2 py-2 text-xs text-gray-900">{shift.isPublicHoliday ? '-' : (shift.workingHours || '-')}</td>
+                        <td className="px-2 py-2 text-xs text-gray-900">{shift.isPublicHoliday ? '-' : (shift.timeSlot || '-')}</td>
                         <td className="px-2 py-2 text-xs text-gray-900">{formatTime(shift.startTime, shift.isPublicHoliday)}</td>
                         <td className="px-2 py-2 text-xs text-gray-900">{formatTime(shift.endTime, shift.isPublicHoliday)}</td>
                         <td className="px-2 py-2 text-xs text-gray-900">{shift.isPublicHoliday ? '-' : `${shift.breakMinutes}分`}</td>
