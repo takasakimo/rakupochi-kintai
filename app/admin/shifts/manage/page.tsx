@@ -1546,10 +1546,11 @@ export default function ShiftManagePage() {
                       </>
                     )}
                   </tr>
-                  )
-                })}
+                )
+              })}
               </tbody>
             </table>
+          </div>
           </div>
         )}
       </div>
