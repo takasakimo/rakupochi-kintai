@@ -988,26 +988,21 @@ export default function ShiftManagePage() {
     }
     
     const updateData: any = {}
-    if (bulkUpdateData.startTime && bulkUpdateData.startTime !== '') {
-      updateData.startTime = bulkUpdateData.startTime
-    }
-    if (bulkUpdateData.endTime && bulkUpdateData.endTime !== '') {
-      updateData.endTime = bulkUpdateData.endTime
-    }
-    if (bulkUpdateData.breakMinutes !== undefined && bulkUpdateData.breakMinutes !== null) {
-      updateData.breakMinutes = bulkUpdateData.breakMinutes
-    }
+    
+    // 公休の設定を先に確認
+    const isPublicHoliday = bulkUpdateData.isPublicHoliday
+    
     if (bulkUpdateData.workLocation !== undefined && bulkUpdateData.workLocation !== '') {
       updateData.workLocation = bulkUpdateData.workLocation
     }
     if (bulkUpdateData.workType !== undefined && bulkUpdateData.workType !== '') {
       updateData.workType = bulkUpdateData.workType
     }
-    if (bulkUpdateData.timeSlot !== undefined && bulkUpdateData.timeSlot !== '') {
-      updateData.timeSlot = bulkUpdateData.timeSlot
-    }
     if (bulkUpdateData.workingHours !== undefined && bulkUpdateData.workingHours !== '') {
       updateData.workingHours = bulkUpdateData.workingHours
+    }
+    if (bulkUpdateData.timeSlot !== undefined && bulkUpdateData.timeSlot !== '') {
+      updateData.timeSlot = bulkUpdateData.timeSlot
     }
     if (bulkUpdateData.directDestination !== undefined && bulkUpdateData.directDestination !== '') {
       updateData.directDestination = bulkUpdateData.directDestination
@@ -1023,6 +1018,24 @@ export default function ShiftManagePage() {
     }
     if (bulkUpdateData.isPublicHoliday !== undefined) {
       updateData.isPublicHoliday = bulkUpdateData.isPublicHoliday
+    }
+    
+    // 公休の場合は時間関連をnull/0にする
+    if (isPublicHoliday === true) {
+      updateData.startTime = null
+      updateData.endTime = null
+      updateData.breakMinutes = 0
+    } else {
+      // 公休でない場合のみ時間関連を設定
+      if (bulkUpdateData.startTime && bulkUpdateData.startTime !== '') {
+        updateData.startTime = bulkUpdateData.startTime
+      }
+      if (bulkUpdateData.endTime && bulkUpdateData.endTime !== '') {
+        updateData.endTime = bulkUpdateData.endTime
+      }
+      if (bulkUpdateData.breakMinutes !== undefined && bulkUpdateData.breakMinutes !== null) {
+        updateData.breakMinutes = bulkUpdateData.breakMinutes
+      }
     }
     
     console.log('Update data:', updateData)
@@ -1119,24 +1132,35 @@ export default function ShiftManagePage() {
       if (!editingShift) return
 
       try {
+        // 公休の場合は時間関連のフィールドをnullにする
+        const updateData: any = {
+          date: editingShift.date,
+          notes: editingShift.notes || null,
+          isPublicHoliday: editingShift.isPublicHoliday,
+          workLocation: editingShift.workLocation || null,
+          workType: editingShift.workType || null,
+          workingHours: editingShift.workingHours || null,
+          timeSlot: editingShift.timeSlot || null,
+          directDestination: editingShift.directDestination || null,
+          approvalNumber: editingShift.approvalNumber || null,
+          leavingLocation: editingShift.leavingLocation || null,
+        }
+
+        if (editingShift.isPublicHoliday) {
+          // 公休の場合は時間関連をnull/0にする
+          updateData.startTime = null
+          updateData.endTime = null
+          updateData.breakMinutes = 0
+        } else {
+          if (editingShift.startTime) updateData.startTime = editingShift.startTime
+          if (editingShift.endTime) updateData.endTime = editingShift.endTime
+          updateData.breakMinutes = editingShift.breakMinutes
+        }
+
         const response = await fetch(`/api/admin/shifts/${editingShift.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            date: editingShift.date,
-            startTime: editingShift.startTime,
-            endTime: editingShift.endTime,
-            breakMinutes: editingShift.breakMinutes,
-            notes: editingShift.notes || null,
-            isPublicHoliday: editingShift.isPublicHoliday,
-            workLocation: editingShift.workLocation || null,
-            workType: editingShift.workType || null,
-            workingHours: editingShift.workingHours || null,
-            timeSlot: editingShift.timeSlot || null,
-            directDestination: editingShift.directDestination || null,
-            approvalNumber: editingShift.approvalNumber || null,
-            leavingLocation: editingShift.leavingLocation || null,
-          }),
+          body: JSON.stringify(updateData),
         })
 
         const data = await response.json()
@@ -1250,7 +1274,22 @@ export default function ShiftManagePage() {
                   <label className="block text-xs text-gray-700 mb-1">勤務種別</label>
                   <select
                     value={bulkUpdateData.workType || ''}
-                    onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, workType: e.target.value || undefined })}
+                    onChange={(e) => {
+                      const workType = e.target.value || undefined
+                      const isPublicHoliday = workType === '公休'
+                      setBulkUpdateData({
+                        ...bulkUpdateData,
+                        workType,
+                        // 公休にした場合は時間関連のフィールドをクリア
+                        ...(isPublicHoliday && {
+                          startTime: undefined,
+                          endTime: undefined,
+                          breakMinutes: undefined,
+                          workingHours: undefined,
+                          timeSlot: undefined,
+                        }),
+                      })
+                    }}
                     className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
                   >
                     <option value="">変更なし</option>
@@ -1315,7 +1354,21 @@ export default function ShiftManagePage() {
                   <label className="block text-xs text-gray-700 mb-1">公休</label>
                   <select
                     value={bulkUpdateData.isPublicHoliday === undefined ? '' : bulkUpdateData.isPublicHoliday ? 'true' : 'false'}
-                    onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, isPublicHoliday: e.target.value === '' ? undefined : e.target.value === 'true' })}
+                    onChange={(e) => {
+                      const isPublicHoliday = e.target.value === '' ? undefined : e.target.value === 'true'
+                      setBulkUpdateData({
+                        ...bulkUpdateData,
+                        isPublicHoliday,
+                        // 公休にした場合は時間関連のフィールドをクリア
+                        ...(isPublicHoliday === true && {
+                          startTime: undefined,
+                          endTime: undefined,
+                          breakMinutes: undefined,
+                          workingHours: undefined,
+                          timeSlot: undefined,
+                        }),
+                      })
+                    }}
                     className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
                   >
                     <option value="">変更なし</option>
@@ -1483,12 +1536,21 @@ export default function ShiftManagePage() {
                           <input
                             type="checkbox"
                             checked={editingShift.isPublicHoliday}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const isPublicHoliday = e.target.checked
                               setEditingShift({
                                 ...editingShift,
-                                isPublicHoliday: e.target.checked,
+                                isPublicHoliday,
+                                // 公休にした場合は時間関連のフィールドをクリア
+                                ...(isPublicHoliday && {
+                                  startTime: '',
+                                  endTime: '',
+                                  breakMinutes: 0,
+                                  workingHours: null,
+                                  timeSlot: null,
+                                }),
                               })
-                            }
+                            }}
                             className="w-3 h-3"
                           />
                         </td>
@@ -1509,12 +1571,22 @@ export default function ShiftManagePage() {
                         <td className="px-1 py-0.5">
                           <select
                             value={editingShift.workType || '出勤'}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const workType = e.target.value
+                              const isPublicHoliday = workType === '公休'
                               setEditingShift({
                                 ...editingShift,
-                                workType: e.target.value,
+                                workType,
+                                // 公休にした場合は時間関連のフィールドをクリア
+                                ...(isPublicHoliday && {
+                                  startTime: '',
+                                  endTime: '',
+                                  breakMinutes: 0,
+                                  workingHours: null,
+                                  timeSlot: null,
+                                }),
                               })
-                            }
+                            }}
                             className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-20 h-6"
                           >
                             <option value="出勤">出勤</option>
