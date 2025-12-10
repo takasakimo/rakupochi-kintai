@@ -1581,6 +1581,7 @@ export default function ShiftManagePage() {
                               setEditingShift({
                                 ...editingShift,
                                 workType,
+                                isPublicHoliday,
                                 // 公休にした場合は時間関連のフィールドをクリア
                                 ...(isPublicHoliday && {
                                   startTime: '',
