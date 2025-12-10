@@ -974,6 +974,79 @@ export default function ShiftManagePage() {
     </div>
   )
 
+  // 一括更新処理
+  const handleBulkUpdate = async () => {
+    console.log('handleBulkUpdate called', { selectedShiftIds: Array.from(selectedShiftIds), bulkUpdateData })
+    
+    if (selectedShiftIds.size === 0) {
+      alert('反映するシフトを選択してください')
+      return
+    }
+    
+    const updateData: any = {}
+    if (bulkUpdateData.startTime) updateData.startTime = bulkUpdateData.startTime
+    if (bulkUpdateData.endTime) updateData.endTime = bulkUpdateData.endTime
+    if (bulkUpdateData.breakMinutes !== undefined) updateData.breakMinutes = bulkUpdateData.breakMinutes
+    if (bulkUpdateData.workLocation !== undefined) updateData.workLocation = bulkUpdateData.workLocation || null
+    if (bulkUpdateData.workType !== undefined) updateData.workType = bulkUpdateData.workType || null
+    if (bulkUpdateData.timeSlot !== undefined && bulkUpdateData.timeSlot !== '') {
+      updateData.timeSlot = bulkUpdateData.timeSlot
+    }
+    if (bulkUpdateData.workingHours !== undefined) updateData.workingHours = bulkUpdateData.workingHours || null
+    if (bulkUpdateData.directDestination !== undefined) updateData.directDestination = bulkUpdateData.directDestination || null
+    if (bulkUpdateData.approvalNumber !== undefined) updateData.approvalNumber = bulkUpdateData.approvalNumber || null
+    if (bulkUpdateData.leavingLocation !== undefined) updateData.leavingLocation = bulkUpdateData.leavingLocation || null
+    if (bulkUpdateData.notes !== undefined) updateData.notes = bulkUpdateData.notes || null
+    if (bulkUpdateData.isPublicHoliday !== undefined) updateData.isPublicHoliday = bulkUpdateData.isPublicHoliday
+    
+    console.log('Update data:', updateData)
+    
+    if (Object.keys(updateData).length === 0) {
+      alert('反映する項目を入力してください')
+      return
+    }
+    
+    if (!confirm(`選択した${selectedShiftIds.size}件のシフトに反映しますか？`)) {
+      return
+    }
+    
+    try {
+      console.log('Starting bulk update for', selectedShiftIds.size, 'shifts')
+      const updatePromises = Array.from(selectedShiftIds).map(async (shiftId) => {
+        console.log('Updating shift', shiftId, 'with data', updateData)
+        const response = await fetch(`/api/admin/shifts/${shiftId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updateData),
+        })
+        const data = await response.json()
+        console.log('Response for shift', shiftId, ':', { status: response.status, data })
+        if (!response.ok) {
+          throw new Error(data.error || '更新に失敗しました')
+        }
+        return { response, data, shiftId }
+      })
+      
+      const results = await Promise.all(updatePromises)
+      const failed = results.filter(r => !r.response.ok)
+      
+      console.log('Bulk update results:', { total: results.length, failed: failed.length })
+      
+      if (failed.length > 0) {
+        console.error('Failed updates:', failed)
+        alert(`${failed.length}件のシフトの更新に失敗しました`)
+      } else {
+        alert(`${selectedShiftIds.size}件のシフトを更新しました`)
+        setSelectedShiftIds(new Set())
+        setBulkUpdateData({})
+        await fetchShifts()
+      }
+    } catch (err) {
+      console.error('Failed to bulk update shifts:', err)
+      alert('一括更新に失敗しました: ' + (err instanceof Error ? err.message : String(err)))
+    }
+  }
+
   // シフト管理（テーブル表示）
   const renderListView = () => {
     const filteredShifts = getFilteredShifts()
@@ -1000,75 +1073,6 @@ export default function ShiftManagePage() {
         setSelectedShiftIds(new Set(filteredShifts.map(s => s.id)))
       } else {
         setSelectedShiftIds(new Set())
-      }
-    }
-    
-    const handleBulkUpdate = async () => {
-      console.log('handleBulkUpdate called', { selectedShiftIds: Array.from(selectedShiftIds), bulkUpdateData })
-      
-      if (selectedShiftIds.size === 0) {
-        alert('反映するシフトを選択してください')
-        return
-      }
-      
-      const updateData: any = {}
-      if (bulkUpdateData.startTime) updateData.startTime = bulkUpdateData.startTime
-      if (bulkUpdateData.endTime) updateData.endTime = bulkUpdateData.endTime
-      if (bulkUpdateData.breakMinutes !== undefined) updateData.breakMinutes = bulkUpdateData.breakMinutes
-      if (bulkUpdateData.workLocation !== undefined) updateData.workLocation = bulkUpdateData.workLocation || null
-      if (bulkUpdateData.workType !== undefined) updateData.workType = bulkUpdateData.workType || null
-      if (bulkUpdateData.timeSlot !== undefined && bulkUpdateData.timeSlot !== '') {
-        updateData.timeSlot = bulkUpdateData.timeSlot
-      }
-      if (bulkUpdateData.workingHours !== undefined) updateData.workingHours = bulkUpdateData.workingHours || null
-      if (bulkUpdateData.directDestination !== undefined) updateData.directDestination = bulkUpdateData.directDestination || null
-      if (bulkUpdateData.approvalNumber !== undefined) updateData.approvalNumber = bulkUpdateData.approvalNumber || null
-      if (bulkUpdateData.leavingLocation !== undefined) updateData.leavingLocation = bulkUpdateData.leavingLocation || null
-      if (bulkUpdateData.notes !== undefined) updateData.notes = bulkUpdateData.notes || null
-      if (bulkUpdateData.isPublicHoliday !== undefined) updateData.isPublicHoliday = bulkUpdateData.isPublicHoliday
-      
-      console.log('Update data:', updateData)
-      
-      if (Object.keys(updateData).length === 0) {
-        alert('反映する項目を入力してください')
-        return
-      }
-      
-      if (!confirm(`選択した${selectedShiftIds.size}件のシフトに反映しますか？`)) {
-        return
-      }
-      
-      try {
-        console.log('Starting bulk update for', selectedShiftIds.size, 'shifts')
-        const updatePromises = Array.from(selectedShiftIds).map(async (shiftId) => {
-          console.log('Updating shift', shiftId, 'with data', updateData)
-          const response = await fetch(`/api/admin/shifts/${shiftId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updateData),
-          })
-          const data = await response.json()
-          console.log('Response for shift', shiftId, ':', { status: response.status, data })
-          return { response, data, shiftId }
-        })
-        
-        const results = await Promise.all(updatePromises)
-        const failed = results.filter(r => !r.response.ok)
-        
-        console.log('Bulk update results:', { total: results.length, failed: failed.length })
-        
-        if (failed.length > 0) {
-          console.error('Failed updates:', failed)
-          alert(`${failed.length}件のシフトの更新に失敗しました`)
-        } else {
-          alert(`${selectedShiftIds.size}件のシフトを更新しました`)
-          setSelectedShiftIds(new Set())
-          setBulkUpdateData({})
-          await fetchShifts()
-        }
-      } catch (err) {
-        console.error('Failed to bulk update shifts:', err)
-        alert('一括更新に失敗しました: ' + (err instanceof Error ? err.message : String(err)))
       }
     }
 
