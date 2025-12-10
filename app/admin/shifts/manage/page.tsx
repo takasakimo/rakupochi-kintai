@@ -976,7 +976,11 @@ export default function ShiftManagePage() {
 
   // 一括更新処理
   const handleBulkUpdate = async () => {
-    console.log('handleBulkUpdate called', { selectedShiftIds: Array.from(selectedShiftIds), bulkUpdateData })
+    console.log('handleBulkUpdate called', { 
+      selectedShiftIds: Array.from(selectedShiftIds), 
+      selectedShiftIdsSize: selectedShiftIds.size,
+      bulkUpdateData 
+    })
     
     if (selectedShiftIds.size === 0) {
       alert('反映するシフトを選択してください')
@@ -984,22 +988,45 @@ export default function ShiftManagePage() {
     }
     
     const updateData: any = {}
-    if (bulkUpdateData.startTime) updateData.startTime = bulkUpdateData.startTime
-    if (bulkUpdateData.endTime) updateData.endTime = bulkUpdateData.endTime
-    if (bulkUpdateData.breakMinutes !== undefined) updateData.breakMinutes = bulkUpdateData.breakMinutes
-    if (bulkUpdateData.workLocation !== undefined) updateData.workLocation = bulkUpdateData.workLocation || null
-    if (bulkUpdateData.workType !== undefined) updateData.workType = bulkUpdateData.workType || null
+    if (bulkUpdateData.startTime && bulkUpdateData.startTime !== '') {
+      updateData.startTime = bulkUpdateData.startTime
+    }
+    if (bulkUpdateData.endTime && bulkUpdateData.endTime !== '') {
+      updateData.endTime = bulkUpdateData.endTime
+    }
+    if (bulkUpdateData.breakMinutes !== undefined && bulkUpdateData.breakMinutes !== null) {
+      updateData.breakMinutes = bulkUpdateData.breakMinutes
+    }
+    if (bulkUpdateData.workLocation !== undefined && bulkUpdateData.workLocation !== '') {
+      updateData.workLocation = bulkUpdateData.workLocation
+    }
+    if (bulkUpdateData.workType !== undefined && bulkUpdateData.workType !== '') {
+      updateData.workType = bulkUpdateData.workType
+    }
     if (bulkUpdateData.timeSlot !== undefined && bulkUpdateData.timeSlot !== '') {
       updateData.timeSlot = bulkUpdateData.timeSlot
     }
-    if (bulkUpdateData.workingHours !== undefined) updateData.workingHours = bulkUpdateData.workingHours || null
-    if (bulkUpdateData.directDestination !== undefined) updateData.directDestination = bulkUpdateData.directDestination || null
-    if (bulkUpdateData.approvalNumber !== undefined) updateData.approvalNumber = bulkUpdateData.approvalNumber || null
-    if (bulkUpdateData.leavingLocation !== undefined) updateData.leavingLocation = bulkUpdateData.leavingLocation || null
-    if (bulkUpdateData.notes !== undefined) updateData.notes = bulkUpdateData.notes || null
-    if (bulkUpdateData.isPublicHoliday !== undefined) updateData.isPublicHoliday = bulkUpdateData.isPublicHoliday
+    if (bulkUpdateData.workingHours !== undefined && bulkUpdateData.workingHours !== '') {
+      updateData.workingHours = bulkUpdateData.workingHours
+    }
+    if (bulkUpdateData.directDestination !== undefined && bulkUpdateData.directDestination !== '') {
+      updateData.directDestination = bulkUpdateData.directDestination
+    }
+    if (bulkUpdateData.approvalNumber !== undefined && bulkUpdateData.approvalNumber !== '') {
+      updateData.approvalNumber = bulkUpdateData.approvalNumber
+    }
+    if (bulkUpdateData.leavingLocation !== undefined && bulkUpdateData.leavingLocation !== '') {
+      updateData.leavingLocation = bulkUpdateData.leavingLocation
+    }
+    if (bulkUpdateData.notes !== undefined && bulkUpdateData.notes !== '') {
+      updateData.notes = bulkUpdateData.notes
+    }
+    if (bulkUpdateData.isPublicHoliday !== undefined) {
+      updateData.isPublicHoliday = bulkUpdateData.isPublicHoliday
+    }
     
     console.log('Update data:', updateData)
+    console.log('Update data keys:', Object.keys(updateData))
     
     if (Object.keys(updateData).length === 0) {
       alert('反映する項目を入力してください')
@@ -1012,29 +1039,41 @@ export default function ShiftManagePage() {
     
     try {
       console.log('Starting bulk update for', selectedShiftIds.size, 'shifts')
-      const updatePromises = Array.from(selectedShiftIds).map(async (shiftId) => {
-        console.log('Updating shift', shiftId, 'with data', updateData)
-        const response = await fetch(`/api/admin/shifts/${shiftId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updateData),
-        })
-        const data = await response.json()
-        console.log('Response for shift', shiftId, ':', { status: response.status, data })
-        if (!response.ok) {
-          throw new Error(data.error || '更新に失敗しました')
+      const shiftIds = Array.from(selectedShiftIds)
+      console.log('Shift IDs to update:', shiftIds)
+      
+      const updatePromises = shiftIds.map(async (shiftId) => {
+        try {
+          console.log('Updating shift', shiftId, 'with data', updateData)
+          const response = await fetch(`/api/admin/shifts/${shiftId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData),
+          })
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+            console.error('Failed to update shift', shiftId, ':', errorData)
+            throw new Error(errorData.error || `HTTP ${response.status}`)
+          }
+          
+          const data = await response.json()
+          console.log('Successfully updated shift', shiftId, ':', data)
+          return { success: true, shiftId, data }
+        } catch (err) {
+          console.error('Error updating shift', shiftId, ':', err)
+          return { success: false, shiftId, error: err instanceof Error ? err.message : String(err) }
         }
-        return { response, data, shiftId }
       })
       
       const results = await Promise.all(updatePromises)
-      const failed = results.filter(r => !r.response.ok)
+      const failed = results.filter(r => !r.success)
       
-      console.log('Bulk update results:', { total: results.length, failed: failed.length })
+      console.log('Bulk update results:', { total: results.length, success: results.length - failed.length, failed: failed.length })
       
       if (failed.length > 0) {
         console.error('Failed updates:', failed)
-        alert(`${failed.length}件のシフトの更新に失敗しました`)
+        alert(`${failed.length}件のシフトの更新に失敗しました。詳細はコンソールを確認してください。`)
       } else {
         alert(`${selectedShiftIds.size}件のシフトを更新しました`)
         setSelectedShiftIds(new Set())
