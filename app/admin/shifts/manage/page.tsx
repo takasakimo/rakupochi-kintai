@@ -1240,32 +1240,32 @@ export default function ShiftManagePage() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">日付</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">従業員</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">日付</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">従業員</th>
                   {displayMode === 'all' && (
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">事業部</th>
+                    <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">事業部</th>
                   )}
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                  <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">
                     <input
                       type="checkbox"
                       checked={selectedShiftIds.size > 0 && selectedShiftIds.size === filteredShifts.length}
                       onChange={(e) => handleSelectAll(e.target.checked)}
-                      className="w-4 h-4"
+                      className="w-3 h-3"
                     />
                   </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">公休</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">勤務場所</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">勤務種別</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">勤務時間</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">時間帯</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">開始時間</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">終了時間</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">休憩</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">直行先</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">稟議番号</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">退勤場所</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">備考</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">操作</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">公休</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">勤務場所</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">勤務種別</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">勤務時間</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">時間帯</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">開始時間</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">終了時間</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">休憩</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">直行先</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">稟議番号</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">退勤場所</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">備考</th>
+                  <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -1278,7 +1278,7 @@ export default function ShiftManagePage() {
                   <tr key={shift.id} className={rowClassName}>
                     {editingShift?.id === shift.id ? (
                       <>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2">
                           <input
                             type="date"
                             value={editingShift.date.split('T')[0]}
@@ -1288,22 +1288,22 @@ export default function ShiftManagePage() {
                                 date: e.target.value,
                               })
                             }
-                            className="px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white"
+                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-28"
                           />
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{shift.employee.name}</td>
+                        <td className="px-2 py-2 text-xs text-gray-900">{shift.employee.name}</td>
                         {displayMode === 'all' && (
-                          <td className="px-4 py-3 text-sm text-gray-900">{shift.employee.department || '-'}</td>
+                          <td className="px-2 py-2 text-xs text-gray-900">{shift.employee.department || '-'}</td>
                         )}
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2">
                           <input
                             type="checkbox"
                             checked={selectedShiftIds.has(shift.id)}
                             onChange={(e) => handleSelectShift(shift.id, e.target.checked)}
-                            className="w-4 h-4"
+                            className="w-3 h-3"
                           />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2">
                           <input
                             type="checkbox"
                             checked={editingShift.isPublicHoliday}
@@ -1313,10 +1313,10 @@ export default function ShiftManagePage() {
                                 isPublicHoliday: e.target.checked,
                               })
                             }
-                            className="w-4 h-4"
+                            className="w-3 h-3"
                           />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2">
                           <input
                             type="text"
                             value={editingShift.workLocation || ''}
@@ -1326,11 +1326,11 @@ export default function ShiftManagePage() {
                                 workLocation: e.target.value,
                               })
                             }
-                            className="px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white w-full"
+                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-24"
                             placeholder="SB天白"
                           />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2">
                           <select
                             value={editingShift.workType || '出勤'}
                             onChange={(e) =>
@@ -1339,13 +1339,13 @@ export default function ShiftManagePage() {
                                 workType: e.target.value,
                               })
                             }
-                            className="px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white w-full"
+                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-20"
                           >
                             <option value="出勤">出勤</option>
                             <option value="公休">公休</option>
                           </select>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2">
                           <input
                             type="text"
                             value={editingShift.workingHours || ''}
@@ -1355,11 +1355,11 @@ export default function ShiftManagePage() {
                                 workingHours: e.target.value,
                               })
                             }
-                            className="px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white w-full"
+                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-16"
                             placeholder="8:00"
                           />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2">
                           <select
                             value={editingShift.timeSlot || '-'}
                             onChange={(e) =>
@@ -1368,7 +1368,7 @@ export default function ShiftManagePage() {
                                 timeSlot: e.target.value,
                               })
                             }
-                            className="px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white w-full"
+                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-16"
                           >
                             <option value="-">-</option>
                             <option value="早番">早番</option>
@@ -1376,7 +1376,7 @@ export default function ShiftManagePage() {
                             <option value="遅番">遅番</option>
                           </select>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2">
                           <input
                             type="time"
                             value={formatTime(editingShift.startTime)}
@@ -1386,10 +1386,10 @@ export default function ShiftManagePage() {
                                 startTime: e.target.value,
                               })
                             }
-                            className="px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white"
+                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-20"
                           />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2">
                           <input
                             type="time"
                             value={formatTime(editingShift.endTime)}
@@ -1399,10 +1399,10 @@ export default function ShiftManagePage() {
                                 endTime: e.target.value,
                               })
                             }
-                            className="px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white"
+                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-20"
                           />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2">
                           <input
                             type="number"
                             value={editingShift.breakMinutes}
@@ -1412,11 +1412,11 @@ export default function ShiftManagePage() {
                                 breakMinutes: parseInt(e.target.value) || 0,
                               })
                             }
-                            className="px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white w-20"
+                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-14"
                           />
-                          <span className="ml-1 text-sm text-gray-700">分</span>
+                          <span className="ml-0.5 text-xs text-gray-700">分</span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2">
                           <input
                             type="text"
                             value={editingShift.directDestination || ''}
@@ -1426,11 +1426,11 @@ export default function ShiftManagePage() {
                                 directDestination: e.target.value,
                               })
                             }
-                            className="px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white w-full"
+                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-20"
                             placeholder="-"
                           />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2">
                           <input
                             type="text"
                             value={editingShift.approvalNumber || ''}
@@ -1440,11 +1440,11 @@ export default function ShiftManagePage() {
                                 approvalNumber: e.target.value,
                               })
                             }
-                            className="px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white w-full"
+                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-20"
                             placeholder="-"
                           />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2">
                           <input
                             type="text"
                             value={editingShift.leavingLocation || ''}
@@ -1454,11 +1454,11 @@ export default function ShiftManagePage() {
                                 leavingLocation: e.target.value,
                               })
                             }
-                            className="px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white w-full"
+                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-20"
                             placeholder="-"
                           />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2">
                           <input
                             type="text"
                             value={editingShift.notes || ''}
@@ -1468,65 +1468,65 @@ export default function ShiftManagePage() {
                                 notes: e.target.value,
                               })
                             }
-                            className="px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white w-full"
+                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-24"
                             placeholder="-"
                           />
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-2">
+                        <td className="px-2 py-2">
+                          <div className="flex gap-1">
                             <button
                               onClick={handleUpdate}
-                              className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                              className="px-2 py-0.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 whitespace-nowrap"
                             >
                               保存
                             </button>
                             <button
                               onClick={() => setEditingShift(null)}
-                              className="px-3 py-1 bg-gray-200 text-gray-900 rounded text-sm hover:bg-gray-300"
+                              className="px-2 py-0.5 bg-gray-200 text-gray-900 rounded text-xs hover:bg-gray-300 whitespace-nowrap"
                             >
-                              キャンセル
+                              取消
                             </button>
                           </div>
                         </td>
                       </>
                     ) : (
                       <>
-                        <td className={`px-4 py-3 text-sm ${isHolidayOrSun ? 'text-red-700 font-semibold' : 'text-gray-900'}`}>{formatDate(shift.date)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{shift.employee.name}</td>
+                        <td className={`px-2 py-2 text-xs ${isHolidayOrSun ? 'text-red-700 font-semibold' : 'text-gray-900'}`}>{formatDate(shift.date)}</td>
+                        <td className="px-2 py-2 text-xs text-gray-900">{shift.employee.name}</td>
                         {displayMode === 'all' && (
-                          <td className="px-4 py-3 text-sm text-gray-900">{shift.employee.department || '-'}</td>
+                          <td className="px-2 py-2 text-xs text-gray-900">{shift.employee.department || '-'}</td>
                         )}
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2">
                           <input
                             type="checkbox"
                             checked={selectedShiftIds.has(shift.id)}
                             onChange={(e) => handleSelectShift(shift.id, e.target.checked)}
-                            className="w-4 h-4"
+                            className="w-3 h-3"
                           />
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{shift.isPublicHoliday ? '✓' : '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{shift.workLocation || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{shift.workType || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{shift.workingHours || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{shift.timeSlot || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{formatTime(shift.startTime, shift.isPublicHoliday)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{formatTime(shift.endTime, shift.isPublicHoliday)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{shift.isPublicHoliday ? '-' : `${shift.breakMinutes}分`}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{shift.directDestination || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{shift.approvalNumber || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{shift.leavingLocation || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{formatNotes(shift.notes)}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-2">
+                        <td className="px-2 py-2 text-xs text-gray-900">{shift.isPublicHoliday ? '✓' : '-'}</td>
+                        <td className="px-2 py-2 text-xs text-gray-900">{shift.workLocation || '-'}</td>
+                        <td className="px-2 py-2 text-xs text-gray-900">{shift.workType || '-'}</td>
+                        <td className="px-2 py-2 text-xs text-gray-900">{shift.workingHours || '-'}</td>
+                        <td className="px-2 py-2 text-xs text-gray-900">{shift.timeSlot || '-'}</td>
+                        <td className="px-2 py-2 text-xs text-gray-900">{formatTime(shift.startTime, shift.isPublicHoliday)}</td>
+                        <td className="px-2 py-2 text-xs text-gray-900">{formatTime(shift.endTime, shift.isPublicHoliday)}</td>
+                        <td className="px-2 py-2 text-xs text-gray-900">{shift.isPublicHoliday ? '-' : `${shift.breakMinutes}分`}</td>
+                        <td className="px-2 py-2 text-xs text-gray-900">{shift.directDestination || '-'}</td>
+                        <td className="px-2 py-2 text-xs text-gray-900">{shift.approvalNumber || '-'}</td>
+                        <td className="px-2 py-2 text-xs text-gray-900">{shift.leavingLocation || '-'}</td>
+                        <td className="px-2 py-2 text-xs text-gray-900">{formatNotes(shift.notes)}</td>
+                        <td className="px-2 py-2">
+                          <div className="flex gap-1">
                             <button
                               onClick={() => handleEdit(shift)}
-                              className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                              className="px-2 py-0.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 whitespace-nowrap"
                             >
                               編集
                             </button>
                             <button
                               onClick={() => handleDelete(shift.id)}
-                              className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                              className="px-2 py-0.5 bg-red-500 text-white rounded text-xs hover:bg-red-600 whitespace-nowrap"
                             >
                               削除
                             </button>
