@@ -46,11 +46,11 @@ export async function PATCH(
       where: { id },
       data: {
         ...(shiftDate && { date: shiftDate }),
-        ...(body.startTime && {
-          startTime: new Date(`2000-01-01T${body.startTime}`),
+        ...(body.startTime !== undefined && {
+          startTime: body.startTime === null ? null : new Date(`2000-01-01T${body.startTime}`),
         }),
-        ...(body.endTime && {
-          endTime: new Date(`2000-01-01T${body.endTime}`),
+        ...(body.endTime !== undefined && {
+          endTime: body.endTime === null ? null : new Date(`2000-01-01T${body.endTime}`),
         }),
         ...(body.breakMinutes !== undefined && {
           breakMinutes: body.breakMinutes,
