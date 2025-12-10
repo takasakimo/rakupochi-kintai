@@ -89,6 +89,12 @@ export default function ShiftManagePage() {
     workLocation?: string
     workType?: string
     timeSlot?: string
+    workingHours?: string
+    directDestination?: string
+    approvalNumber?: string
+    leavingLocation?: string
+    notes?: string
+    isPublicHoliday?: boolean
   }>({})
 
   useEffect(() => {
@@ -1014,6 +1020,12 @@ export default function ShiftManagePage() {
       if (bulkUpdateData.timeSlot !== undefined && bulkUpdateData.timeSlot !== '') {
         updateData.timeSlot = bulkUpdateData.timeSlot
       }
+      if (bulkUpdateData.workingHours !== undefined) updateData.workingHours = bulkUpdateData.workingHours || null
+      if (bulkUpdateData.directDestination !== undefined) updateData.directDestination = bulkUpdateData.directDestination || null
+      if (bulkUpdateData.approvalNumber !== undefined) updateData.approvalNumber = bulkUpdateData.approvalNumber || null
+      if (bulkUpdateData.leavingLocation !== undefined) updateData.leavingLocation = bulkUpdateData.leavingLocation || null
+      if (bulkUpdateData.notes !== undefined) updateData.notes = bulkUpdateData.notes || null
+      if (bulkUpdateData.isPublicHoliday !== undefined) updateData.isPublicHoliday = bulkUpdateData.isPublicHoliday
       
       console.log('Update data:', updateData)
       
@@ -1179,52 +1191,151 @@ export default function ShiftManagePage() {
                 選択解除
               </button>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
-              <div>
-                <label className="block text-xs text-gray-700 mb-1">開始時間</label>
-                <input
-                  type="time"
-                  value={bulkUpdateData.startTime || ''}
-                  onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, startTime: e.target.value })}
-                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
-                />
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-700 mb-1">勤務場所</label>
+                  <input
+                    type="text"
+                    value={bulkUpdateData.workLocation || ''}
+                    onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, workLocation: e.target.value || undefined })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+                    placeholder="変更なし"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-700 mb-1">勤務種別</label>
+                  <select
+                    value={bulkUpdateData.workType || ''}
+                    onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, workType: e.target.value || undefined })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+                  >
+                    <option value="">変更なし</option>
+                    <option value="出勤">出勤</option>
+                    <option value="公休">公休</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-700 mb-1">勤務時間</label>
+                  <input
+                    type="text"
+                    value={bulkUpdateData.workingHours || ''}
+                    onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, workingHours: e.target.value || undefined })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+                    placeholder="変更なし"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-700 mb-1">時間帯</label>
+                  <select
+                    value={bulkUpdateData.timeSlot || ''}
+                    onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, timeSlot: e.target.value || undefined })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+                  >
+                    <option value="">変更なし</option>
+                    <option value="早番">早番</option>
+                    <option value="中番">中番</option>
+                    <option value="遅番">遅番</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-xs text-gray-700 mb-1">終了時間</label>
-                <input
-                  type="time"
-                  value={bulkUpdateData.endTime || ''}
-                  onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, endTime: e.target.value })}
-                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
-                />
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-700 mb-1">開始時間</label>
+                  <input
+                    type="time"
+                    value={bulkUpdateData.startTime || ''}
+                    onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, startTime: e.target.value || undefined })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-700 mb-1">終了時間</label>
+                  <input
+                    type="time"
+                    value={bulkUpdateData.endTime || ''}
+                    onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, endTime: e.target.value || undefined })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-700 mb-1">休憩時間（分）</label>
+                  <input
+                    type="number"
+                    value={bulkUpdateData.breakMinutes !== undefined ? bulkUpdateData.breakMinutes : ''}
+                    onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, breakMinutes: e.target.value ? parseInt(e.target.value) : undefined })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+                    placeholder="変更なし"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-700 mb-1">公休</label>
+                  <select
+                    value={bulkUpdateData.isPublicHoliday === undefined ? '' : bulkUpdateData.isPublicHoliday ? 'true' : 'false'}
+                    onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, isPublicHoliday: e.target.value === '' ? undefined : e.target.value === 'true' })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+                  >
+                    <option value="">変更なし</option>
+                    <option value="false">出勤</option>
+                    <option value="true">公休</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-xs text-gray-700 mb-1">休憩時間（分）</label>
-                <input
-                  type="number"
-                  value={bulkUpdateData.breakMinutes !== undefined ? bulkUpdateData.breakMinutes : ''}
-                  onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, breakMinutes: e.target.value ? parseInt(e.target.value) : undefined })}
-                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
-                  placeholder="60"
-                />
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-700 mb-1">直行先</label>
+                  <input
+                    type="text"
+                    value={bulkUpdateData.directDestination || ''}
+                    onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, directDestination: e.target.value || undefined })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+                    placeholder="変更なし"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-700 mb-1">稟議番号</label>
+                  <input
+                    type="text"
+                    value={bulkUpdateData.approvalNumber || ''}
+                    onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, approvalNumber: e.target.value || undefined })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+                    placeholder="変更なし"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-700 mb-1">退勤場所</label>
+                  <input
+                    type="text"
+                    value={bulkUpdateData.leavingLocation || ''}
+                    onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, leavingLocation: e.target.value || undefined })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+                    placeholder="変更なし"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-700 mb-1">備考</label>
+                  <input
+                    type="text"
+                    value={bulkUpdateData.notes || ''}
+                    onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, notes: e.target.value || undefined })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+                    placeholder="変更なし"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs text-gray-700 mb-1">時間帯</label>
-                <select
-                  value={bulkUpdateData.timeSlot || ''}
-                  onChange={(e) => setBulkUpdateData({ ...bulkUpdateData, timeSlot: e.target.value || undefined })}
-                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedShiftIds(new Set())
+                    setBulkUpdateData({})
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-900 rounded text-sm font-medium hover:bg-gray-300"
                 >
-                  <option value="">変更なし</option>
-                  <option value="早番">早番</option>
-                  <option value="中番">中番</option>
-                  <option value="遅番">遅番</option>
-                </select>
-              </div>
-              <div className="flex items-end">
+                  キャンセル
+                </button>
                 <button
                   onClick={handleBulkUpdate}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700"
                 >
                   一括反映
                 </button>
