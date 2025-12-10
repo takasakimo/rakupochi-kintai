@@ -1236,9 +1236,31 @@ export default function ShiftManagePage() {
         {filteredShifts.length === 0 ? (
           <div className="p-6 text-center text-gray-700">シフトがありません</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
+          <div>
+            {editingShift && (
+              <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded sticky top-0 z-20 flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-900">
+                  {editingShift.employee?.name || 'シフト'} のシフトを編集中
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleUpdate}
+                    className="px-4 py-2 bg-blue-500 text-white rounded text-sm font-medium hover:bg-blue-600 whitespace-nowrap"
+                  >
+                    保存
+                  </button>
+                  <button
+                    onClick={() => setEditingShift(null)}
+                    className="px-4 py-2 bg-gray-200 text-gray-900 rounded text-sm font-medium hover:bg-gray-300 whitespace-nowrap"
+                  >
+                    キャンセル
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
+              <table className="w-full">
+                <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
                   <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">日付</th>
                   <th className="px-2 py-2 text-left text-xs font-semibold text-gray-900">従業員</th>
@@ -1473,20 +1495,7 @@ export default function ShiftManagePage() {
                           />
                         </td>
                         <td className="px-2 py-2">
-                          <div className="flex gap-1">
-                            <button
-                              onClick={handleUpdate}
-                              className="px-2 py-0.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 whitespace-nowrap"
-                            >
-                              保存
-                            </button>
-                            <button
-                              onClick={() => setEditingShift(null)}
-                              className="px-2 py-0.5 bg-gray-200 text-gray-900 rounded text-xs hover:bg-gray-300 whitespace-nowrap"
-                            >
-                              取消
-                            </button>
-                          </div>
+                          <div className="text-xs text-gray-500">編集中</div>
                         </td>
                       </>
                     ) : (
