@@ -8,8 +8,8 @@ import { isHolidayOrSunday } from '@/lib/holidays'
 interface Shift {
   id: number
   date: string
-  startTime: string
-  endTime: string
+  startTime: string | null
+  endTime: string | null
   breakMinutes: number
   notes: string | null
   status: string
