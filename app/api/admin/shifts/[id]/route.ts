@@ -42,46 +42,68 @@ export async function PATCH(
       shiftDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0))
     }
 
+    // 公休に設定する場合は、時間関連のフィールドを自動的にクリア
+    const isPublicHoliday = body.isPublicHoliday !== undefined 
+      ? body.isPublicHoliday 
+      : shift.isPublicHoliday
+
+    const updateData: any = {
+      ...(shiftDate && { date: shiftDate }),
+      ...(body.notes !== undefined && { notes: body.notes }),
+      ...(body.status && { status: body.status }),
+      ...(body.isPublicHoliday !== undefined && {
+        isPublicHoliday: body.isPublicHoliday,
+      }),
+      ...(body.workLocation !== undefined && {
+        workLocation: body.workLocation,
+      }),
+      ...(body.workType !== undefined && {
+        workType: body.workType,
+      }),
+      ...(body.directDestination !== undefined && {
+        directDestination: body.directDestination,
+      }),
+      ...(body.approvalNumber !== undefined && {
+        approvalNumber: body.approvalNumber,
+      }),
+      ...(body.leavingLocation !== undefined && {
+        leavingLocation: body.leavingLocation,
+      }),
+    }
+
+    // 公休の場合は時間関連を強制的にnull/0にする
+    if (isPublicHoliday === true) {
+      updateData.startTime = null
+      updateData.endTime = null
+      updateData.breakMinutes = 0
+      updateData.workingHours = null
+      updateData.timeSlot = null
+    } else {
+      // 公休でない場合のみ時間関連を更新
+      if (body.startTime !== undefined) {
+        updateData.startTime = body.startTime === null || body.startTime === '' 
+          ? null 
+          : new Date(`2000-01-01T${body.startTime}`)
+      }
+      if (body.endTime !== undefined) {
+        updateData.endTime = body.endTime === null || body.endTime === '' 
+          ? null 
+          : new Date(`2000-01-01T${body.endTime}`)
+      }
+      if (body.breakMinutes !== undefined) {
+        updateData.breakMinutes = body.breakMinutes
+      }
+      if (body.workingHours !== undefined) {
+        updateData.workingHours = body.workingHours
+      }
+      if (body.timeSlot !== undefined) {
+        updateData.timeSlot = body.timeSlot
+      }
+    }
+
     const updatedShift = await prisma.shift.update({
       where: { id },
-      data: {
-        ...(shiftDate && { date: shiftDate }),
-        ...(body.startTime !== undefined && {
-          startTime: body.startTime === null ? null : new Date(`2000-01-01T${body.startTime}`),
-        }),
-        ...(body.endTime !== undefined && {
-          endTime: body.endTime === null ? null : new Date(`2000-01-01T${body.endTime}`),
-        }),
-        ...(body.breakMinutes !== undefined && {
-          breakMinutes: body.breakMinutes,
-        }),
-        ...(body.notes !== undefined && { notes: body.notes }),
-        ...(body.status && { status: body.status }),
-        ...(body.isPublicHoliday !== undefined && {
-          isPublicHoliday: body.isPublicHoliday,
-        }),
-        ...(body.workLocation !== undefined && {
-          workLocation: body.workLocation,
-        }),
-        ...(body.workType !== undefined && {
-          workType: body.workType,
-        }),
-        ...(body.workingHours !== undefined && {
-          workingHours: body.workingHours,
-        }),
-        ...(body.timeSlot !== undefined && {
-          timeSlot: body.timeSlot,
-        }),
-        ...(body.directDestination !== undefined && {
-          directDestination: body.directDestination,
-        }),
-        ...(body.approvalNumber !== undefined && {
-          approvalNumber: body.approvalNumber,
-        }),
-        ...(body.leavingLocation !== undefined && {
-          leavingLocation: body.leavingLocation,
-        }),
-      },
+      data: updateData,
     })
 
     return NextResponse.json({

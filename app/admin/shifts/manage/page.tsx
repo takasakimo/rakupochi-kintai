@@ -1149,16 +1149,17 @@ export default function ShiftManagePage() {
         }
 
         if (editingShift.isPublicHoliday) {
-          // 公休の場合は時間関連をnull/0にする
+          // 公休の場合は時間関連をnull/0にする（明示的に送信）
           updateData.startTime = null
           updateData.endTime = null
           updateData.breakMinutes = 0
           updateData.workingHours = null
           updateData.timeSlot = null
         } else {
-          if (editingShift.startTime) updateData.startTime = editingShift.startTime
-          if (editingShift.endTime) updateData.endTime = editingShift.endTime
-          updateData.breakMinutes = editingShift.breakMinutes
+          // 公休でない場合は時間を設定
+          updateData.startTime = editingShift.startTime || null
+          updateData.endTime = editingShift.endTime || null
+          updateData.breakMinutes = editingShift.breakMinutes || 0
         }
 
         const response = await fetch(`/api/admin/shifts/${editingShift.id}`, {
@@ -1211,11 +1212,11 @@ export default function ShiftManagePage() {
     }
 
     const formatTime = (timeStr: string | null, isPublicHoliday?: boolean) => {
-      if (isPublicHoliday) return '-'
-      if (!timeStr) return '-'
+      if (isPublicHoliday) return ''
+      if (!timeStr || timeStr === null || timeStr === '') return ''
       if (typeof timeStr === 'string' && timeStr.length >= 5) {
-        // 00:00の場合は公休として扱う
-        if (timeStr.slice(0, 5) === '00:00') return '-'
+        // 00:00の場合は空文字列を返す
+        if (timeStr.slice(0, 5) === '00:00') return ''
         return timeStr.slice(0, 5)
       }
       return timeStr
@@ -1547,8 +1548,8 @@ export default function ShiftManagePage() {
                                 isPublicHoliday,
                                 // 公休にした場合は時間関連のフィールドをクリア
                                 ...(isPublicHoliday && {
-                                  startTime: '',
-                                  endTime: '',
+                                  startTime: null,
+                                  endTime: null,
                                   breakMinutes: 0,
                                   workingHours: null,
                                   timeSlot: null,
@@ -1584,8 +1585,8 @@ export default function ShiftManagePage() {
                                 isPublicHoliday,
                                 // 公休にした場合は時間関連のフィールドをクリア
                                 ...(isPublicHoliday && {
-                                  startTime: '',
-                                  endTime: '',
+                                  startTime: null,
+                                  endTime: null,
                                   breakMinutes: 0,
                                   workingHours: null,
                                   timeSlot: null,
@@ -1639,7 +1640,10 @@ export default function ShiftManagePage() {
                                 startTime: e.target.value,
                               })
                             }
-                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-20 h-6"
+                            disabled={editingShift.isPublicHoliday}
+                            className={`px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-20 h-6 ${
+                              editingShift.isPublicHoliday ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
                           />
                         </td>
                         <td className="px-1 py-0.5">
@@ -1652,7 +1656,10 @@ export default function ShiftManagePage() {
                                 endTime: e.target.value,
                               })
                             }
-                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-20 h-6"
+                            disabled={editingShift.isPublicHoliday}
+                            className={`px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-20 h-6 ${
+                              editingShift.isPublicHoliday ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
                           />
                         </td>
                         <td className="px-1 py-0.5">
@@ -1666,7 +1673,10 @@ export default function ShiftManagePage() {
                                   breakMinutes: parseInt(e.target.value) || 0,
                                 })
                               }
-                              className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-12 h-6"
+                              disabled={editingShift.isPublicHoliday}
+                              className={`px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-12 h-6 ${
+                                editingShift.isPublicHoliday ? 'opacity-50 cursor-not-allowed' : ''
+                              }`}
                             />
                             <span className="text-xs text-gray-700">分</span>
                           </div>
