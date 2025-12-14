@@ -23,5 +23,16 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "app/recipes/**/*",
+    "app/inventory/**/*",
+    "app/shopping-list/**/*",
+    "utils/supabase/**/*",
+    "app/api/analyze-receipt/**/*",
+    "app/api/generate-recipe/**/*",
+    "app/api/parse-recipe-image/**/*",
+    "app/api/parse-recipe-text/**/*",
+    "app/api/update-preferences/**/*"
+  ]
 }
