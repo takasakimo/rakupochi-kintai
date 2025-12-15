@@ -9,6 +9,19 @@ const nextConfig: NextConfig = {
     // ビルド時のESLintエラーを警告として扱う
     ignoreDuringBuilds: true,
   },
+  // らくポチ勤怠に不要な別プロジェクトのページを除外
+  pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
+  // ビルドから除外するパス
+  experimental: {
+    outputFileTracingExcludes: {
+      '*': [
+        'app/recipes/**/*',
+        'app/inventory/**/*',
+        'app/shopping-list/**/*',
+        'utils/supabase/**/*',
+      ],
+    },
+  },
 };
 
 export default nextConfig;
