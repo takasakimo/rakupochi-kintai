@@ -1141,8 +1141,6 @@ export default function ShiftManagePage() {
           isPublicHoliday: editingShift.isPublicHoliday,
           workLocation: editingShift.workLocation || null,
           workType: editingShift.workType || null,
-          workingHours: editingShift.workingHours || null,
-          timeSlot: editingShift.timeSlot || null,
           directDestination: editingShift.directDestination || null,
           approvalNumber: editingShift.approvalNumber || null,
           leavingLocation: editingShift.leavingLocation || null,
@@ -1160,6 +1158,8 @@ export default function ShiftManagePage() {
           updateData.startTime = editingShift.startTime || null
           updateData.endTime = editingShift.endTime || null
           updateData.breakMinutes = editingShift.breakMinutes || 0
+          updateData.workingHours = editingShift.workingHours || null
+          updateData.timeSlot = editingShift.timeSlot || null
         }
 
         const response = await fetch(`/api/admin/shifts/${editingShift.id}`, {
@@ -1167,6 +1167,13 @@ export default function ShiftManagePage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updateData),
         })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          console.error('Update shift error:', errorData)
+          alert(errorData.error || `シフトの更新に失敗しました (${response.status})`)
+          return
+        }
 
         const data = await response.json()
         if (data.success) {
@@ -1178,7 +1185,7 @@ export default function ShiftManagePage() {
         }
       } catch (err) {
         console.error('Failed to update shift:', err)
-        alert('シフトの更新に失敗しました')
+        alert('シフトの更新に失敗しました: ' + (err instanceof Error ? err.message : String(err)))
       }
     }
 
@@ -1609,7 +1616,10 @@ export default function ShiftManagePage() {
                                 workingHours: e.target.value,
                               })
                             }
-                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-16 h-6"
+                            disabled={editingShift.isPublicHoliday}
+                            className={`px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-16 h-6 ${
+                              editingShift.isPublicHoliday ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
                             placeholder="8:00"
                           />
                         </td>
@@ -1622,7 +1632,10 @@ export default function ShiftManagePage() {
                                 timeSlot: e.target.value,
                               })
                             }
-                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-16 h-6"
+                            disabled={editingShift.isPublicHoliday}
+                            className={`px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-16 h-6 ${
+                              editingShift.isPublicHoliday ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
                           >
                             <option value="-">-</option>
                             <option value="早番">早番</option>
