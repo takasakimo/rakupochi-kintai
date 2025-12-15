@@ -7,3 +7,18 @@ prisma/migrations
 .DS_Store
 *.log
 
+# らくポチ勤怠に不要な別プロジェクトのファイル
+app/recipes
+app/inventory
+app/shopping-list
+app/api/analyze-receipt
+app/api/generate-recipe
+app/api/parse-recipe-image
+app/api/parse-recipe-text
+app/api/update-preferences
+utils/supabase
+components/Navigation.tsx
+components/ui
+prisma/schema-kitchen.prisma
+supabase
+
