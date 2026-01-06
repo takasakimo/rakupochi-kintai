@@ -1,29 +1,55 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 
 interface Attendance {
   id: number
   date: string
-  wakeUpTime: Date | null
-  departureTime: Date | null
-  clockIn: Date | null
-  clockOut: Date | null
+  wakeUpTime: string | null | Date
+  departureTime: string | null | Date
+  clockIn: string | null | Date
+  clockOut: string | null | Date
   clockInLocation: any
   clockOutLocation: any
   breakMinutes: number
+  notes: string | null
+}
+
+interface ShiftInfo {
+  id: number
+  date: string
+  startTime: string
+  endTime: string
+  breakMinutes: number
+  workLocation: string | null
+  workType: string | null
+  directDestination: string | null
+}
+
+interface AttendanceWithShift {
+  attendance: Attendance | null
+  shift: ShiftInfo | null
+  date: string
 }
 
 export default function HistoryPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [attendances, setAttendances] = useState<Attendance[]>([])
+  const [shifts, setShifts] = useState<ShiftInfo[]>([])
+  const [attendanceWithShifts, setAttendanceWithShifts] = useState<AttendanceWithShift[]>([])
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7)
   )
   const [loading, setLoading] = useState(true)
+  const [showMapModal, setShowMapModal] = useState(false)
+  const [mapLocation, setMapLocation] = useState<{ latitude: number; longitude: number; locationName?: string } | null>(null)
+  const [mapLoaded, setMapLoaded] = useState(false)
+  const mapInstanceRef = useRef<any>(null)
+  const markerInstanceRef = useRef<any>(null)
+  const mapContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -34,9 +60,56 @@ export default function HistoryPage() {
   const fetchHistory = async () => {
     setLoading(true)
     try {
-      const response = await fetch(`/api/attendance/history?month=${selectedMonth}`)
-      const data = await response.json()
-      setAttendances(data.attendances || [])
+      // 打刻履歴を取得
+      const attendanceResponse = await fetch(`/api/attendance/history?month=${selectedMonth}`)
+      const attendanceData = await attendanceResponse.json()
+      setAttendances(attendanceData.attendances || [])
+
+      // シフト情報を取得
+      const [year, monthNum] = selectedMonth.split('-').map(Number)
+      const startDate = new Date(year, monthNum - 1, 1)
+      const endDate = new Date(year, monthNum, 0)
+      
+      const shiftResponse = await fetch(
+        `/api/employee/shifts?start_date=${startDate.toISOString().split('T')[0]}&end_date=${endDate.toISOString().split('T')[0]}`
+      )
+      const shiftData = await shiftResponse.json()
+      setShifts(shiftData.shifts || [])
+
+      // 打刻履歴とシフト情報をマージ
+      const merged: AttendanceWithShift[] = []
+      const attendanceMap: { [key: string]: Attendance } = {}
+      const shiftMap: { [key: string]: ShiftInfo } = {}
+
+      // 打刻履歴を日付でマップ
+      if (attendanceData.attendances && Array.isArray(attendanceData.attendances)) {
+        attendanceData.attendances.forEach((attendance: Attendance) => {
+          const dateStr = new Date(attendance.date).toISOString().split('T')[0]
+          attendanceMap[dateStr] = attendance
+        })
+      }
+
+      // シフト情報を日付でマップ
+      if (shiftData.shifts && Array.isArray(shiftData.shifts)) {
+        shiftData.shifts.forEach((shift: ShiftInfo) => {
+          const dateStr = new Date(shift.date).toISOString().split('T')[0]
+          shiftMap[dateStr] = shift
+        })
+      }
+
+      // 選択された月の全ての日をループ
+      const currentDate = new Date(startDate)
+      while (currentDate <= endDate) {
+        const dateStr = currentDate.toISOString().split('T')[0]
+        merged.push({
+          date: dateStr,
+          attendance: attendanceMap[dateStr] || null,
+          shift: shiftMap[dateStr] || null,
+        })
+        currentDate.setDate(currentDate.getDate() + 1)
+      }
+
+      setAttendanceWithShifts(merged)
     } catch (err) {
       console.error('Failed to fetch history:', err)
     } finally {
@@ -44,22 +117,111 @@ export default function HistoryPage() {
     }
   }
 
-  const formatTime = (time: Date | null) => {
+  const formatTime = (time: string | null | Date) => {
     if (!time) return '-'
-    const date = new Date(time)
-    if (isNaN(date.getTime())) return '-'
-    const hours = date.getHours().toString().padStart(2, '0')
-    const minutes = date.getMinutes().toString().padStart(2, '0')
-    return `${hours}:${minutes}`
+    
+    // Date型の場合は時刻部分を抽出
+    if (time instanceof Date) {
+      // 無効な日付（1970年1月1日以前）をチェック
+      if (isNaN(time.getTime()) || time.getTime() < 0) {
+        return '-'
+      }
+      // 1970-01-01T00:00:00.000Z のようなデフォルト値も無効とみなす
+      const epochTime = new Date('1970-01-01T00:00:00.000Z').getTime()
+      if (Math.abs(time.getTime() - epochTime) < 1000) {
+        return '-'
+      }
+      const hours = time.getHours().toString().padStart(2, '0')
+      const minutes = time.getMinutes().toString().padStart(2, '0')
+      return `${hours}:${minutes}`
+    }
+    
+    // 文字列の場合
+    if (typeof time === 'string') {
+      // 無効な日付文字列をチェック
+      if (time.includes('1970-01-01') && (time.includes('00:00:00') || time.includes('T00:00'))) {
+        return '-'
+      }
+      // ISO形式の日時文字列の場合
+      if (time.includes('T') || time.includes(' ')) {
+        const date = new Date(time)
+        if (!isNaN(date.getTime())) {
+          // 無効な日付を再チェック
+          const epochTime = new Date('1970-01-01T00:00:00.000Z').getTime()
+          if (Math.abs(date.getTime() - epochTime) < 1000) {
+            return '-'
+          }
+          const hours = date.getHours().toString().padStart(2, '0')
+          const minutes = date.getMinutes().toString().padStart(2, '0')
+          return `${hours}:${minutes}`
+        }
+      }
+      // HH:MM:SS形式の場合
+      if (time.includes(':')) {
+        return time.slice(0, 5)
+      }
+    }
+    
+    return '-'
   }
 
   const formatDate = (date: string) => {
     const d = new Date(date)
-    return d.toLocaleDateString('ja-JP', {
-      month: 'long',
-      day: 'numeric',
-      weekday: 'short',
-    })
+    return d.getDate().toString()
+  }
+
+  const formatWeekday = (date: string) => {
+    const d = new Date(date)
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+    return weekdays[d.getDay()]
+  }
+
+  const calculateBasicTime = (attendance: Attendance) => {
+    if (!attendance.clockIn || !attendance.clockOut) return '-'
+    
+    try {
+      const clockIn = formatTime(attendance.clockIn)
+      const clockOut = formatTime(attendance.clockOut)
+      
+      if (clockIn === '-' || clockOut === '-') return '-'
+      
+      const [inHours, inMinutes] = clockIn.split(':').map(Number)
+      const [outHours, outMinutes] = clockOut.split(':').map(Number)
+      
+      let inTime = new Date(2000, 0, 1, inHours, inMinutes)
+      let outTime = new Date(2000, 0, 1, outHours, outMinutes)
+      
+      // 終了時刻が開始時刻より小さい場合は翌日とみなす
+      if (outTime.getTime() < inTime.getTime()) {
+        outTime = new Date(2000, 0, 2, outHours, outMinutes)
+      }
+      
+      // 総勤務時間を計算
+      const diffMs = outTime.getTime() - inTime.getTime()
+      const totalWorkMinutes = Math.floor(diffMs / (1000 * 60))
+      
+      // 休憩時間を計算（6時間以上は1時間休憩）
+      const breakMinutes = calculateBreakMinutes(attendance)
+      const netWorkMinutes = Math.max(0, totalWorkMinutes - breakMinutes)
+      
+      // 標準勤務時間（8時間）を考慮して基本と残業を計算
+      const standardWorkMinutes = 8 * 60
+      const basicMinutes = Math.min(Math.max(0, netWorkMinutes), standardWorkMinutes)
+      
+      const basicHours = Math.floor(basicMinutes / 60)
+      const basicMins = basicMinutes % 60
+      return `${basicHours}:${String(basicMins).padStart(2, '0')}`
+    } catch (e) {
+      console.error('Error calculating basic time:', e)
+      return '-'
+    }
+  }
+
+  const formatBreakTime = (attendance: Attendance) => {
+    const breakMinutes = calculateBreakMinutes(attendance)
+    const hours = Math.floor(breakMinutes / 60)
+    const minutes = breakMinutes % 60
+    return `${hours}:${String(minutes).padStart(2, '0')}`
   }
 
   const calculateWorkTime = (attendance: Attendance) => {
@@ -96,6 +258,291 @@ export default function HistoryPage() {
     return '位置情報取得済み'
   }
 
+  const formatNotes = (notes: string | null) => {
+    if (!notes) return '-'
+    
+    // JSON形式の休憩時間情報を除外
+    try {
+      const parsed = JSON.parse(notes)
+      // breakStartTimeが含まれている場合は、originalNotesがあればそれを表示
+      if (parsed.breakStartTime && parsed.originalNotes) {
+        return parsed.originalNotes || '-'
+      }
+      // breakStartTimeが含まれているがoriginalNotesがない場合は空欄
+      if (parsed.breakStartTime) {
+        return '-'
+      }
+      // JSON形式だがbreakStartTimeがない場合はそのまま表示（通常のJSONデータ）
+      return notes
+    } catch {
+      // JSON形式でない場合はそのまま表示
+      return notes
+    }
+  }
+
+  const calculateBreakMinutes = (attendance: Attendance) => {
+    if (!attendance.clockIn || !attendance.clockOut) {
+      return attendance.breakMinutes || 0
+    }
+    
+    try {
+      const clockIn = formatTime(attendance.clockIn)
+      const clockOut = formatTime(attendance.clockOut)
+      
+      if (clockIn === '-' || clockOut === '-') {
+        return attendance.breakMinutes || 0
+      }
+      
+      const [inHours, inMinutes] = clockIn.split(':').map(Number)
+      const [outHours, outMinutes] = clockOut.split(':').map(Number)
+      
+      let inTime = new Date(2000, 0, 1, inHours, inMinutes)
+      let outTime = new Date(2000, 0, 1, outHours, outMinutes)
+      
+      // 終了時刻が開始時刻より小さい場合は翌日とみなす
+      if (outTime.getTime() < inTime.getTime()) {
+        outTime = new Date(2000, 0, 2, outHours, outMinutes)
+      }
+      
+      // 総勤務時間を計算
+      const diffMs = outTime.getTime() - inTime.getTime()
+      const totalWorkMinutes = Math.floor(diffMs / (1000 * 60))
+      
+      // 6時間（360分）以上の場合は1時間（60分）の休憩が必要
+      // 既に休憩時間が設定されている場合はその値を使用
+      if (attendance.breakMinutes && attendance.breakMinutes > 0) {
+        return attendance.breakMinutes
+      }
+      
+      // 6時間以上の場合は自動的に60分の休憩を適用
+      if (totalWorkMinutes >= 6 * 60) {
+        return 60
+      }
+      
+      return 0
+    } catch (e) {
+      console.error('Error calculating break minutes:', e)
+      return attendance.breakMinutes || 0
+    }
+  }
+
+  const calculateOvertime = (attendance: Attendance) => {
+    if (!attendance.clockIn || !attendance.clockOut) return '-'
+    
+    try {
+      const clockIn = formatTime(attendance.clockIn)
+      const clockOut = formatTime(attendance.clockOut)
+      
+      if (clockIn === '-' || clockOut === '-') return '-'
+      
+      const [inHours, inMinutes] = clockIn.split(':').map(Number)
+      const [outHours, outMinutes] = clockOut.split(':').map(Number)
+      
+      let inTime = new Date(2000, 0, 1, inHours, inMinutes)
+      let outTime = new Date(2000, 0, 1, outHours, outMinutes)
+      
+      // 終了時刻が開始時刻より小さい場合は翌日とみなす
+      if (outTime.getTime() < inTime.getTime()) {
+        outTime = new Date(2000, 0, 2, outHours, outMinutes)
+      }
+      
+      // 総勤務時間を計算
+      const diffMs = outTime.getTime() - inTime.getTime()
+      const totalWorkMinutes = Math.floor(diffMs / (1000 * 60))
+      
+      // 休憩時間を計算（6時間以上は1時間休憩）
+      const breakMinutes = calculateBreakMinutes(attendance)
+      const netWorkMinutes = Math.max(0, totalWorkMinutes - breakMinutes)
+      
+      // 標準勤務時間（8時間）を超えた分が残業時間
+      const standardWorkMinutes = 8 * 60
+      const overtimeMinutes = Math.max(0, netWorkMinutes - standardWorkMinutes)
+      
+      if (overtimeMinutes === 0) return '0:00'
+      
+      const hours = Math.floor(overtimeMinutes / 60)
+      const minutes = overtimeMinutes % 60
+      return `${hours}:${String(minutes).padStart(2, '0')}`
+    } catch (e) {
+      console.error('Error calculating overtime:', e)
+      return '-'
+    }
+  }
+
+  const handleShowMap = (location: any, type: 'clockIn' | 'clockOut') => {
+    if (!location || !location.latitude || !location.longitude) {
+      alert('位置情報がありません')
+      return
+    }
+    setMapLocation({
+      latitude: location.latitude,
+      longitude: location.longitude,
+      locationName: location.locationName || (type === 'clockIn' ? '出勤位置' : '退勤位置'),
+    })
+    setShowMapModal(true)
+  }
+
+  useEffect(() => {
+    if (showMapModal && mapLocation && mapContainerRef.current && typeof window !== 'undefined') {
+      setMapLoaded(false)
+      
+      // Leaflet.jsのスクリプトとCSSを動的に読み込む
+      const loadLeaflet = (): Promise<void> => {
+        return new Promise((resolve, reject) => {
+          // 既に読み込まれている場合は即座に解決
+          if ((window as any).L) {
+            resolve()
+            return
+          }
+
+          // CSSが既に読み込まれているか確認
+          const existingCss = document.querySelector('link[href*="leaflet.css"]')
+          if (!existingCss) {
+            const link = document.createElement('link')
+            link.rel = 'stylesheet'
+            link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+            link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY='
+            link.crossOrigin = 'anonymous'
+            document.head.appendChild(link)
+          }
+
+          // スクリプトを読み込む
+          const existingScript = document.querySelector('script[src*="leaflet.js"]')
+          if (existingScript) {
+            // 既に読み込み中または読み込み済み
+            const checkInterval = setInterval(() => {
+              if ((window as any).L) {
+                clearInterval(checkInterval)
+                resolve()
+              }
+            }, 100)
+            setTimeout(() => {
+              clearInterval(checkInterval)
+              if (!(window as any).L) {
+                reject(new Error('Leaflet.js loading timeout'))
+              }
+            }, 5000)
+            return
+          }
+
+          const script = document.createElement('script')
+          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+          script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo='
+          script.crossOrigin = 'anonymous'
+          script.async = true
+          script.onload = () => {
+            if ((window as any).L) {
+              resolve()
+            } else {
+              reject(new Error('Leaflet.js loaded but L is not available'))
+            }
+          }
+          script.onerror = () => reject(new Error('Failed to load Leaflet.js'))
+          document.head.appendChild(script)
+        })
+      }
+
+      // マップコンテナが確実に存在するまで待つ
+      const initMap = async () => {
+        try {
+          await loadLeaflet()
+          
+          // もう一度コンテナの存在を確認
+          if (!mapContainerRef.current) {
+            console.error('Map container not found')
+            setMapLoaded(true)
+            return
+          }
+
+          const L = (window as any).L
+          if (!L) {
+            console.error('Leaflet.js is not available')
+            setMapLoaded(true)
+            return
+          }
+
+          // 既存のマップをクリア
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.remove()
+            mapInstanceRef.current = null
+          }
+          if (markerInstanceRef.current) {
+            markerInstanceRef.current = null
+          }
+
+          // マーカーアイコンのパスを修正
+          delete (L.Icon.Default.prototype as any)._getIconUrl
+          L.Icon.Default.mergeOptions({
+            iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+            iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+          })
+
+          // マップを初期化
+          const map = L.map(mapContainerRef.current, {
+            zoomControl: true,
+          }).setView(
+            [mapLocation.latitude, mapLocation.longitude],
+            15
+          )
+
+          // OpenStreetMapのタイルレイヤーを追加
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19,
+          }).addTo(map)
+
+          // マーカーを追加
+          const marker = L.marker([mapLocation.latitude, mapLocation.longitude])
+            .addTo(map)
+            .bindPopup(`
+              <div style="padding: 8px;">
+                <strong>${mapLocation.locationName || '打刻位置'}</strong><br>
+                緯度: ${mapLocation.latitude.toFixed(6)}<br>
+                経度: ${mapLocation.longitude.toFixed(6)}
+              </div>
+            `)
+            .openPopup()
+
+          mapInstanceRef.current = map
+          markerInstanceRef.current = marker
+          setMapLoaded(true)
+        } catch (error) {
+          console.error('Failed to initialize map:', error)
+          setMapLoaded(true) // エラーでもローディングを解除
+        }
+      }
+
+      // 少し遅延させてマップコンテナが確実に存在するようにする
+      const timer = setTimeout(() => {
+        initMap()
+      }, 300)
+
+      return () => {
+        clearTimeout(timer)
+        // クリーンアップ
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove()
+          mapInstanceRef.current = null
+        }
+        markerInstanceRef.current = null
+      }
+    }
+  }, [showMapModal, mapLocation])
+
+  useEffect(() => {
+    if (!showMapModal) {
+      // モーダルが閉じられたときにマップインスタンスをクリア
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+      }
+      markerInstanceRef.current = null
+      setMapLocation(null)
+      setMapLoaded(false)
+    }
+  }, [showMapModal])
+
   if (status === 'loading') {
     return <div className="p-8 text-center text-gray-900">読み込み中...</div>
   }
@@ -117,7 +564,7 @@ export default function HistoryPage() {
 
         {loading ? (
           <div className="text-center p-8 text-gray-900">読み込み中...</div>
-        ) : attendances.length === 0 ? (
+        ) : attendanceWithShifts.length === 0 ? (
           <div className="bg-white rounded-lg shadow-md p-6 text-center text-gray-700">
             データがありません
           </div>
@@ -127,53 +574,167 @@ export default function HistoryPage() {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">日付</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">起床</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">出発</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">出勤</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">退勤</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">勤務時間</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">日</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">曜日</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">区分</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">開始時刻</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">終了時刻</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">基本</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">残業</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">休憩</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">備考</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {attendances.map((attendance) => (
-                    <tr key={attendance.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {formatDate(attendance.date)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {formatTime(attendance.wakeUpTime)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {formatTime(attendance.departureTime)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        <div>{formatTime(attendance.clockIn)}</div>
-                        {attendance.clockInLocation && (
-                          <div className="text-xs text-gray-600">
-                            📍 {getLocationInfo(attendance.clockInLocation)}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        <div>{formatTime(attendance.clockOut)}</div>
-                        {attendance.clockOutLocation && (
-                          <div className="text-xs text-gray-600">
-                            📍 {getLocationInfo(attendance.clockOutLocation)}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-gray-900">
-                        {calculateWorkTime(attendance)}
-                      </td>
-                    </tr>
-                  ))}
+                  {attendanceWithShifts.map((item) => {
+                    const attendance = item.attendance
+                    const shift = item.shift
+                    const hasClockIn = attendance?.clockIn && formatTime(attendance.clockIn) !== '-'
+                    const hasClockOut = attendance?.clockOut && formatTime(attendance.clockOut) !== '-'
+                    const hasShift = shift !== null
+                    
+                    // 区分: 打刻があれば「出勤」、シフトのみなら「シフト」、どちらもなければ「-」
+                    let category = '-'
+                    if (hasClockIn && hasClockOut) {
+                      category = '出勤'
+                    } else if (hasShift) {
+                      category = 'シフト'
+                    }
+                    
+                    // 開始時刻: 打刻があれば打刻時刻、なければシフト時刻、どちらもなければ「-」
+                    const startTime = hasClockIn 
+                      ? formatTime(attendance!.clockIn) 
+                      : hasShift 
+                        ? shift!.startTime 
+                        : '-'
+                    
+                    // 終了時刻: 打刻があれば打刻時刻、なければシフト時刻、どちらもなければ「-」
+                    const endTime = hasClockOut 
+                      ? formatTime(attendance!.clockOut) 
+                      : hasShift 
+                        ? shift!.endTime 
+                        : '-'
+                    
+                    // 基本時間、残業時間、休憩時間は打刻がある場合のみ計算
+                    const basicTime = hasClockIn && hasClockOut ? calculateBasicTime(attendance!) : '-'
+                    const overtime = hasClockIn && hasClockOut ? calculateOvertime(attendance!) : '-'
+                    const breakTime = hasClockIn && hasClockOut 
+                      ? formatBreakTime(attendance!) 
+                      : hasShift && shift!.breakMinutes > 0
+                        ? `${Math.floor(shift!.breakMinutes / 60)}:${String(shift!.breakMinutes % 60).padStart(2, '0')}`
+                        : '-'
+                    
+                    // 備考: 打刻があれば打刻の備考、なければ「-」
+                    const notes = attendance ? formatNotes(attendance.notes) : '-'
+                    
+                    return (
+                      <tr key={item.date} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-center text-gray-900">
+                          {formatDate(item.date)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-center text-gray-900">
+                          {formatWeekday(item.date)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-center text-gray-900">
+                          {category}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-center text-gray-900">
+                          {startTime}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-center text-gray-900">
+                          {endTime}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-center text-gray-900">
+                          {basicTime}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-center text-gray-900">
+                          {overtime}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-center text-gray-900">
+                          {breakTime}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-center text-gray-900">
+                          {notes}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
         )}
       </div>
+
+      {/* マップ モーダル（OpenStreetMap + Leaflet.js） */}
+      {showMapModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {mapLocation?.locationName || '打刻位置'}
+              </h2>
+              <button
+                onClick={() => setShowMapModal(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1 p-4">
+              {mapLocation ? (
+                <>
+                  <div className="relative">
+                    {!mapLoaded && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg z-10">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                          <p className="text-sm text-gray-600">マップを読み込み中...</p>
+                        </div>
+                      </div>
+                    )}
+                    <div 
+                      ref={mapContainerRef}
+                      id="map" 
+                      style={{ width: '100%', height: '500px', zIndex: 0 }} 
+                      className="rounded-lg border border-gray-300"
+                    ></div>
+                  </div>
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="text-sm text-gray-700 mb-2">
+                      <p className="font-medium">位置情報</p>
+                      <p>緯度: {mapLocation.latitude.toFixed(6)}</p>
+                      <p>経度: {mapLocation.longitude.toFixed(6)}</p>
+                    </div>
+                    <div className="mt-2 space-x-4">
+                      <a
+                        href={`https://www.google.com/maps?q=${mapLocation.latitude},${mapLocation.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 underline text-sm"
+                      >
+                        Google Mapsで開く
+                      </a>
+                      <a
+                        href={`https://www.openstreetmap.org/?mlat=${mapLocation.latitude}&mlon=${mapLocation.longitude}&zoom=15`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 underline text-sm"
+                      >
+                        OpenStreetMapで開く
+                      </a>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-[500px] bg-gray-100 rounded-lg">
+                  <p className="text-gray-600">位置情報がありません</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

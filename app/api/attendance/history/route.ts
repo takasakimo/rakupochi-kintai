@@ -45,7 +45,52 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({ attendances })
+    // 時刻データを文字列形式に変換（管理者側と同じロジック）
+    const formattedAttendances = attendances.map((attendance) => {
+      const formatTime = (time: Date | null): string | null => {
+        if (!time) return null
+        try {
+          // Date型の場合
+          if (time instanceof Date) {
+            // 無効な日付（1970年1月1日以前）をチェック
+            if (isNaN(time.getTime()) || time.getTime() < 0) {
+              return null
+            }
+            // 1970-01-01T00:00:00.000Z のようなデフォルト値も無効とみなす
+            const epochTime = new Date('1970-01-01T00:00:00.000Z').getTime()
+            if (Math.abs(time.getTime() - epochTime) < 1000) {
+              return null
+            }
+            const hours = time.getHours().toString().padStart(2, '0')
+            const minutes = time.getMinutes().toString().padStart(2, '0')
+            const seconds = time.getSeconds().toString().padStart(2, '0')
+            return `${hours}:${minutes}:${seconds}`
+          }
+          // 文字列の場合
+          if (typeof time === 'string') {
+            // 無効な日付文字列をチェック
+            if (time.includes('1970-01-01') && time.includes('00:00:00')) {
+              return null
+            }
+            return time
+          }
+          return null
+        } catch (e) {
+          console.error('[Attendance History] Error formatting time:', e)
+          return null
+        }
+      }
+
+      return {
+        ...attendance,
+        wakeUpTime: formatTime(attendance.wakeUpTime),
+        departureTime: formatTime(attendance.departureTime),
+        clockIn: formatTime(attendance.clockIn),
+        clockOut: formatTime(attendance.clockOut),
+      }
+    })
+
+    return NextResponse.json({ attendances: formattedAttendances })
   } catch (error) {
     console.error('Get attendance history error:', error)
     return NextResponse.json(
