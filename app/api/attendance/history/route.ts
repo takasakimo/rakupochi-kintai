@@ -66,14 +66,6 @@ export async function GET(request: NextRequest) {
             const seconds = time.getSeconds().toString().padStart(2, '0')
             return `${hours}:${minutes}:${seconds}`
           }
-          // 文字列の場合
-          if (typeof time === 'string') {
-            // 無効な日付文字列をチェック
-            if (time.includes('1970-01-01') && time.includes('00:00:00')) {
-              return null
-            }
-            return time
-          }
           return null
         } catch (e) {
           console.error('[Attendance History] Error formatting time:', e)
