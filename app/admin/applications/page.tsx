@@ -1340,10 +1340,22 @@ function EditApplicationModal({
 }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [formData, setFormData] = useState<any>({
-    employeeId: application.employee.id.toString(),
-    title: application.title || '',
-    reason: application.reason || '',
+  const [formData, setFormData] = useState<any>(() => {
+    try {
+      const content = JSON.parse(application.content)
+      return {
+        employeeId: application.employee.id.toString(),
+        title: application.title || '',
+        reason: application.reason || '',
+        ...content,
+      }
+    } catch (e) {
+      return {
+        employeeId: application.employee.id.toString(),
+        title: application.title || '',
+        reason: application.reason || '',
+      }
+    }
   })
 
   useEffect(() => {
@@ -1351,12 +1363,21 @@ function EditApplicationModal({
       const content = JSON.parse(application.content)
       setFormData((prev: any) => ({
         ...prev,
+        employeeId: application.employee.id.toString(),
+        title: application.title || '',
+        reason: application.reason || '',
         ...content,
       }))
     } catch (e) {
       console.error('Failed to parse application content:', e)
+      setFormData((prev: any) => ({
+        ...prev,
+        employeeId: application.employee.id.toString(),
+        title: application.title || '',
+        reason: application.reason || '',
+      }))
     }
-  }, [application])
+  }, [application.id, application.content, application.title, application.reason, application.employee.id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
