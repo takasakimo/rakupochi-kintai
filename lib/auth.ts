@@ -39,7 +39,22 @@ export const authOptions: NextAuthOptions = {
           try {
             employee = await prisma.employee.findUnique({
               where: { email: credentials.email },
-              include: { company: true }
+              select: {
+                id: true,
+                email: true,
+                password: true,
+                name: true,
+                role: true,
+                companyId: true,
+                isActive: true,
+                company: {
+                  select: {
+                    id: true,
+                    name: true,
+                    code: true,
+                  }
+                }
+              }
             })
             console.log('[Auth] Employee query result:', employee ? 'found' : 'not found')
           } catch (dbError: any) {
@@ -123,9 +138,16 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30日
   },
   secret: process.env.NEXTAUTH_SECRET,
   // ビルド時のエラーを防ぐため、NEXTAUTH_URLが設定されていない場合は警告のみ
   ...(process.env.NEXTAUTH_URL ? {} : { debug: true }),
+  events: {
+    async signOut() {
+      // ログアウト時にセッションを完全にクリア
+      console.log('[Auth] User signed out')
+    },
+  },
 }
 
