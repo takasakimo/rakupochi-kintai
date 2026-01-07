@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, getDay } from 'date-fns'
 
 const APPLICATION_TYPES = [
   { value: 'attendance_correction', label: '打刻修正', icon: null },
@@ -39,9 +40,10 @@ export default function NewApplicationPage() {
     overtimeReason: '',
     // 休暇申請用
     leaveType: 'paid', // paid, unpaid, special
+    leaveDateMode: 'range', // 'range' or 'multiple'
     leaveStartDate: '',
     leaveEndDate: '',
-    leaveDays: 1,
+    leaveSelectedDates: [] as string[], // 複数日選択用
     // 立替金精算用
     reimbursementDate: '',
     reimbursementCategory: '',
@@ -201,17 +203,31 @@ export default function NewApplicationPage() {
           break
 
         case 'leave':
-          if (!formData.leaveStartDate || !formData.leaveEndDate) {
-            setError('開始日と終了日を入力してください')
-            setLoading(false)
-            return
-          }
-          content = {
-            type: formData.leaveType,
-            startDate: formData.leaveStartDate,
-            endDate: formData.leaveEndDate,
-            days: formData.leaveDays,
-            reason: formData.reason || '',
+          if (formData.leaveDateMode === 'range') {
+            if (!formData.leaveStartDate || !formData.leaveEndDate) {
+              setError('開始日と終了日を入力してください')
+              setLoading(false)
+              return
+            }
+            content = {
+              type: formData.leaveType,
+              dateMode: 'range',
+              startDate: formData.leaveStartDate,
+              endDate: formData.leaveEndDate,
+              reason: formData.reason || '',
+            }
+          } else {
+            if (!formData.leaveSelectedDates || formData.leaveSelectedDates.length === 0) {
+              setError('休暇日を選択してください')
+              setLoading(false)
+              return
+            }
+            content = {
+              type: formData.leaveType,
+              dateMode: 'multiple',
+              selectedDates: formData.leaveSelectedDates.sort(),
+              reason: formData.reason || '',
+            }
           }
           reason = formData.reason || '休暇申請'
           break
@@ -565,48 +581,79 @@ export default function NewApplicationPage() {
                     <option value="volunteer">ボランティア休暇</option>
                   </select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      開始日 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.leaveStartDate}
-                      onChange={(e) =>
-                        setFormData({ ...formData, leaveStartDate: e.target.value })
-                      }
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      終了日 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.leaveEndDate}
-                      onChange={(e) =>
-                        setFormData({ ...formData, leaveEndDate: e.target.value })
-                      }
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    />
-                  </div>
-                </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">日数</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={formData.leaveDays}
-                    onChange={(e) =>
-                      setFormData({ ...formData, leaveDays: parseInt(e.target.value) || 1 })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    日付選択方法 <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        value="range"
+                        checked={formData.leaveDateMode === 'range'}
+                        onChange={(e) => setFormData({ ...formData, leaveDateMode: e.target.value, leaveSelectedDates: [] })}
+                        className="mr-2"
+                      />
+                      <span>開始日・終了日で選択</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        value="multiple"
+                        checked={formData.leaveDateMode === 'multiple'}
+                        onChange={(e) => setFormData({ ...formData, leaveDateMode: e.target.value, leaveStartDate: '', leaveEndDate: '' })}
+                        className="mr-2"
+                      />
+                      <span>カレンダーから複数日選択</span>
+                    </label>
+                  </div>
                 </div>
+                {formData.leaveDateMode === 'range' ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        開始日 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.leaveStartDate}
+                        onChange={(e) =>
+                          setFormData({ ...formData, leaveStartDate: e.target.value })
+                        }
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        終了日 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.leaveEndDate}
+                        onChange={(e) =>
+                          setFormData({ ...formData, leaveEndDate: e.target.value })
+                        }
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <LeaveDateCalendar
+                    selectedDates={formData.leaveSelectedDates || []}
+                    onDateToggle={(date: string) => {
+                      const dates = [...(formData.leaveSelectedDates || [])]
+                      const index = dates.indexOf(date)
+                      if (index > -1) {
+                        dates.splice(index, 1)
+                      } else {
+                        dates.push(date)
+                      }
+                      setFormData({ ...formData, leaveSelectedDates: dates })
+                    }}
+                  />
+                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">理由</label>
                   <textarea
@@ -1091,6 +1138,140 @@ export default function NewApplicationPage() {
           </form>
         </div>
       </div>
+    </div>
+  )
+}
+
+// カレンダーコンポーネント
+function LeaveDateCalendar({
+  selectedDates,
+  onDateToggle,
+}: {
+  selectedDates: string[]
+  onDateToggle: (date: string) => void
+}) {
+  const [currentMonth, setCurrentMonth] = useState(new Date())
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const monthStart = startOfMonth(currentMonth)
+  const monthEnd = endOfMonth(currentMonth)
+  const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd })
+
+  const firstDayOfWeek = getDay(monthStart)
+  const weeks: (Date | null)[][] = []
+  let currentWeek: (Date | null)[] = []
+
+  // 最初の週の空欄を埋める
+  for (let i = 0; i < firstDayOfWeek; i++) {
+    currentWeek.push(null)
+  }
+
+  // 日付を追加
+  daysInMonth.forEach((day) => {
+    currentWeek.push(day)
+    if (currentWeek.length === 7) {
+      weeks.push(currentWeek)
+      currentWeek = []
+    }
+  })
+
+  // 最後の週の空欄を埋める
+  if (currentWeek.length > 0) {
+    while (currentWeek.length < 7) {
+      currentWeek.push(null)
+    }
+    weeks.push(currentWeek)
+  }
+
+  const handleDateClick = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd')
+    onDateToggle(dateStr)
+  }
+
+  const isDateSelected = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd')
+    return selectedDates && Array.isArray(selectedDates) ? selectedDates.includes(dateStr) : false
+  }
+
+  const isDatePast = (date: Date) => {
+    return date < today
+  }
+
+  const prevMonth = () => {
+    setCurrentMonth(subMonths(currentMonth, 1))
+  }
+
+  const nextMonth = () => {
+    setCurrentMonth(addMonths(currentMonth, 1))
+  }
+
+  return (
+    <div className="border border-gray-300 rounded-md p-4 bg-white">
+      <div className="flex justify-between items-center mb-4">
+        <button
+          type="button"
+          onClick={prevMonth}
+          className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-900"
+        >
+          ←
+        </button>
+        <h3 className="text-lg font-semibold text-gray-900">
+          {format(currentMonth, 'yyyy年MM月')}
+        </h3>
+        <button
+          type="button"
+          onClick={nextMonth}
+          className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-900"
+        >
+          →
+        </button>
+      </div>
+      <div className="grid grid-cols-7 gap-1 mb-2">
+        {['日', '月', '火', '水', '木', '金', '土'].map((day) => (
+          <div key={day} className="text-center text-sm font-semibold text-gray-700 py-2">
+            {day}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {weeks.map((week, weekIndex) =>
+          week.map((day, dayIndex) => {
+            if (!day) {
+              return <div key={`${weekIndex}-${dayIndex}`} className="aspect-square" />
+            }
+            const dateStr = format(day, 'yyyy-MM-dd')
+            const selected = isDateSelected(day)
+            const past = isDatePast(day)
+            return (
+              <button
+                key={dateStr}
+                type="button"
+                onClick={() => !past && handleDateClick(day)}
+                disabled={past}
+                className={`
+                  aspect-square border rounded-md text-sm
+                  ${selected ? 'bg-blue-500 text-white border-blue-600' : 'bg-white text-gray-900 border-gray-300'}
+                  ${past ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-50 cursor-pointer'}
+                  ${isSameDay(day, today) ? 'ring-2 ring-blue-400' : ''}
+                `}
+              >
+                {format(day, 'd')}
+              </button>
+            )
+          })
+        )}
+      </div>
+      {selectedDates && Array.isArray(selectedDates) && selectedDates.length > 0 && (
+        <div className="mt-4 p-3 bg-blue-50 rounded-md">
+          <div className="text-sm font-medium text-gray-900 mb-2">
+            選択された日付 ({selectedDates.length}日):
+          </div>
+          <div className="text-xs text-gray-700">
+            {selectedDates.sort().map((date) => format(new Date(date), 'yyyy/MM/dd')).join(', ')}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
