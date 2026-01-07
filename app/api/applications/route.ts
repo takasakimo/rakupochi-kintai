@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { type, title, content, reason } = body
+    const { type, title, content, reason, employeeId } = body
 
     if (!type || !content) {
       return NextResponse.json(
@@ -157,10 +157,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 管理者は従業員IDを指定可能、従業員は自分のIDのみ
+    let targetEmployeeId = parseInt(session.user.id)
+    if (session.user.role === 'admin' && employeeId) {
+      // 管理者が指定した従業員が自社のものであることを確認
+      const employee = await prisma.employee.findUnique({
+        where: { id: parseInt(employeeId) },
+      })
+      if (!employee || employee.companyId !== session.user.companyId) {
+        return NextResponse.json(
+          { error: '指定された従業員が見つからないか、権限がありません' },
+          { status: 403 }
+        )
+      }
+      targetEmployeeId = parseInt(employeeId)
+    }
+
     const application = await prisma.application.create({
       data: {
         companyId: session.user.companyId,
-        employeeId: parseInt(session.user.id),
+        employeeId: targetEmployeeId,
         type,
         title: title || null,
         content: JSON.stringify(content),

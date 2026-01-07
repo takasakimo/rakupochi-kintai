@@ -459,10 +459,44 @@ export default function AdminApplicationsPage() {
     return <div className="p-8 text-center text-gray-900">読み込み中...</div>
   }
 
+  const [showNewApplicationModal, setShowNewApplicationModal] = useState(false)
+  const [showEditApplicationModal, setShowEditApplicationModal] = useState(false)
+  const [editingApplication, setEditingApplication] = useState<Application | null>(null)
+  const [employees, setEmployees] = useState<any[]>([])
+
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user.role === 'admin') {
+      fetchEmployees()
+    }
+  }, [status, session])
+
+  const fetchEmployees = async () => {
+    try {
+      const response = await fetch('/api/admin/employees')
+      const data = await response.json()
+      setEmployees(data.employees || [])
+    } catch (err) {
+      console.error('Failed to fetch employees:', err)
+    }
+  }
+
+  const handleEdit = (app: Application) => {
+    setEditingApplication(app)
+    setShowEditApplicationModal(true)
+  }
+
   return (
     <div className="p-4">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-2xl font-bold mb-6 text-gray-900">申請管理</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">申請管理</h1>
+          <button
+            onClick={() => setShowNewApplicationModal(true)}
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium"
+          >
+            + 新規申請
+          </button>
+        </div>
 
         {/* 検索・フィルター */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -663,6 +697,12 @@ export default function AdminApplicationsPage() {
                             >
                               詳細
                             </button>
+                            <button
+                              onClick={() => handleEdit(app)}
+                              className="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
+                            >
+                              修正
+                            </button>
                             {app.status === 'pending' && (
                               <>
                                 <button
@@ -775,6 +815,794 @@ export default function AdminApplicationsPage() {
             </div>
           </div>
         )}
+
+        {/* 新規申請モーダル */}
+        {showNewApplicationModal && (
+          <NewApplicationModal
+            employees={employees}
+            onClose={() => {
+              setShowNewApplicationModal(false)
+              fetchApplications()
+            }}
+          />
+        )}
+
+        {/* 申請修正モーダル */}
+        {showEditApplicationModal && editingApplication && (
+          <EditApplicationModal
+            application={editingApplication}
+            employees={employees}
+            onClose={() => {
+              setShowEditApplicationModal(false)
+              setEditingApplication(null)
+              fetchApplications()
+            }}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// 新規申請モーダルコンポーネント
+function NewApplicationModal({
+  employees,
+  onClose,
+}: {
+  employees: any[]
+  onClose: () => void
+}) {
+  const [selectedType, setSelectedType] = useState<string>('')
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [formData, setFormData] = useState<any>({
+    title: '',
+    reason: '',
+    date: '',
+    wakeUpTime: '',
+    departureTime: '',
+    clockIn: '',
+    clockOut: '',
+    overtimeDate: '',
+    overtimeStartTime: '',
+    overtimeEndTime: '',
+    overtimeReason: '',
+    leaveType: 'paid',
+    leaveStartDate: '',
+    leaveEndDate: '',
+    leaveDays: 1,
+    reimbursementDate: '',
+    reimbursementCategory: '',
+    reimbursementAmount: '',
+    reimbursementDescription: '',
+    reimbursementFiles: [],
+    transportationDate: '',
+    transportationRoutes: [{ from: '', to: '', amount: '', method: '' }],
+    transportationFiles: [],
+    exchangeMyShiftDate: '',
+    exchangeTargetEmployeeId: '',
+    exchangeTargetShiftDate: '',
+    requestDate: '',
+    requestStartTime: '',
+    requestEndTime: '',
+    requestReason: '',
+  })
+
+  const APPLICATION_TYPES = [
+    { value: 'attendance_correction', label: '打刻修正' },
+    { value: 'overtime', label: '残業申請' },
+    { value: 'leave', label: '休暇申請' },
+    { value: 'expense_advance', label: '立替金精算' },
+    { value: 'expense_transportation', label: '交通費精算' },
+    { value: 'shift_exchange', label: 'シフト交換' },
+    { value: 'shift_request', label: 'シフト希望' },
+  ]
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    if (!selectedEmployeeId) {
+      setError('申請者を選択してください')
+      setLoading(false)
+      return
+    }
+
+    try {
+      let content: any = {}
+      let reason = formData.reason
+
+      switch (selectedType) {
+        case 'attendance_correction':
+          if (!formData.date || !formData.reason || formData.reason.length < 10) {
+            setError('日付と理由（10文字以上）を入力してください')
+            setLoading(false)
+            return
+          }
+          content = {
+            date: formData.date,
+            wakeUpTime: formData.wakeUpTime || null,
+            departureTime: formData.departureTime || null,
+            clockIn: formData.clockIn || null,
+            clockOut: formData.clockOut || null,
+          }
+          break
+
+        case 'overtime':
+          if (!formData.overtimeDate || !formData.overtimeStartTime || !formData.overtimeEndTime) {
+            setError('日付、開始時刻、終了時刻を入力してください')
+            setLoading(false)
+            return
+          }
+          content = {
+            date: formData.overtimeDate,
+            startTime: formData.overtimeStartTime,
+            endTime: formData.overtimeEndTime,
+            reason: formData.overtimeReason || '',
+          }
+          reason = formData.overtimeReason || '残業申請'
+          break
+
+        case 'leave':
+          if (!formData.leaveStartDate || !formData.leaveEndDate) {
+            setError('開始日と終了日を入力してください')
+            setLoading(false)
+            return
+          }
+          content = {
+            type: formData.leaveType,
+            startDate: formData.leaveStartDate,
+            endDate: formData.leaveEndDate,
+            days: formData.leaveDays,
+          }
+          reason = formData.reason || '休暇申請'
+          break
+
+        case 'expense_advance':
+          if (!formData.reimbursementDate || !formData.reimbursementCategory || !formData.reimbursementAmount) {
+            setError('日付、カテゴリ、金額を入力してください')
+            setLoading(false)
+            return
+          }
+          content = {
+            date: formData.reimbursementDate,
+            category: formData.reimbursementCategory,
+            amount: parseFloat(formData.reimbursementAmount),
+            description: formData.reimbursementDescription || '',
+            files: formData.reimbursementFiles || [],
+          }
+          reason = formData.reimbursementDescription || '立替金精算'
+          break
+
+        case 'expense_transportation':
+          if (!formData.transportationDate || formData.transportationRoutes.length === 0) {
+            setError('日付と経路を入力してください')
+            setLoading(false)
+            return
+          }
+          const invalidRoute = formData.transportationRoutes.find(
+            (r: any) => !r.from || !r.to || !r.amount
+          )
+          if (invalidRoute) {
+            setError('全ての経路の出発地、到着地、金額を入力してください')
+            setLoading(false)
+            return
+          }
+          const totalAmount = formData.transportationRoutes.reduce(
+            (sum: number, r: any) => sum + (parseFloat(r.amount) || 0),
+            0
+          )
+          content = {
+            date: formData.transportationDate,
+            routes: formData.transportationRoutes.map((r: any) => ({
+              from: r.from,
+              to: r.to,
+              method: r.method || '',
+              amount: parseFloat(r.amount) || 0,
+            })),
+            totalAmount,
+            files: formData.transportationFiles || [],
+          }
+          reason = `交通費精算（${formData.transportationRoutes.length}経路、合計¥${totalAmount.toLocaleString()}）`
+          break
+
+        case 'shift_exchange':
+          if (!formData.exchangeMyShiftDate || !formData.exchangeTargetEmployeeId || !formData.exchangeTargetShiftDate) {
+            setError('自分のシフト日、交換相手、相手のシフト日を入力してください')
+            setLoading(false)
+            return
+          }
+          content = {
+            myShiftDate: formData.exchangeMyShiftDate,
+            targetEmployeeId: parseInt(formData.exchangeTargetEmployeeId),
+            targetShiftDate: formData.exchangeTargetShiftDate,
+          }
+          reason = formData.reason || 'シフト交換申請'
+          break
+
+        case 'shift_request':
+          if (!formData.requestDate || !formData.requestStartTime || !formData.requestEndTime) {
+            setError('日付、開始時刻、終了時刻を入力してください')
+            setLoading(false)
+            return
+          }
+          content = {
+            date: formData.requestDate,
+            startTime: formData.requestStartTime,
+            endTime: formData.requestEndTime,
+            reason: formData.requestReason || '',
+          }
+          reason = formData.requestReason || 'シフト希望申請'
+          break
+
+        default:
+          setError('申請タイプを選択してください')
+          setLoading(false)
+          return
+      }
+
+      const response = await fetch('/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: selectedType,
+          title: formData.title || null,
+          content,
+          reason,
+          employeeId: selectedEmployeeId,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        onClose()
+      } else {
+        setError(data.error || '申請の作成に失敗しました')
+      }
+    } catch (err) {
+      console.error('Failed to create application:', err)
+      setError('申請の作成に失敗しました')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!selectedType) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">新規申請</h2>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                申請者 <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={selectedEmployeeId}
+                onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+              >
+                <option value="">選択してください</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name} ({emp.employeeNumber})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <h3 className="text-lg font-semibold mb-4 text-gray-900">申請タイプを選択</h3>
+            <div className="grid grid-cols-2 gap-4">
+              {APPLICATION_TYPES.map((type) => (
+                <button
+                  key={type.value}
+                  onClick={() => setSelectedType(type.value)}
+                  className="p-6 bg-blue-50 hover:bg-blue-100 rounded-lg transition text-left"
+                >
+                  <div className="text-lg font-semibold text-gray-900">{type.label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const selectedTypeInfo = APPLICATION_TYPES.find((t) => t.value === selectedType)
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                {selectedTypeInfo?.label}
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">申請者: {employees.find(e => e.id.toString() === selectedEmployeeId)?.name || '未選択'}</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-2xl"
+            >
+              ×
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {!selectedEmployeeId && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  申請者 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedEmployeeId}
+                  onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                >
+                  <option value="">選択してください</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name} ({emp.employeeNumber})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                タイトル（任意）
+              </label>
+              <input
+                type="text"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                placeholder="申請のタイトルを入力"
+              />
+            </div>
+
+            {/* 簡易フォーム（主要な申請タイプのみ） */}
+            {selectedType === 'attendance_correction' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    修正する日付 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">出勤時刻</label>
+                    <input
+                      type="time"
+                      value={formData.clockIn}
+                      onChange={(e) => setFormData({ ...formData, clockIn: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">退勤時刻</label>
+                    <input
+                      type="time"
+                      value={formData.clockOut}
+                      onChange={(e) => setFormData({ ...formData, clockOut: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    修正理由 <span className="text-red-500">*</span>（10文字以上）
+                  </label>
+                  <textarea
+                    value={formData.reason}
+                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                    required
+                    minLength={10}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    placeholder="修正理由を詳しく記入してください"
+                  />
+                </div>
+              </>
+            )}
+
+            {selectedType === 'overtime' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    残業日 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.overtimeDate}
+                    onChange={(e) => setFormData({ ...formData, overtimeDate: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      開始時刻 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={formData.overtimeStartTime}
+                      onChange={(e) => setFormData({ ...formData, overtimeStartTime: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      終了時刻 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={formData.overtimeEndTime}
+                      onChange={(e) => setFormData({ ...formData, overtimeEndTime: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">理由</label>
+                  <textarea
+                    value={formData.overtimeReason}
+                    onChange={(e) => setFormData({ ...formData, overtimeReason: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    placeholder="残業の理由を記入してください"
+                  />
+                </div>
+              </>
+            )}
+
+            {error && (
+              <div className="p-3 bg-red-50 text-red-700 rounded text-sm">{error}</div>
+            )}
+
+            <div className="flex gap-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-6 py-2 bg-blue-500 text-white rounded-md font-semibold hover:bg-blue-600 disabled:opacity-50"
+              >
+                {loading ? '送信中...' : '申請する'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedType('')
+                  setFormData({
+                    title: '',
+                    reason: '',
+                    date: '',
+                    clockIn: '',
+                    clockOut: '',
+                    overtimeDate: '',
+                    overtimeStartTime: '',
+                    overtimeEndTime: '',
+                    overtimeReason: '',
+                  })
+                }}
+                className="px-6 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-semibold"
+              >
+                戻る
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-semibold"
+              >
+                キャンセル
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 申請修正モーダルコンポーネント
+function EditApplicationModal({
+  application,
+  employees,
+  onClose,
+}: {
+  application: Application
+  employees: any[]
+  onClose: () => void
+}) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [formData, setFormData] = useState<any>({
+    employeeId: application.employee.id.toString(),
+    title: application.title || '',
+    reason: application.reason || '',
+  })
+
+  useEffect(() => {
+    try {
+      const content = JSON.parse(application.content)
+      setFormData((prev: any) => ({
+        ...prev,
+        ...content,
+      }))
+    } catch (e) {
+      console.error('Failed to parse application content:', e)
+    }
+  }, [application])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    try {
+      let content: any = {}
+      let reason = formData.reason
+
+      switch (application.type) {
+        case 'attendance_correction':
+          if (!formData.date || !formData.reason || formData.reason.length < 10) {
+            setError('日付と理由（10文字以上）を入力してください')
+            setLoading(false)
+            return
+          }
+          content = {
+            date: formData.date,
+            wakeUpTime: formData.wakeUpTime || null,
+            departureTime: formData.departureTime || null,
+            clockIn: formData.clockIn || null,
+            clockOut: formData.clockOut || null,
+          }
+          break
+
+        case 'overtime':
+          if (!formData.date || !formData.startTime || !formData.endTime) {
+            setError('日付、開始時刻、終了時刻を入力してください')
+            setLoading(false)
+            return
+          }
+          content = {
+            date: formData.date,
+            startTime: formData.startTime,
+            endTime: formData.endTime,
+            reason: formData.reason || '',
+          }
+          reason = formData.reason || '残業申請'
+          break
+
+        default:
+          // その他のタイプは簡易対応
+          try {
+            content = JSON.parse(application.content)
+          } catch {
+            content = {}
+          }
+      }
+
+      const response = await fetch(`/api/applications/${application.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: application.type,
+          title: formData.title || null,
+          content,
+          reason,
+          employeeId: formData.employeeId,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        onClose()
+      } else {
+        setError(data.error || '申請の修正に失敗しました')
+      }
+    } catch (err) {
+      console.error('Failed to update application:', err)
+      setError('申請の修正に失敗しました')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">申請修正</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-2xl"
+            >
+              ×
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                申請者 <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.employeeId}
+                onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+              >
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name} ({emp.employeeNumber})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                タイトル（任意）
+              </label>
+              <input
+                type="text"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+              />
+            </div>
+
+            {application.type === 'attendance_correction' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    修正する日付 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.date || ''}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">出勤時刻</label>
+                    <input
+                      type="time"
+                      value={formData.clockIn || ''}
+                      onChange={(e) => setFormData({ ...formData, clockIn: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">退勤時刻</label>
+                    <input
+                      type="time"
+                      value={formData.clockOut || ''}
+                      onChange={(e) => setFormData({ ...formData, clockOut: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    修正理由 <span className="text-red-500">*</span>（10文字以上）
+                  </label>
+                  <textarea
+                    value={formData.reason || ''}
+                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                    required
+                    minLength={10}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+              </>
+            )}
+
+            {application.type === 'overtime' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    残業日 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.date || ''}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      開始時刻 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={formData.startTime || ''}
+                      onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      終了時刻 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={formData.endTime || ''}
+                      onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">理由</label>
+                  <textarea
+                    value={formData.reason || ''}
+                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+              </>
+            )}
+
+            {error && (
+              <div className="p-3 bg-red-50 text-red-700 rounded text-sm">{error}</div>
+            )}
+
+            <div className="flex gap-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-6 py-2 bg-blue-500 text-white rounded-md font-semibold hover:bg-blue-600 disabled:opacity-50"
+              >
+                {loading ? '更新中...' : '更新する'}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-semibold"
+              >
+                キャンセル
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   )

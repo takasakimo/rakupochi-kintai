@@ -23,11 +23,22 @@ interface Employee {
   transportationCost: number | null
 }
 
+interface Notification {
+  id: number
+  type: string
+  title: string
+  message: string
+  isRead: boolean
+  createdAt: string
+}
+
 export default function MyPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [summary, setSummary] = useState<AttendanceSummary | null>(null)
   const [employee, setEmployee] = useState<Employee | null>(null)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -49,6 +60,7 @@ export default function MyPage() {
     if (status === 'authenticated') {
       fetchSummary()
       fetchEmployee()
+      fetchNotifications()
     }
   }, [status])
 
@@ -211,10 +223,52 @@ export default function MyPage() {
     }
   }
 
+  const fetchNotifications = async () => {
+    try {
+      const response = await fetch('/api/notifications?is_read=false')
+      const data = await response.json()
+      if (data.notifications) {
+        setNotifications(data.notifications.slice(0, 5)) // 最新5件のみ表示
+        setUnreadCount(data.notifications.length)
+      }
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err)
+    }
+  }
+
   const formatMinutes = (minutes: number) => {
     const hours = Math.floor(minutes / 60)
     const mins = minutes % 60
     return `${hours}時間${mins}分`
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString('ja-JP', {
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  const getNotificationTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      overtime_alert: '残業アラート',
+      attendance_missing: '打刻忘れ',
+      consecutive_work: '連続勤務',
+      leave_expiry: '有給失効',
+    }
+    return labels[type] || type
+  }
+
+  const getNotificationTypeColor = (type: string) => {
+    const colors: Record<string, string> = {
+      overtime_alert: 'bg-orange-100 text-orange-800',
+      attendance_missing: 'bg-red-100 text-red-800',
+      consecutive_work: 'bg-yellow-100 text-yellow-800',
+      leave_expiry: 'bg-blue-100 text-blue-800',
+    }
+    return colors[type] || 'bg-gray-100 text-gray-800'
   }
 
   if (status === 'loading' || loading) {
@@ -504,6 +558,58 @@ export default function MyPage() {
               )}
             </div>
 
+            {/* 通知セクション */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">通知</h2>
+                <Link
+                  href="/employee/notifications"
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  全て見る →
+                </Link>
+              </div>
+              {unreadCount > 0 ? (
+                <div className="space-y-3">
+                  {notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className="p-4 bg-gray-50 rounded-lg border-l-4 border-blue-500"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${getNotificationTypeColor(
+                            notification.type
+                          )}`}
+                        >
+                          {getNotificationTypeLabel(notification.type)}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {formatDate(notification.createdAt)}
+                        </span>
+                      </div>
+                      <h3 className="font-semibold text-gray-900 mb-1">{notification.title}</h3>
+                      <p className="text-sm text-gray-700">{notification.message}</p>
+                    </div>
+                  ))}
+                  {unreadCount > 5 && (
+                    <div className="text-center pt-2">
+                      <Link
+                        href="/employee/notifications"
+                        className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        他 {unreadCount - 5} 件の通知を見る →
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  未読の通知はありません
+                </div>
+              )}
+            </div>
+
             <div className="bg-white rounded-lg shadow-md p-6 mb-6">
               <h2 className="text-xl font-semibold mb-4 text-gray-900">メニュー</h2>
               <div className="space-y-2">
@@ -511,25 +617,36 @@ export default function MyPage() {
                   href="/employee/clock"
                   className="block p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition text-gray-900 font-medium"
                 >
-                  📍 打刻
+                  打刻
                 </Link>
                 <Link
                   href="/employee/history"
                   className="block p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition text-gray-900 font-medium"
                 >
-                  📅 打刻履歴
+                  打刻履歴
                 </Link>
                 <Link
                   href="/employee/applications"
                   className="block p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition text-gray-900 font-medium"
                 >
-                  📝 申請一覧
+                  申請一覧
                 </Link>
                 <Link
                   href="/employee/shifts"
                   className="block p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition text-gray-900 font-medium"
                 >
-                  🗓️ シフト管理
+                  シフト管理
+                </Link>
+                <Link
+                  href="/employee/notifications"
+                  className="relative block p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition text-gray-900 font-medium"
+                >
+                  通知
+                  {unreadCount > 0 && (
+                    <span className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
                 </Link>
               </div>
             </div>
