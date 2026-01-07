@@ -37,6 +37,10 @@ export default function AdminApplicationsPage() {
   const [filterStatus, setFilterStatus] = useState<string>('pending')
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showNewApplicationModal, setShowNewApplicationModal] = useState(false)
+  const [showEditApplicationModal, setShowEditApplicationModal] = useState(false)
+  const [editingApplication, setEditingApplication] = useState<Application | null>(null)
+  const [employees, setEmployees] = useState<any[]>([])
   
   // 検索フィルター
   const [searchFilters, setSearchFilters] = useState({
@@ -58,8 +62,19 @@ export default function AdminApplicationsPage() {
   useEffect(() => {
     if (status === 'authenticated' && session?.user.role === 'admin') {
       fetchApplications()
+      fetchEmployees()
     }
   }, [status, session, filterStatus, searchFilters])
+
+  const fetchEmployees = async () => {
+    try {
+      const response = await fetch('/api/admin/employees')
+      const data = await response.json()
+      setEmployees(data.employees || [])
+    } catch (err) {
+      console.error('Failed to fetch employees:', err)
+    }
+  }
 
   const fetchApplications = async () => {
     try {
@@ -455,34 +470,13 @@ export default function AdminApplicationsPage() {
     }
   }
 
-  if (status === 'loading' || loading) {
-    return <div className="p-8 text-center text-gray-900">読み込み中...</div>
-  }
-
-  const [showNewApplicationModal, setShowNewApplicationModal] = useState(false)
-  const [showEditApplicationModal, setShowEditApplicationModal] = useState(false)
-  const [editingApplication, setEditingApplication] = useState<Application | null>(null)
-  const [employees, setEmployees] = useState<any[]>([])
-
-  useEffect(() => {
-    if (status === 'authenticated' && session?.user.role === 'admin') {
-      fetchEmployees()
-    }
-  }, [status, session])
-
-  const fetchEmployees = async () => {
-    try {
-      const response = await fetch('/api/admin/employees')
-      const data = await response.json()
-      setEmployees(data.employees || [])
-    } catch (err) {
-      console.error('Failed to fetch employees:', err)
-    }
-  }
-
   const handleEdit = (app: Application) => {
     setEditingApplication(app)
     setShowEditApplicationModal(true)
+  }
+
+  if (status === 'loading' || loading) {
+    return <div className="p-8 text-center text-gray-900">読み込み中...</div>
   }
 
   return (
