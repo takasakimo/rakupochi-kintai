@@ -1842,6 +1842,114 @@ function NewApplicationModal({
               </>
             )}
 
+            {/* シフト希望フォーム */}
+            {selectedType === 'shift_request' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    希望日をカレンダーから選択 <span className="text-red-500">*</span>
+                  </label>
+                  <LeaveDateCalendar
+                    selectedDates={formData.requestSelectedDates || []}
+                    onDateToggle={(date: string) => {
+                      const dates = [...(formData.requestSelectedDates || [])]
+                      const index = dates.indexOf(date)
+                      const timeSlots = { ...formData.requestTimeSlots }
+                      
+                      if (index > -1) {
+                        // 日付を削除する場合、対応する時間設定も削除
+                        dates.splice(index, 1)
+                        delete timeSlots[date]
+                      } else {
+                        // 日付を追加する場合、デフォルトの時間設定を追加
+                        dates.push(date)
+                        timeSlots[date] = { startTime: '', endTime: '' }
+                      }
+                      setFormData({ 
+                        ...formData, 
+                        requestSelectedDates: dates,
+                        requestTimeSlots: timeSlots
+                      })
+                    }}
+                  />
+                </div>
+                
+                {/* 選択された日付ごとの時間設定 */}
+                {formData.requestSelectedDates && formData.requestSelectedDates.length > 0 && (
+                  <div className="mt-4 space-y-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      各日付の勤務可能時間 <span className="text-red-500">*</span>
+                    </label>
+                    {formData.requestSelectedDates.sort().map((date: string) => (
+                      <div key={date} className="p-4 border border-gray-300 rounded-md bg-gray-50">
+                        <div className="mb-2 font-medium text-gray-900">
+                          {new Date(date).toLocaleDateString('ja-JP', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            weekday: 'short'
+                          })}
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">
+                              開始時刻 <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="time"
+                              value={formData.requestTimeSlots[date]?.startTime || ''}
+                              onChange={(e) => {
+                                const timeSlots = { ...formData.requestTimeSlots }
+                                timeSlots[date] = {
+                                  ...timeSlots[date],
+                                  startTime: e.target.value
+                                }
+                                setFormData({ ...formData, requestTimeSlots: timeSlots })
+                              }}
+                              required
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">
+                              終了時刻 <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="time"
+                              value={formData.requestTimeSlots[date]?.endTime || ''}
+                              onChange={(e) => {
+                                const timeSlots = { ...formData.requestTimeSlots }
+                                timeSlots[date] = {
+                                  ...timeSlots[date],
+                                  endTime: e.target.value
+                                }
+                                setFormData({ ...formData, requestTimeSlots: timeSlots })
+                              }}
+                              required
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">理由</label>
+                  <textarea
+                    value={formData.requestReason}
+                    onChange={(e) =>
+                      setFormData({ ...formData, requestReason: e.target.value })
+                    }
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    placeholder="シフト希望の理由を記入してください"
+                  />
+                </div>
+              </>
+            )}
+
             {error && (
               <div className="p-3 bg-red-50 text-red-700 rounded text-sm">{error}</div>
             )}
