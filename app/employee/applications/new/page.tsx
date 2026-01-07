@@ -6,13 +6,13 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 const APPLICATION_TYPES = [
-  { value: 'attendance_correction', label: '打刻修正', icon: '🕐' },
-  { value: 'overtime', label: '残業申請', icon: '⏰' },
-  { value: 'leave', label: '休暇申請', icon: '🏖️' },
-  { value: 'expense_advance', label: '立替金精算', icon: '💰' },
-  { value: 'expense_transportation', label: '交通費精算', icon: '🚗' },
-  { value: 'shift_exchange', label: 'シフト交換', icon: '🔄' },
-  { value: 'shift_request', label: 'シフト希望', icon: '📅' },
+  { value: 'attendance_correction', label: '打刻修正', icon: null },
+  { value: 'overtime', label: '残業申請', icon: null },
+  { value: 'leave', label: '休暇申請', icon: null },
+  { value: 'expense_advance', label: '立替金精算', icon: null },
+  { value: 'expense_transportation', label: '交通費精算', icon: null },
+  { value: 'shift_exchange', label: 'シフト交換', icon: null },
+  { value: 'shift_request', label: 'シフト希望', icon: null },
 ]
 
 export default function NewApplicationPage() {
@@ -170,8 +170,8 @@ export default function NewApplicationPage() {
       // 申請タイプごとにcontentを構築
       switch (selectedType) {
         case 'attendance_correction':
-          if (!formData.date || !formData.reason || formData.reason.length < 10) {
-            setError('日付と理由（10文字以上）を入力してください')
+          if (!formData.date || !formData.reason) {
+            setError('日付と理由を入力してください')
             setLoading(false)
             return
           }
@@ -350,7 +350,6 @@ export default function NewApplicationPage() {
                   onClick={() => setSelectedType(type.value)}
                   className="p-6 bg-blue-50 hover:bg-blue-100 rounded-lg transition text-left"
                 >
-                  <div className="text-3xl mb-2">{type.icon}</div>
                   <div className="text-lg font-semibold text-gray-900">{type.label}</div>
                 </button>
               ))}
@@ -382,7 +381,7 @@ export default function NewApplicationPage() {
             ← 戻る
           </button>
           <h1 className="text-2xl font-bold text-gray-900">
-            {selectedTypeInfo?.icon} {selectedTypeInfo?.label}
+            {selectedTypeInfo?.label}
           </h1>
         </div>
 
@@ -461,13 +460,12 @@ export default function NewApplicationPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    修正理由 <span className="text-red-500">*</span>（10文字以上）
+                    修正理由 <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     value={formData.reason}
                     onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                     required
-                    minLength={10}
                     rows={4}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                     placeholder="修正理由を詳しく記入してください"

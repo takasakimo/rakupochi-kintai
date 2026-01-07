@@ -150,9 +150,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 打刻修正申請の場合は理由が必須
-    if (type === 'attendance_correction' && (!reason || reason.length < 10)) {
+    if (type === 'attendance_correction' && !reason) {
       return NextResponse.json(
-        { error: '打刻修正申請の場合は理由を10文字以上入力してください' },
+        { error: '打刻修正申請の場合は理由を入力してください' },
         { status: 400 }
       )
     }

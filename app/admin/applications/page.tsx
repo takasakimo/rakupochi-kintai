@@ -910,8 +910,8 @@ function NewApplicationModal({
 
       switch (selectedType) {
         case 'attendance_correction':
-          if (!formData.date || !formData.reason || formData.reason.length < 10) {
-            setError('日付と理由（10文字以上）を入力してください')
+          if (!formData.date || !formData.reason) {
+            setError('日付と理由を入力してください')
             setLoading(false)
             return
           }
@@ -1207,13 +1207,12 @@ function NewApplicationModal({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    修正理由 <span className="text-red-500">*</span>（10文字以上）
+                    修正理由 <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     value={formData.reason}
                     onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                     required
-                    minLength={10}
                     rows={4}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                     placeholder="修正理由を詳しく記入してください"
@@ -1383,8 +1382,8 @@ function EditApplicationModal({
 
       switch (application.type) {
         case 'attendance_correction':
-          if (!formData.date || !formData.reason || formData.reason.length < 10) {
-            setError('日付と理由（10文字以上）を入力してください')
+          if (!formData.date || !formData.reason) {
+            setError('日付と理由を入力してください')
             setLoading(false)
             return
           }
@@ -1529,13 +1528,12 @@ function EditApplicationModal({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    修正理由 <span className="text-red-500">*</span>（10文字以上）
+                    修正理由 <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     value={formData.reason || ''}
                     onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                     required
-                    minLength={10}
                     rows={4}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                   />
