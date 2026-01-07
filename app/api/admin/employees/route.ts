@@ -46,6 +46,9 @@ export async function GET() {
           address: true,
           bankAccount: true,
           hireDate: true,
+          paidLeaveGrantDate: true,
+          yearsOfService: true,
+          paidLeaveBalance: true,
           transportationRoutes: true,
           transportationCost: true,
           isActive: true,
@@ -55,6 +58,25 @@ export async function GET() {
         },
       })
       console.log('[Employees] Found employees:', employees.length)
+
+      // 有給消滅ロジック（取得から2年経過した有給を自動消滅）
+      const now = new Date()
+      for (const employee of employees) {
+        if (employee.paidLeaveGrantDate && employee.paidLeaveBalance > 0) {
+          const grantDate = new Date(employee.paidLeaveGrantDate)
+          const twoYearsLater = new Date(grantDate)
+          twoYearsLater.setFullYear(twoYearsLater.getFullYear() + 2)
+          
+          // 2年経過している場合、有給残数を0にリセット
+          if (now > twoYearsLater) {
+            await prisma.employee.update({
+              where: { id: employee.id },
+              data: { paidLeaveBalance: 0 },
+            })
+            employee.paidLeaveBalance = 0
+          }
+        }
+      }
     } catch (error: any) {
       console.error('[Employees] Database query error:', error)
       console.error('[Employees] Error name:', error?.name)
@@ -122,7 +144,26 @@ export async function POST(request: NextRequest) {
       bankAccount,
       transportationRoutes,
       transportationCost,
+      hireDate,
+      paidLeaveGrantDate,
+      yearsOfService,
+      paidLeaveBalance,
     } = body
+
+    // 勤続年数から有給付与日を自動計算
+    let calculatedGrantDate = null
+    if (hireDate && yearsOfService) {
+      const hire = new Date(hireDate)
+      const years = parseFloat(yearsOfService)
+      const grantDate = new Date(hire)
+      grantDate.setFullYear(grantDate.getFullYear() + Math.floor(years))
+      grantDate.setMonth(grantDate.getMonth() + Math.floor((years % 1) * 12))
+      calculatedGrantDate = grantDate
+    } else if (hireDate && !paidLeaveGrantDate) {
+      // 勤続年数が未設定でも入社日があれば、入社日を基準に計算
+      const hire = new Date(hireDate)
+      calculatedGrantDate = hire
+    }
 
     // バリデーション
     if (!employeeNumber || !name || !email || !password || !phone || !address) {
@@ -175,6 +216,10 @@ export async function POST(request: NextRequest) {
         bankAccount: bankAccount || null,
         transportationRoutes: transportationRoutes || null,
         transportationCost: transportationCost ? parseInt(transportationCost) : null,
+        hireDate: hireDate ? new Date(hireDate) : null,
+        paidLeaveGrantDate: paidLeaveGrantDate ? new Date(paidLeaveGrantDate) : calculatedGrantDate,
+        yearsOfService: yearsOfService ? parseFloat(yearsOfService) : null,
+        paidLeaveBalance: paidLeaveBalance ? parseInt(paidLeaveBalance) : 0,
         isActive: true,
       },
     })
@@ -195,6 +240,10 @@ export async function POST(request: NextRequest) {
         hireDate: employee.hireDate,
         transportationRoutes: employee.transportationRoutes,
         transportationCost: employee.transportationCost,
+        hireDate: employee.hireDate,
+        paidLeaveGrantDate: employee.paidLeaveGrantDate,
+        yearsOfService: employee.yearsOfService,
+        paidLeaveBalance: employee.paidLeaveBalance,
         isActive: employee.isActive,
       },
     })

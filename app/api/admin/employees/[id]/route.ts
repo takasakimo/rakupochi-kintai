@@ -40,11 +40,30 @@ export async function GET(
         birthDate: true,
         address: true,
         hireDate: true,
+        paidLeaveGrantDate: true,
+        yearsOfService: true,
+        paidLeaveBalance: true,
         transportationRoutes: true,
         transportationCost: true,
         isActive: true,
       },
     })
+
+    // 有給消滅ロジック（取得から2年経過した有給を自動消滅）
+    if (employee && employee.paidLeaveGrantDate && employee.paidLeaveBalance > 0) {
+      const grantDate = new Date(employee.paidLeaveGrantDate)
+      const twoYearsLater = new Date(grantDate)
+      twoYearsLater.setFullYear(twoYearsLater.getFullYear() + 2)
+      const now = new Date()
+      
+      if (now > twoYearsLater) {
+        await prisma.employee.update({
+          where: { id: employee.id },
+          data: { paidLeaveBalance: 0 },
+        })
+        employee.paidLeaveBalance = 0
+      }
+    }
 
     if (!employee) {
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
@@ -130,6 +149,45 @@ export async function PATCH(
       hashedPassword = await bcrypt.hash(body.password, 10)
     }
 
+    // 勤続年数から有給付与日を自動計算
+    let calculatedGrantDate = null
+    const hireDate = body.hireDate ? new Date(body.hireDate) : existingEmployee.hireDate
+    const yearsOfService = body.yearsOfService !== undefined ? parseFloat(body.yearsOfService) : existingEmployee.yearsOfService
+    
+    if (hireDate && yearsOfService !== null && yearsOfService !== undefined) {
+      const grantDate = new Date(hireDate)
+      grantDate.setFullYear(grantDate.getFullYear() + Math.floor(yearsOfService))
+      grantDate.setMonth(grantDate.getMonth() + Math.floor((yearsOfService % 1) * 12))
+      calculatedGrantDate = grantDate
+    } else if (hireDate && !body.paidLeaveGrantDate && !existingEmployee.paidLeaveGrantDate) {
+      // 勤続年数が未設定でも入社日があれば、入社日を基準に計算
+      calculatedGrantDate = hireDate
+    }
+
+    // 有給消滅ロジック（取得から2年経過した有給を自動消滅）
+    let paidLeaveBalance = body.paidLeaveBalance !== undefined 
+      ? parseInt(body.paidLeaveBalance) 
+      : existingEmployee.paidLeaveBalance
+    
+    if (existingEmployee.paidLeaveGrantDate) {
+      const grantDate = new Date(existingEmployee.paidLeaveGrantDate)
+      const twoYearsLater = new Date(grantDate)
+      twoYearsLater.setFullYear(twoYearsLater.getFullYear() + 2)
+      const now = new Date()
+      
+      // 2年経過している場合、有給残数を0にリセット（新規付与分のみ残す）
+      if (now > twoYearsLater && paidLeaveBalance > 0) {
+        // 新しい付与日がある場合は、その付与分のみ残す
+        if (calculatedGrantDate && calculatedGrantDate > grantDate) {
+          // 新しい付与分を計算（簡易的に勤続年数に応じた付与日数を計算）
+          const newGrantDays = Math.floor((yearsOfService || 0) * 10) // 例: 1年で10日付与
+          paidLeaveBalance = Math.max(0, newGrantDays)
+        } else {
+          paidLeaveBalance = 0
+        }
+      }
+    }
+
     const updatedEmployee = await prisma.employee.update({
       where: { id },
       data: {
@@ -146,6 +204,12 @@ export async function PATCH(
         ...(body.address !== undefined && { address: body.address }),
         ...(body.bankAccount !== undefined && { bankAccount: body.bankAccount }),
         ...(body.hireDate && { hireDate: new Date(body.hireDate) }),
+        ...(body.paidLeaveGrantDate && { paidLeaveGrantDate: new Date(body.paidLeaveGrantDate) }),
+        ...(body.paidLeaveGrantDate === null && { paidLeaveGrantDate: null }),
+        ...(calculatedGrantDate && !body.paidLeaveGrantDate && { paidLeaveGrantDate: calculatedGrantDate }),
+        ...(body.yearsOfService !== undefined && { yearsOfService: body.yearsOfService ? parseFloat(body.yearsOfService) : null }),
+        ...(body.paidLeaveBalance !== undefined && { paidLeaveBalance: parseInt(body.paidLeaveBalance) }),
+        ...(paidLeaveBalance !== undefined && { paidLeaveBalance }),
         ...(body.transportationRoutes !== undefined && { transportationRoutes: body.transportationRoutes }),
         ...(body.transportationCost !== undefined && { transportationCost: body.transportationCost ? parseInt(body.transportationCost) : null }),
         ...(body.isActive !== undefined && { isActive: body.isActive }),

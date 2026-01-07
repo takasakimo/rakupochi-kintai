@@ -51,6 +51,9 @@ model Employee {
   bankAccount String?   // 振込先口座
   transportationRoutes Json?     // 交通経路 [{from, to, method, amount}]
   transportationCost   Int?      // 交通費（月額、円）
+  paidLeaveGrantDate DateTime?  @db.Date // 有給付与日
+  yearsOfService      Float?              // 勤続年数（手動設定可能）
+  paidLeaveBalance    Int       @default(0) // 有給残数
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

@@ -19,6 +19,9 @@ interface Employee {
   bankAccount: string | null
   transportationRoutes: any | null
   transportationCost: number | null
+  paidLeaveGrantDate: string | null
+  yearsOfService: number | null
+  paidLeaveBalance: number
   isActive: boolean
 }
 
@@ -53,6 +56,10 @@ export default function EmployeesPage() {
     bankAccount: '',
     transportationRoutes: [] as Array<{ from: string; to: string; method: string; amount: string }>,
     transportationCost: '',
+    hireDate: '',
+    paidLeaveGrantDate: '',
+    yearsOfService: '',
+    paidLeaveBalance: '0',
   })
 
   useEffect(() => {
@@ -149,6 +156,10 @@ export default function EmployeesPage() {
         bankAccount: formData.bankAccount || null,
         transportationRoutes: formData.transportationRoutes.length > 0 ? formData.transportationRoutes : null,
         transportationCost: formData.transportationCost ? parseInt(formData.transportationCost) : null,
+        hireDate: formData.hireDate || null,
+        paidLeaveGrantDate: formData.paidLeaveGrantDate || null,
+        yearsOfService: formData.yearsOfService ? parseFloat(formData.yearsOfService) : null,
+        paidLeaveBalance: formData.paidLeaveBalance ? parseInt(formData.paidLeaveBalance) : 0,
       }
       const response = await fetch('/api/admin/employees', {
         method: 'POST',
@@ -173,6 +184,10 @@ export default function EmployeesPage() {
           bankAccount: '',
           transportationRoutes: [],
           transportationCost: '',
+          hireDate: '',
+          paidLeaveGrantDate: '',
+          yearsOfService: '',
+          paidLeaveBalance: '0',
         })
         fetchEmployees()
         alert('従業員を登録しました')
@@ -206,6 +221,9 @@ export default function EmployeesPage() {
         updateData.address = employee.address || null
         updateData.bankAccount = employee.bankAccount || null
         updateData.hireDate = employee.hireDate || null
+        updateData.paidLeaveGrantDate = employee.paidLeaveGrantDate || null
+        updateData.yearsOfService = employee.yearsOfService || null
+        updateData.paidLeaveBalance = employee.paidLeaveBalance || 0
         
         // パスワードが変更されている場合のみ含める
         const passwordInput = document.getElementById(
@@ -553,6 +571,84 @@ export default function EmployeesPage() {
                     placeholder="例: 三菱UFJ銀行 1234567"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    入社日
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.hireDate}
+                    onChange={(e) => {
+                      const newHireDate = e.target.value
+                      setFormData({ ...formData, hireDate: newHireDate })
+                      // 入社日から勤続年数を自動計算
+                      if (newHireDate) {
+                        const hire = new Date(newHireDate)
+                        const now = new Date()
+                        const years = (now.getTime() - hire.getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+                        setFormData(prev => ({ ...prev, yearsOfService: years.toFixed(2) }))
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    勤続年数
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={formData.yearsOfService}
+                    onChange={(e) => {
+                      const years = e.target.value
+                      setFormData({ ...formData, yearsOfService: years })
+                      // 勤続年数から有給付与日を自動計算
+                      if (formData.hireDate && years) {
+                        const hire = new Date(formData.hireDate)
+                        const grantDate = new Date(hire)
+                        grantDate.setFullYear(grantDate.getFullYear() + Math.floor(parseFloat(years)))
+                        grantDate.setMonth(grantDate.getMonth() + Math.floor((parseFloat(years) % 1) * 12))
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          paidLeaveGrantDate: grantDate.toISOString().split('T')[0] 
+                        }))
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    placeholder="例: 2.5"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">入社日から自動計算されます</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    有給付与日
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.paidLeaveGrantDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, paidLeaveGrantDate: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">勤続年数から自動計算されます</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    有給残数
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.paidLeaveBalance}
+                    onChange={(e) =>
+                      setFormData({ ...formData, paidLeaveBalance: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">日数（取得から2年経過で自動消滅）</p>
+                </div>
               </div>
 
               {/* 交通経路入力 */}
@@ -808,6 +904,24 @@ export default function EmployeesPage() {
                       <div className="text-sm">
                         <span className="text-gray-600">役職:</span>
                         <span className="text-gray-900 ml-2">{employee.position}</span>
+                      </div>
+                    )}
+                    {employee.yearsOfService !== null && (
+                      <div className="text-sm">
+                        <span className="text-gray-600">勤続年数:</span>
+                        <span className="text-gray-900 ml-2">{employee.yearsOfService.toFixed(1)}年</span>
+                      </div>
+                    )}
+                    <div className="text-sm">
+                      <span className="text-gray-600">有給残数:</span>
+                      <span className="text-gray-900 ml-2 font-semibold">{employee.paidLeaveBalance || 0}日</span>
+                    </div>
+                    {employee.paidLeaveGrantDate && (
+                      <div className="text-sm">
+                        <span className="text-gray-600">有給付与日:</span>
+                        <span className="text-gray-900 ml-2">
+                          {new Date(employee.paidLeaveGrantDate).toLocaleDateString('ja-JP')}
+                        </span>
                       </div>
                     )}
                     <div className="text-sm">
@@ -1085,14 +1199,98 @@ export default function EmployeesPage() {
                             ? new Date(selectedEmployee.hireDate).toISOString().split('T')[0]
                             : ''
                         }
+                        onChange={(e) => {
+                          const newHireDate = e.target.value || null
+                          setSelectedEmployee({
+                            ...selectedEmployee,
+                            hireDate: newHireDate,
+                          })
+                          // 入社日から勤続年数を自動計算
+                          if (newHireDate) {
+                            const hire = new Date(newHireDate)
+                            const now = new Date()
+                            const years = (now.getTime() - hire.getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+                            setSelectedEmployee(prev => ({
+                              ...prev,
+                              yearsOfService: parseFloat(years.toFixed(2)),
+                            }))
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        勤続年数
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={selectedEmployee.yearsOfService || ''}
+                        onChange={(e) => {
+                          const years = e.target.value
+                          setSelectedEmployee({
+                            ...selectedEmployee,
+                            yearsOfService: years ? parseFloat(years) : null,
+                          })
+                          // 勤続年数から有給付与日を自動計算
+                          if (selectedEmployee.hireDate && years) {
+                            const hire = new Date(selectedEmployee.hireDate)
+                            const grantDate = new Date(hire)
+                            grantDate.setFullYear(grantDate.getFullYear() + Math.floor(parseFloat(years)))
+                            grantDate.setMonth(grantDate.getMonth() + Math.floor((parseFloat(years) % 1) * 12))
+                            setSelectedEmployee(prev => ({
+                              ...prev,
+                              paidLeaveGrantDate: grantDate.toISOString().split('T')[0],
+                            }))
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                        placeholder="例: 2.5"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">入社日から自動計算されます</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        有給付与日
+                      </label>
+                      <input
+                        type="date"
+                        value={
+                          selectedEmployee.paidLeaveGrantDate
+                            ? new Date(selectedEmployee.paidLeaveGrantDate).toISOString().split('T')[0]
+                            : ''
+                        }
                         onChange={(e) =>
                           setSelectedEmployee({
                             ...selectedEmployee,
-                            hireDate: e.target.value || null,
+                            paidLeaveGrantDate: e.target.value || null,
                           })
                         }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                       />
+                      <p className="mt-1 text-xs text-gray-500">勤続年数から自動計算されます</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        有給残数
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={selectedEmployee.paidLeaveBalance || 0}
+                        onChange={(e) =>
+                          setSelectedEmployee({
+                            ...selectedEmployee,
+                            paidLeaveBalance: parseInt(e.target.value) || 0,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">日数（取得から2年経過で自動消滅）</p>
                     </div>
                     
                     <div>
