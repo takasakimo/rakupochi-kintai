@@ -935,6 +935,92 @@ function NewApplicationModal({
     { value: 'shift_request', label: 'シフト希望' },
   ]
 
+  // ファイルアップロード処理
+  const handleFileUpload = (
+    event: React.ChangeEvent<HTMLInputElement>,
+    fileType: 'reimbursement' | 'transportation'
+  ) => {
+    const files = event.target.files
+    if (!files) return
+
+    const currentFiles =
+      fileType === 'reimbursement'
+        ? formData.reimbursementFiles
+        : formData.transportationFiles
+
+    if (currentFiles.length + files.length > 10) {
+      setError('ファイルは最大10枚までアップロードできます')
+      return
+    }
+
+    const newFiles: Array<{ name: string; data: string; type: string }> = []
+
+    Array.from(files).forEach((file) => {
+      // ファイルタイプのチェック
+      const validTypes = [
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'application/pdf',
+      ]
+      if (!validTypes.includes(file.type)) {
+        setError(
+          '対応していないファイル形式です。PDF、JPEG、PNG、GIF、WebPのみアップロード可能です。'
+        )
+        return
+      }
+
+      // ファイルサイズのチェック（10MB以下）
+      if (file.size > 10 * 1024 * 1024) {
+        setError('ファイルサイズは10MB以下にしてください')
+        return
+      }
+
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const result = e.target?.result as string
+        newFiles.push({
+          name: file.name,
+          data: result,
+          type: file.type,
+        })
+
+        // 全てのファイルを読み込んだら更新
+        if (newFiles.length === files.length) {
+          if (fileType === 'reimbursement') {
+            setFormData({
+              ...formData,
+              reimbursementFiles: [...currentFiles, ...newFiles],
+            })
+          } else {
+            setFormData({
+              ...formData,
+              transportationFiles: [...currentFiles, ...newFiles],
+            })
+          }
+          setError('')
+        }
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  // ファイル削除処理
+  const handleFileRemove = (
+    index: number,
+    fileType: 'reimbursement' | 'transportation'
+  ) => {
+    if (fileType === 'reimbursement') {
+      const newFiles = formData.reimbursementFiles.filter((_: any, i: number) => i !== index)
+      setFormData({ ...formData, reimbursementFiles: newFiles })
+    } else {
+      const newFiles = formData.transportationFiles.filter((_: any, i: number) => i !== index)
+      setFormData({ ...formData, transportationFiles: newFiles })
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -1436,6 +1522,322 @@ function NewApplicationModal({
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                     placeholder="休暇の理由を記入してください"
                   />
+                </div>
+              </>
+            )}
+
+            {/* 立替金精算フォーム */}
+            {selectedType === 'expense_advance' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    日付 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.reimbursementDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, reimbursementDate: e.target.value })
+                    }
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    カテゴリ <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.reimbursementCategory}
+                    onChange={(e) =>
+                      setFormData({ ...formData, reimbursementCategory: e.target.value })
+                    }
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  >
+                    <option value="">選択してください</option>
+                    <option value="meal">食事代</option>
+                    <option value="accommodation">宿泊費</option>
+                    <option value="supplies">備品・消耗品</option>
+                    <option value="entertainment">交際費</option>
+                    <option value="other">その他</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    金額 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={formData.reimbursementAmount}
+                    onChange={(e) =>
+                      setFormData({ ...formData, reimbursementAmount: e.target.value })
+                    }
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">詳細</label>
+                  <textarea
+                    value={formData.reimbursementDescription}
+                    onChange={(e) =>
+                      setFormData({ ...formData, reimbursementDescription: e.target.value })
+                    }
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    placeholder="立替金の詳細を記入してください（例: 会議費、備品購入など）"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    領収書（PDF・画像、最大10枚、1ファイル10MBまで）
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+                    multiple
+                    onChange={(e) => handleFileUpload(e, 'reimbursement')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white text-sm"
+                    disabled={formData.reimbursementFiles.length >= 10}
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    {formData.reimbursementFiles.length}/10枚
+                    {formData.reimbursementFiles.length >= 10 && '（上限に達しています）'}
+                  </p>
+                  {formData.reimbursementFiles.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {formData.reimbursementFiles.map((file: { name: string; data: string; type: string }, index: number) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-2 bg-gray-50 rounded border"
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            {file.type.startsWith('image/') ? (
+                              <img
+                                src={file.data}
+                                alt={file.name}
+                                className="w-12 h-12 object-cover rounded"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 bg-red-100 flex items-center justify-center rounded">
+                                <span className="text-red-600 font-bold text-xs">PDF</span>
+                              </div>
+                            )}
+                            <span className="text-sm text-gray-900 truncate">{file.name}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleFileRemove(index, 'reimbursement')}
+                            className="ml-2 text-red-500 hover:text-red-700 text-sm"
+                          >
+                            削除
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* 交通費精算フォーム */}
+            {selectedType === 'expense_transportation' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    日付 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.transportationDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, transportationDate: e.target.value })
+                    }
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    経路 <span className="text-red-500">*</span>
+                  </label>
+                  <div className="space-y-3">
+                    {formData.transportationRoutes.map((route: { from: string; to: string; amount: string; method: string }, index: number) => (
+                      <div
+                        key={index}
+                        className="p-4 border border-gray-300 rounded-md bg-gray-50"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-sm font-medium text-gray-700">
+                            経路 {index + 1}
+                          </span>
+                          {formData.transportationRoutes.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newRoutes = formData.transportationRoutes.filter(
+                                  (_: any, i: number) => i !== index
+                                )
+                                setFormData({ ...formData, transportationRoutes: newRoutes })
+                              }}
+                              className="text-red-500 hover:text-red-700 text-sm"
+                            >
+                              削除
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">出発地 *</label>
+                            <input
+                              type="text"
+                              value={route.from}
+                              onChange={(e) => {
+                                const newRoutes = [...formData.transportationRoutes]
+                                newRoutes[index].from = e.target.value
+                                setFormData({ ...formData, transportationRoutes: newRoutes })
+                              }}
+                              required
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white text-sm"
+                              placeholder="例: 東京駅"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">到着地 *</label>
+                            <input
+                              type="text"
+                              value={route.to}
+                              onChange={(e) => {
+                                const newRoutes = [...formData.transportationRoutes]
+                                newRoutes[index].to = e.target.value
+                                setFormData({ ...formData, transportationRoutes: newRoutes })
+                              }}
+                              required
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white text-sm"
+                              placeholder="例: 新宿駅"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">交通手段</label>
+                            <select
+                              value={route.method}
+                              onChange={(e) => {
+                                const newRoutes = [...formData.transportationRoutes]
+                                newRoutes[index].method = e.target.value
+                                setFormData({ ...formData, transportationRoutes: newRoutes })
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white text-sm"
+                            >
+                              <option value="">選択</option>
+                              <option value="train">電車</option>
+                              <option value="bus">バス</option>
+                              <option value="taxi">タクシー</option>
+                              <option value="car">車</option>
+                              <option value="other">その他</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">金額 *</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={route.amount}
+                              onChange={(e) => {
+                                const newRoutes = [...formData.transportationRoutes]
+                                newRoutes[index].amount = e.target.value
+                                setFormData({ ...formData, transportationRoutes: newRoutes })
+                              }}
+                              required
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white text-sm"
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({
+                          ...formData,
+                          transportationRoutes: [
+                            ...formData.transportationRoutes,
+                            { from: '', to: '', amount: '', method: '' },
+                          ],
+                        })
+                      }}
+                      className="w-full py-2 px-4 border-2 border-dashed border-gray-300 rounded-md text-gray-600 hover:border-blue-500 hover:text-blue-500 transition text-sm"
+                    >
+                      + 経路を追加
+                    </button>
+                  </div>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-md">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-gray-900">合計金額:</span>
+                    <span className="text-xl font-bold text-blue-600">
+                      ¥
+                      {formData.transportationRoutes
+                        .reduce((sum: number, route: any) => sum + (parseFloat(route.amount) || 0), 0)
+                        .toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    領収書（PDF・画像、最大10枚、1ファイル10MBまで）
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+                    multiple
+                    onChange={(e) => handleFileUpload(e, 'transportation')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white text-sm"
+                    disabled={formData.transportationFiles.length >= 10}
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    {formData.transportationFiles.length}/10枚
+                    {formData.transportationFiles.length >= 10 && '（上限に達しています）'}
+                  </p>
+                  {formData.transportationFiles.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {formData.transportationFiles.map((file: { name: string; data: string; type: string }, index: number) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-2 bg-gray-50 rounded border"
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            {file.type.startsWith('image/') ? (
+                              <img
+                                src={file.data}
+                                alt={file.name}
+                                className="w-12 h-12 object-cover rounded"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 bg-red-100 flex items-center justify-center rounded">
+                                <span className="text-red-600 font-bold text-xs">PDF</span>
+                              </div>
+                            )}
+                            <span className="text-sm text-gray-900 truncate">{file.name}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleFileRemove(index, 'transportation')}
+                            className="ml-2 text-red-500 hover:text-red-700 text-sm"
+                          >
+                            削除
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </>
             )}
