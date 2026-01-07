@@ -43,8 +43,11 @@ export async function PATCH(
     }
 
     // 公休に設定する場合は、時間関連のフィールドを自動的にクリア
+    // workTypeが'公休'の場合もisPublicHolidayをtrueにする
     const isPublicHoliday = body.isPublicHoliday !== undefined 
       ? body.isPublicHoliday 
+      : body.workType === '公休'
+      ? true
       : shift.isPublicHoliday
 
     const updateData: any = {
@@ -71,8 +74,29 @@ export async function PATCH(
       }),
     }
 
+    // workTypeが'公休'の場合はisPublicHolidayもtrueにする
+    if (body.workType === '公休') {
+      updateData.isPublicHoliday = true
+    }
+
     // 公休の場合は時間関連を強制的にnull/0にする
-    if (isPublicHoliday === true) {
+    if (isPublicHoliday === true || body.workType === '公休') {
+      // マイグレーションを確実に実行（エラーを無視して続行）
+      try {
+        await prisma.$executeRawUnsafe(`
+          ALTER TABLE shifts ALTER COLUMN "startTime" DROP NOT NULL;
+        `)
+      } catch (e: any) {
+        // 既に実行済みの場合はエラーを無視
+      }
+      try {
+        await prisma.$executeRawUnsafe(`
+          ALTER TABLE shifts ALTER COLUMN "endTime" DROP NOT NULL;
+        `)
+      } catch (e: any) {
+        // 既に実行済みの場合はエラーを無視
+      }
+      
       updateData.startTime = null
       updateData.endTime = null
       updateData.breakMinutes = 0
@@ -101,15 +125,53 @@ export async function PATCH(
       }
     }
 
-    const updatedShift = await prisma.shift.update({
-      where: { id },
-      data: updateData,
-    })
+    // 更新を実行
+    try {
+      const updatedShift = await prisma.shift.update({
+        where: { id },
+        data: updateData,
+      })
 
-    return NextResponse.json({
-      success: true,
-      shift: updatedShift,
-    })
+      return NextResponse.json({
+        success: true,
+        shift: updatedShift,
+      })
+    } catch (updateError: any) {
+      // Null制約違反エラー（P2011）の場合、マイグレーションを実行して再試行
+      if (updateError?.code === 'P2011') {
+        console.log('Null constraint violation detected (P2011), running migration and retrying...')
+        try {
+          // マイグレーションを実行（エラーを無視）
+          try {
+            await prisma.$executeRawUnsafe(`ALTER TABLE shifts ALTER COLUMN "startTime" DROP NOT NULL;`)
+          } catch (e: any) {}
+          try {
+            await prisma.$executeRawUnsafe(`ALTER TABLE shifts ALTER COLUMN "endTime" DROP NOT NULL;`)
+          } catch (e: any) {}
+          
+          console.log('Migration completed, retrying update...')
+          
+          // マイグレーション後、再度更新を試みる
+          const updatedShift = await prisma.shift.update({
+            where: { id },
+            data: updateData,
+          })
+
+          return NextResponse.json({
+            success: true,
+            shift: updatedShift,
+            migrationApplied: true,
+          })
+        } catch (retryError: any) {
+          console.error('Retry after migration failed:', retryError)
+          // 再試行も失敗した場合は元のエラーを返す
+          throw updateError
+        }
+      } else {
+        // その他のエラーはそのまま再スロー
+        throw updateError
+      }
+    }
   } catch (error: any) {
     console.error('Update shift error:', error)
     console.error('Error details:', {
@@ -121,7 +183,8 @@ export async function PATCH(
     return NextResponse.json(
       { 
         error: 'Internal server error',
-        details: process.env.NODE_ENV === 'development' ? error?.message : undefined,
+        details: error?.message || 'Unknown error',
+        code: error?.code || 'UNKNOWN',
       },
       { status: 500 }
     )

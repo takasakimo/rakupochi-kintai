@@ -33,3 +33,6 @@ JOIN companies c ON e."companyId" = c.id
 WHERE e.role = 'admin'
 ORDER BY e."createdAt";
 
+
+
+

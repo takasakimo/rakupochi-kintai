@@ -40,13 +40,14 @@ export function formatTime(time: Date | string | null | undefined): string {
 }
 
 // 日付フォーマット
-export function formatDate(date: Date | string): string {
+export function formatDate(date: Date | string | null | undefined): string {
+  if (!date) return '未設定'
   const d = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(d.getTime())) return '無効な日付'
   return d.toLocaleDateString('ja-JP', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-    weekday: 'short',
   })
 }
 

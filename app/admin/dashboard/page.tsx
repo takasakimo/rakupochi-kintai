@@ -196,17 +196,17 @@ export default function AdminDashboard() {
                           {announcement.attachments &&
                             Array.isArray(announcement.attachments) &&
                             announcement.attachments.length > 0 && (
-                              <span className="text-xs text-blue-600">
+                                <span className="text-xs text-blue-600">
                                 {imageAttachments.length > 0 && (
                                   <span className="mr-2">
-                                    🖼️ {imageAttachments.length}個の画像
+                                    {imageAttachments.length}個の画像
                                   </span>
                                 )}
                                 {otherAttachmentsCount > 0 && (
-                                  <span>📎 {otherAttachmentsCount}個のファイル</span>
+                                  <span>{otherAttachmentsCount}個のファイル</span>
                                 )}
                                 {imageAttachments.length === 0 && otherAttachmentsCount === 0 && (
-                                  <span>📎 {announcement.attachments.length}個の添付ファイル</span>
+                                  <span>{announcement.attachments.length}個の添付ファイル</span>
                                 )}
                               </span>
                             )}

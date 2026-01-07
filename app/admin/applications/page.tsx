@@ -259,16 +259,32 @@ export default function AdminApplicationsPage() {
           )
 
         case 'leave':
+          const leaveTypeMap: Record<string, string> = {
+            paid: '有給休暇',
+            unpaid: '無給休暇',
+            special: '特別休暇',
+            bereavement: '慶弔休暇',
+            childcare: '育児休暇',
+            nursing: '介護休暇',
+            sick: '病気休暇',
+            menstrual: '生理休暇',
+            marriage: '結婚休暇',
+            maternity: '出産休暇',
+            paternity: 'パートナー出産休暇',
+            refresh: 'リフレッシュ休暇',
+            volunteer: 'ボランティア休暇',
+          }
           return (
             <div className="space-y-2 text-sm text-gray-700">
               <div>
                 <span className="font-medium">休暇種別:</span>{' '}
-                {content.type === 'paid'
-                  ? '有給休暇'
-                  : content.type === 'unpaid'
-                  ? '無給休暇'
-                  : '特別休暇'}
+                {leaveTypeMap[content.type] || content.type}
               </div>
+              {content.reason && (
+                <div>
+                  <span className="font-medium">理由:</span> {content.reason}
+                </div>
+              )}
               <div>
                 <span className="font-medium">開始日:</span>{' '}
                 {content.startDate
@@ -950,6 +966,7 @@ function NewApplicationModal({
             startDate: formData.leaveStartDate,
             endDate: formData.leaveEndDate,
             days: formData.leaveDays,
+            reason: formData.reason || '',
           }
           reason = formData.reason || '休暇申請'
           break
@@ -1274,6 +1291,88 @@ function NewApplicationModal({
               </>
             )}
 
+            {selectedType === 'leave' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    休暇種別 <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.leaveType}
+                    onChange={(e) => setFormData({ ...formData, leaveType: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  >
+                    <option value="paid">有給休暇</option>
+                    <option value="unpaid">無給休暇</option>
+                    <option value="special">特別休暇</option>
+                    <option value="bereavement">慶弔休暇</option>
+                    <option value="childcare">育児休暇</option>
+                    <option value="nursing">介護休暇</option>
+                    <option value="sick">病気休暇</option>
+                    <option value="menstrual">生理休暇</option>
+                    <option value="marriage">結婚休暇</option>
+                    <option value="maternity">出産休暇</option>
+                    <option value="paternity">パートナー出産休暇</option>
+                    <option value="refresh">リフレッシュ休暇</option>
+                    <option value="volunteer">ボランティア休暇</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      開始日 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.leaveStartDate}
+                      onChange={(e) =>
+                        setFormData({ ...formData, leaveStartDate: e.target.value })
+                      }
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      終了日 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.leaveEndDate}
+                      onChange={(e) =>
+                        setFormData({ ...formData, leaveEndDate: e.target.value })
+                      }
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">日数</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.leaveDays}
+                    onChange={(e) =>
+                      setFormData({ ...formData, leaveDays: parseInt(e.target.value) || 1 })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">理由</label>
+                  <textarea
+                    value={formData.reason}
+                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    placeholder="休暇の理由を記入してください"
+                  />
+                </div>
+              </>
+            )}
+
             {error && (
               <div className="p-3 bg-red-50 text-red-700 rounded text-sm">{error}</div>
             )}
@@ -1409,6 +1508,22 @@ function EditApplicationModal({
             reason: formData.reason || '',
           }
           reason = formData.reason || '残業申請'
+          break
+
+        case 'leave':
+          if (!formData.leaveStartDate || !formData.leaveEndDate) {
+            setError('開始日と終了日を入力してください')
+            setLoading(false)
+            return
+          }
+          content = {
+            type: formData.leaveType,
+            startDate: formData.leaveStartDate,
+            endDate: formData.leaveEndDate,
+            days: formData.leaveDays,
+            reason: formData.reason || '',
+          }
+          reason = formData.reason || '休暇申請'
           break
 
         default:
@@ -1588,6 +1703,88 @@ function EditApplicationModal({
                     onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+              </>
+            )}
+
+            {application.type === 'leave' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    休暇種別 <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.leaveType || 'paid'}
+                    onChange={(e) => setFormData({ ...formData, leaveType: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  >
+                    <option value="paid">有給休暇</option>
+                    <option value="unpaid">無給休暇</option>
+                    <option value="special">特別休暇</option>
+                    <option value="bereavement">慶弔休暇</option>
+                    <option value="childcare">育児休暇</option>
+                    <option value="nursing">介護休暇</option>
+                    <option value="sick">病気休暇</option>
+                    <option value="menstrual">生理休暇</option>
+                    <option value="marriage">結婚休暇</option>
+                    <option value="maternity">出産休暇</option>
+                    <option value="paternity">パートナー出産休暇</option>
+                    <option value="refresh">リフレッシュ休暇</option>
+                    <option value="volunteer">ボランティア休暇</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      開始日 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.leaveStartDate || ''}
+                      onChange={(e) =>
+                        setFormData({ ...formData, leaveStartDate: e.target.value })
+                      }
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      終了日 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.leaveEndDate || ''}
+                      onChange={(e) =>
+                        setFormData({ ...formData, leaveEndDate: e.target.value })
+                      }
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">日数</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.leaveDays || 1}
+                    onChange={(e) =>
+                      setFormData({ ...formData, leaveDays: parseInt(e.target.value) || 1 })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">理由</label>
+                  <textarea
+                    value={formData.reason || ''}
+                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    placeholder="休暇の理由を記入してください"
                   />
                 </div>
               </>

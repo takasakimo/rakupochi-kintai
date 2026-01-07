@@ -430,7 +430,7 @@ export default function ShiftRegisterPage() {
               : 'text-gray-600 hover:text-gray-900'
           }`}
         >
-          📋 シフト管理
+          シフト管理
         </button>
         <button
           onClick={() => router.push('/admin/shifts/register')}
@@ -440,7 +440,7 @@ export default function ShiftRegisterPage() {
               : 'text-gray-600 hover:text-gray-900'
           }`}
         >
-          📝 シフト登録
+          シフト登録
         </button>
         <button
           onClick={() => router.push('/admin/shifts/manage?view=timetable')}
@@ -450,7 +450,7 @@ export default function ShiftRegisterPage() {
               : 'text-gray-600 hover:text-gray-900'
           }`}
         >
-          🗓️ タイムテーブル
+          タイムテーブル
         </button>
       </div>
     </div>

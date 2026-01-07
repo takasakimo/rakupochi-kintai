@@ -211,6 +211,7 @@ export default function NewApplicationPage() {
             startDate: formData.leaveStartDate,
             endDate: formData.leaveEndDate,
             days: formData.leaveDays,
+            reason: formData.reason || '',
           }
           reason = formData.reason || '休暇申請'
           break
@@ -543,7 +544,7 @@ export default function NewApplicationPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     休暇種別 <span className="text-red-500">*</span>
                   </label>
-                  <select
+                    <select
                     value={formData.leaveType}
                     onChange={(e) => setFormData({ ...formData, leaveType: e.target.value })}
                     required
@@ -552,6 +553,16 @@ export default function NewApplicationPage() {
                     <option value="paid">有給休暇</option>
                     <option value="unpaid">無給休暇</option>
                     <option value="special">特別休暇</option>
+                    <option value="bereavement">慶弔休暇</option>
+                    <option value="childcare">育児休暇</option>
+                    <option value="nursing">介護休暇</option>
+                    <option value="sick">病気休暇</option>
+                    <option value="menstrual">生理休暇</option>
+                    <option value="marriage">結婚休暇</option>
+                    <option value="maternity">出産休暇</option>
+                    <option value="paternity">パートナー出産休暇</option>
+                    <option value="refresh">リフレッシュ休暇</option>
+                    <option value="volunteer">ボランティア休暇</option>
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">

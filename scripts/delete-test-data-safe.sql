@@ -56,3 +56,6 @@ SELECT '削除後の企業数' as info, COUNT(*) as count FROM companies;
 SELECT '削除後の従業員数' as info, COUNT(*) as count FROM employees;
 SELECT '削除後のadmin数' as info, COUNT(*) as count FROM employees WHERE role = 'admin';
 
+
+
+

@@ -283,7 +283,6 @@ export default function ClockPage() {
                 : 'bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed'
             }`}
           >
-            <div className="text-2xl mb-1">🌅</div>
             <div className="text-sm font-bold">起床</div>
             {attendance?.wakeUpTime && (
               <div className="text-xs mt-1">✓ {formatTime(attendance.wakeUpTime)}</div>
@@ -300,7 +299,6 @@ export default function ClockPage() {
                 : 'bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed'
             }`}
           >
-            <div className="text-2xl mb-1">🚗</div>
             <div className="text-sm font-bold">出発</div>
             {attendance?.departureTime && (
               <div className="text-xs mt-1">✓ {formatTime(attendance.departureTime)}</div>
@@ -317,7 +315,6 @@ export default function ClockPage() {
                 : 'bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed'
             }`}
           >
-            <div className="text-2xl mb-1">🏢</div>
             <div className="text-sm font-bold">出勤</div>
             {attendance?.clockIn ? (
               <div className="text-xs mt-1">✓ {formatTime(attendance.clockIn)}</div>
@@ -336,7 +333,6 @@ export default function ClockPage() {
                 : 'bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed'
             }`}
           >
-            <div className="text-2xl mb-1">🏠</div>
             <div className="text-sm font-bold">退勤</div>
             {attendance?.clockOut ? (
               <div className="text-xs mt-1">✓ {formatTime(attendance.clockOut)}</div>
@@ -353,7 +349,7 @@ export default function ClockPage() {
         {/* 打刻状況の表示 */}
         <div className="space-y-4">
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-            <span className="text-lg text-gray-900">🌅 起床</span>
+            <span className="text-lg text-gray-900">起床</span>
             <span className="font-semibold">
               {attendance?.wakeUpTime ? (
                 <span className="text-green-600">✓ {formatTime(attendance.wakeUpTime)}</span>
@@ -364,7 +360,7 @@ export default function ClockPage() {
           </div>
 
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-            <span className="text-lg text-gray-900">🚗 出発</span>
+            <span className="text-lg text-gray-900">出発</span>
             <span className="font-semibold">
               {attendance?.departureTime ? (
                 <span className="text-green-600">✓ {formatTime(attendance.departureTime)}</span>
@@ -376,10 +372,10 @@ export default function ClockPage() {
 
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
             <div>
-              <span className="text-lg text-gray-900">🏢 出勤</span>
+              <span className="text-lg text-gray-900">出勤</span>
               {attendance?.clockInLocation && (
                 <div className="text-xs text-gray-700 mt-1">
-                  📍 {getLocationInfo(attendance.clockInLocation)}
+                  {getLocationInfo(attendance.clockInLocation)}
                 </div>
               )}
             </div>
@@ -394,10 +390,10 @@ export default function ClockPage() {
 
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
             <div>
-              <span className="text-lg text-gray-900">🏠 退勤</span>
+              <span className="text-lg text-gray-900">退勤</span>
               {attendance?.clockOutLocation && (
                 <div className="text-xs text-gray-700 mt-1">
-                  📍 {getLocationInfo(attendance.clockOutLocation)}
+                  {getLocationInfo(attendance.clockOutLocation)}
                 </div>
               )}
             </div>

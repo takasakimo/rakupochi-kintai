@@ -119,8 +119,8 @@ model Shift {
   companyId   Int
   employeeId  Int
   date        DateTime  @db.Date
-  startTime   DateTime  @db.Time
-  endTime     DateTime  @db.Time
+  startTime   DateTime? @db.Time
+  endTime     DateTime? @db.Time
   breakMinutes Int      @default(0)
   notes       String?
   status      String    @default("confirmed") // confirmed, requested, exchanged

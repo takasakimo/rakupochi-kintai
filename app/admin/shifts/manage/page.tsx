@@ -214,6 +214,14 @@ export default function ShiftManagePage() {
     }
   }
 
+  // ローカル時間で日付文字列を生成する関数
+  const formatLocalDateString = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   const generateTimetableShifts = () => {
     if (!selectedDate) return
 
@@ -333,7 +341,7 @@ export default function ShiftManagePage() {
     // 当月の日付
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month - 1, day)
-      const dateStr = date.toISOString().split('T')[0]
+      const dateStr = formatLocalDateString(date)
       const dayShifts = shifts.filter(shift => {
         const shiftDateStr = shift.date.split('T')[0]
         return shiftDateStr === dateStr && !shift.isPublicHoliday && shift.workType === '出勤'
@@ -754,9 +762,11 @@ export default function ShiftManagePage() {
   }
 
   if (viewMode === 'timetable' && selectedDate) {
-    const date = new Date(selectedDate)
-    const month = date.getMonth() + 1
-    const day = date.getDate()
+    // selectedDateは'YYYY-MM-DD'形式なので、ローカル時間として解釈
+    const [year, month, day] = selectedDate.split('T')[0].split('-').map(Number)
+    const date = new Date(year, month - 1, day)
+    const displayMonth = date.getMonth() + 1
+    const displayDay = date.getDate()
     const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()]
 
     return (
@@ -765,7 +775,6 @@ export default function ShiftManagePage() {
           {/* ヘッダー */}
           <div className="bg-blue-600 text-white p-4 rounded-t-lg flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">📅</span>
               <div>
                 <h2 className="text-xl font-bold">{month}月{day}日のシフト</h2>
                 <p className="text-sm text-blue-100">シフト登録者: {timetableShifts.length}名</p>
@@ -783,8 +792,7 @@ export default function ShiftManagePage() {
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="bg-blue-600 text-white p-4">
               <div className="flex items-center gap-2">
-                <span className="text-xl">🕐</span>
-                <h3 className="text-lg font-bold">タイムテーブル - {month}月{day}日 ({dayOfWeek})</h3>
+                <h3 className="text-lg font-bold">タイムテーブル - {displayMonth}月{displayDay}日 ({dayOfWeek})</h3>
               </div>
               <p className="text-sm text-blue-100 mt-1">シフト登録者: {timetableShifts.length}名</p>
             </div>
@@ -948,7 +956,7 @@ export default function ShiftManagePage() {
               : 'text-gray-600 hover:text-gray-900'
           }`}
         >
-          📋 シフト管理
+          シフト管理
         </button>
         <button
           onClick={() => router.push('/admin/shifts/register')}
@@ -958,7 +966,7 @@ export default function ShiftManagePage() {
               : 'text-gray-600 hover:text-gray-900'
           }`}
         >
-          📝 シフト登録
+          シフト登録
         </button>
         <button
           onClick={() => setViewMode('timetable')}
@@ -968,7 +976,7 @@ export default function ShiftManagePage() {
               : 'text-gray-600 hover:text-gray-900'
           }`}
         >
-          🗓️ タイムテーブル
+          タイムテーブル
         </button>
       </div>
     </div>
@@ -1856,10 +1864,11 @@ export default function ShiftManagePage() {
               {calendar.map((week, weekIndex) => (
                 <tr key={weekIndex}>
                   {week.map((day, dayIndex) => {
-                    const dateStr = day.date.toISOString().split('T')[0]
+                    const dateStr = formatLocalDateString(day.date)
                     const isCurrentMonth = day.date.getMonth() + 1 === month
                     const isHolidayOrSun = isHolidayOrSunday(day.date)
-                    const isToday = dateStr === new Date().toISOString().split('T')[0]
+                    const todayStr = formatLocalDateString(new Date())
+                    const isToday = dateStr === todayStr
 
                     return (
                       <td

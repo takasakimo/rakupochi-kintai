@@ -12,29 +12,29 @@ interface MenuItem {
 }
 
 const adminMenuItems: MenuItem[] = [
-  { href: '/admin/dashboard', label: 'ダッシュボード', icon: '📊' },
-  { href: '/employee/clock', label: '打刻', icon: '📍' },
-  { href: '/admin/employees', label: '従業員管理', icon: '👥' },
-  { href: '/admin/attendances', label: '打刻管理', icon: '📋' },
-  { href: '/admin/applications', label: '申請管理', icon: '📝' },
-  { href: '/admin/shifts/manage', label: 'シフト管理', icon: '🗓️' },
-  { href: '/admin/announcements', label: 'お知らせ管理', icon: '📢' },
-  { href: '/admin/reports', label: 'レポート', icon: '📈' },
-  { href: '/admin/notifications', label: '通知管理', icon: '🔔' },
-  { href: '/admin/settings', label: '設定', icon: '⚙️' },
+  { href: '/admin/dashboard', label: 'ダッシュボード', icon: '' },
+  { href: '/employee/clock', label: '打刻', icon: '' },
+  { href: '/admin/employees', label: '従業員管理', icon: '' },
+  { href: '/admin/attendances', label: '打刻管理', icon: '' },
+  { href: '/admin/applications', label: '申請管理', icon: '' },
+  { href: '/admin/shifts/manage', label: 'シフト管理', icon: '' },
+  { href: '/admin/announcements', label: 'お知らせ管理', icon: '' },
+  { href: '/admin/reports', label: 'レポート', icon: '' },
+  { href: '/admin/notifications', label: '通知管理', icon: '' },
+  { href: '/admin/settings', label: '設定', icon: '' },
 ]
 
 const superAdminMenuItems: MenuItem[] = [
-  { href: '/super-admin/companies', label: '企業管理', icon: '🏢' },
+  { href: '/super-admin/companies', label: '企業管理', icon: '' },
 ]
 
 const employeeMenuItems: MenuItem[] = [
-  { href: '/employee/clock', label: '打刻', icon: '📍' },
-  { href: '/employee/mypage', label: 'マイページ', icon: '👤' },
-  { href: '/employee/history', label: '打刻履歴', icon: '📅' },
-  { href: '/employee/applications', label: '申請一覧', icon: '📝' },
-  { href: '/employee/shifts', label: 'シフト管理', icon: '🗓️' },
-  { href: '/employee/notifications', label: '通知', icon: '🔔' },
+  { href: '/employee/clock', label: '打刻', icon: '' },
+  { href: '/employee/mypage', label: 'マイページ', icon: '' },
+  { href: '/employee/history', label: '打刻履歴', icon: '' },
+  { href: '/employee/applications', label: '申請一覧', icon: '' },
+  { href: '/employee/shifts', label: 'シフト管理', icon: '' },
+  { href: '/employee/notifications', label: '通知', icon: '' },
 ]
 
 interface Company {
@@ -157,7 +157,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
                       : 'text-gray-300 hover:bg-gray-700 hover:text-white'
                   }`}
                 >
-                  <span className="text-xl">{item.icon}</span>
                   <span className="font-medium">{item.label}</span>
                 </Link>
               </li>

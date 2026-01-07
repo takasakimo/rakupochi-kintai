@@ -49,6 +49,93 @@ export async function PATCH(
         updateData.approvedAt = new Date()
         updateData.rejectedAt = null
         updateData.rejectionReason = null
+
+        // 休暇申請が承認された場合、シフトを作成または更新
+        if (existingApplication.type === 'leave') {
+          try {
+            const content = JSON.parse(existingApplication.content)
+            const leaveTypeMap: Record<string, string> = {
+              paid: '有給休暇',
+              unpaid: '無給休暇',
+              special: '特別休暇',
+              bereavement: '慶弔休暇',
+              childcare: '育児休暇',
+              nursing: '介護休暇',
+              sick: '病気休暇',
+              menstrual: '生理休暇',
+              marriage: '結婚休暇',
+              maternity: '出産休暇',
+              paternity: 'パートナー出産休暇',
+              refresh: 'リフレッシュ休暇',
+              volunteer: 'ボランティア休暇',
+            }
+            const leaveTypeName = leaveTypeMap[content.type] || '休暇'
+
+            // 開始日から終了日までの各日付に対してシフトを作成
+            const startDate = new Date(content.startDate)
+            const endDate = new Date(content.endDate)
+            const dates: Date[] = []
+
+            for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+              dates.push(new Date(d))
+            }
+
+            for (const date of dates) {
+              // 既存のシフトを確認
+              const [year, month, day] = [
+                date.getFullYear(),
+                date.getMonth() + 1,
+                date.getDate(),
+              ]
+              const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+              const shiftDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0))
+
+              const existingShift = await prisma.shift.findFirst({
+                where: {
+                  companyId: session.user.companyId,
+                  employeeId: existingApplication.employeeId,
+                  date: shiftDate,
+                },
+              })
+
+              const notes = `${leaveTypeName}${content.reason ? `: ${content.reason}` : ''}`
+
+              if (existingShift) {
+                // 既存のシフトを更新
+                await prisma.shift.update({
+                  where: { id: existingShift.id },
+                  data: {
+                    isPublicHoliday: true,
+                    workType: leaveTypeName,
+                    notes,
+                    startTime: null,
+                    endTime: null,
+                    breakMinutes: 0,
+                  },
+                })
+              } else {
+                // 新規シフトを作成
+                await prisma.shift.create({
+                  data: {
+                    companyId: session.user.companyId,
+                    employeeId: existingApplication.employeeId,
+                    date: shiftDate,
+                    isPublicHoliday: true,
+                    workType: leaveTypeName,
+                    notes,
+                    startTime: null,
+                    endTime: null,
+                    breakMinutes: 0,
+                    status: 'confirmed',
+                  },
+                })
+              }
+            }
+          } catch (error) {
+            console.error('Failed to create shifts for leave application:', error)
+            // エラーが発生しても申請の承認は続行
+          }
+        }
       } else {
         updateData.rejectedAt = new Date()
         updateData.approvedAt = null

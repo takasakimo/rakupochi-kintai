@@ -931,7 +931,7 @@ export default function AdminAttendancesPage() {
                                   onClick={() => handleShowMap(attendance.clockInLocation, 'clockIn')}
                                   className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
                                 >
-                                  📍 {getLocationInfo(attendance.clockInLocation)}
+                                  {getLocationInfo(attendance.clockInLocation)}
                                 </button>
                               </div>
                             )}
@@ -946,7 +946,7 @@ export default function AdminAttendancesPage() {
                                   onClick={() => handleShowMap(attendance.clockOutLocation, 'clockOut')}
                                   className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
                                 >
-                                  📍 {getLocationInfo(attendance.clockOutLocation)}
+                                  {getLocationInfo(attendance.clockOutLocation)}
                                 </button>
                               </div>
                             )}
@@ -1075,7 +1075,7 @@ export default function AdminAttendancesPage() {
                                 onClick={() => handleShowMap(attendance.clockInLocation, 'clockIn')}
                                 className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
                               >
-                                📍 {getLocationInfo(attendance.clockInLocation)}
+                                {getLocationInfo(attendance.clockInLocation)}
                               </button>
                             </div>
                           )}
@@ -1090,7 +1090,7 @@ export default function AdminAttendancesPage() {
                                 onClick={() => handleShowMap(attendance.clockOutLocation, 'clockOut')}
                                 className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
                               >
-                                📍 {getLocationInfo(attendance.clockOutLocation)}
+                                {getLocationInfo(attendance.clockOutLocation)}
                               </button>
                             </div>
                           )}

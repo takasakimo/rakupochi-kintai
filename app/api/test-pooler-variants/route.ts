@@ -65,7 +65,7 @@ export async function GET() {
       })
       
       results.recommendations.push({
-        message: `✅ ${variant.name} が動作しました！この接続文字列を使用してください。`,
+        message: `${variant.name} が動作しました！この接続文字列を使用してください。`,
         url: variant.url,
       })
     } catch (error: any) {
@@ -85,7 +85,7 @@ export async function GET() {
   // 成功した接続がない場合の推奨事項
   if (results.recommendations.length === 0) {
     results.recommendations.push({
-      message: '⚠️ すべての接続プールURL形式でエラーが発生しました。Supabaseダッシュボードから正しい接続文字列を取得してください。',
+      message: 'すべての接続プールURL形式でエラーが発生しました。Supabaseダッシュボードから正しい接続文字列を取得してください。',
       steps: [
         '1. Supabaseダッシュボードにログイン',
         '2. プロジェクトを選択',

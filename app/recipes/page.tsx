@@ -92,7 +92,7 @@ export default function RecipesPage() {
         .eq('user_id', user.id)
         .single()
 
-      const inventoryItems = (inventory || []).map((item) => ({
+      const inventoryItems = (inventory || []).map((item: any) => ({
         name: item.name,
         quantity: item.quantity,
         category: item.category,
@@ -524,4 +524,5 @@ function ImageRecipeForm({ onSave }: { onSave: (data: any) => void }) {
     </div>
   )
 }
+
 

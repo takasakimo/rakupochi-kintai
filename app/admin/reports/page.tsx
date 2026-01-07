@@ -414,13 +414,13 @@ export default function AdminReportsPage() {
                 onClick={exportToCSV}
                 className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 font-medium"
               >
-                📥 CSVエクスポート
+                CSVエクスポート
               </button>
               <button
                 onClick={() => window.print()}
                 className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium"
               >
-                🖨️ 印刷
+                印刷
               </button>
             </>
           )}
@@ -841,7 +841,20 @@ export default function AdminReportsPage() {
         {/* 印刷用タイムシート */}
         {reports.length > 0 && (
           <div className="print-container" style={{ display: 'none' }}>
-            {reports.map((report) => {
+            {reports
+              .filter((report) => {
+                // 特定の従業員が選択されている場合は、その従業員だけを表示
+                if (selectedEmployeeForTimesheet) {
+                  return report.employee.id === selectedEmployeeForTimesheet
+                }
+                // 従業員フィルターが設定されている場合は、その従業員だけを表示
+                if (selectedEmployeeId) {
+                  return report.employee.id.toString() === selectedEmployeeId
+                }
+                // どちらも設定されていない場合は、全て表示
+                return true
+              })
+              .map((report) => {
               const month = selectedMonth
                 ? `${selectedMonth.split('-')[0]}年 ${parseInt(selectedMonth.split('-')[1])}月`
                 : period
