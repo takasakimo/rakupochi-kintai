@@ -1361,23 +1361,22 @@ function EditApplicationModal({
   useEffect(() => {
     try {
       const content = JSON.parse(application.content)
-      setFormData((prev: any) => ({
-        ...prev,
+      setFormData({
         employeeId: application.employee.id.toString(),
         title: application.title || '',
         reason: application.reason || '',
         ...content,
-      }))
+      })
     } catch (e) {
       console.error('Failed to parse application content:', e)
-      setFormData((prev: any) => ({
-        ...prev,
+      setFormData({
         employeeId: application.employee.id.toString(),
         title: application.title || '',
         reason: application.reason || '',
-      }))
+      })
     }
-  }, [application.id, application.content, application.title, application.reason, application.employee.id])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [application.id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
