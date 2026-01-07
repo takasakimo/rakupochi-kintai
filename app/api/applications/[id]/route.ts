@@ -71,13 +71,18 @@ export async function PATCH(
             }
             const leaveTypeName = leaveTypeMap[content.type] || '休暇'
 
-            // 開始日から終了日までの各日付に対してシフトを作成
-            const startDate = new Date(content.startDate)
-            const endDate = new Date(content.endDate)
-            const dates: Date[] = []
-
-            for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-              dates.push(new Date(d))
+            // 日付モードに応じて日付を取得
+            let dates: Date[] = []
+            if (content.dateMode === 'multiple' && content.selectedDates) {
+              // 複数日選択の場合
+              dates = content.selectedDates.map((dateStr: string) => new Date(dateStr))
+            } else if (content.startDate && content.endDate) {
+              // 開始日・終了日の場合
+              const startDate = new Date(content.startDate)
+              const endDate = new Date(content.endDate)
+              for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                dates.push(new Date(d))
+              }
             }
 
             for (const date of dates) {

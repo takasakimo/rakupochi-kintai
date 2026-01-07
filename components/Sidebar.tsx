@@ -93,9 +93,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
 
   const handleLogout = async () => {
     if (confirm('ログアウトしますか？')) {
-      await signOut({ redirect: false })
-      router.push('/auth/signin')
-      router.refresh()
+      try {
+        await signOut({ 
+          redirect: false,
+          callbackUrl: '/auth/signin'
+        })
+        // セッションを完全にクリアするため、ページを完全にリロード
+        window.location.href = '/auth/signin'
+      } catch (error) {
+        console.error('Logout error:', error)
+        // エラーが発生してもログインページにリダイレクト
+        window.location.href = '/auth/signin'
+      }
     }
   }
 

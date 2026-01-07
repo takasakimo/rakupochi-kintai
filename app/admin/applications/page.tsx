@@ -26,7 +26,6 @@ const APPLICATION_TYPES: Record<string, string> = {
   leave: '休暇申請',
   expense_advance: '立替金精算',
   expense_transportation: '交通費精算',
-  shift_exchange: 'シフト交換',
   shift_request: 'シフト希望',
 }
 
@@ -448,40 +447,52 @@ export default function AdminApplicationsPage() {
             </div>
           )
 
-        case 'shift_exchange':
-          return (
-            <div className="space-y-2 text-sm text-gray-700">
-              <div>
-                <span className="font-medium">自分のシフト日:</span>{' '}
-                {content.myShiftDate
-                  ? new Date(content.myShiftDate).toLocaleDateString('ja-JP')
-                  : '-'}
-              </div>
-              <div>
-                <span className="font-medium">交換相手の従業員ID:</span> {content.targetEmployeeId || '-'}
-              </div>
-              <div>
-                <span className="font-medium">相手のシフト日:</span>{' '}
-                {content.targetShiftDate
-                  ? new Date(content.targetShiftDate).toLocaleDateString('ja-JP')
-                  : '-'}
-              </div>
-            </div>
-          )
-
         case 'shift_request':
+          // 新しい形式（selectedDates + timeSlots）と旧形式（date + startTime + endTime）の両方に対応
+          const hasSelectedDates = content.selectedDates && Array.isArray(content.selectedDates)
           return (
             <div className="space-y-2 text-sm text-gray-700">
-              <div>
-                <span className="font-medium">希望日:</span>{' '}
-                {content.date ? new Date(content.date).toLocaleDateString('ja-JP') : '-'}
-              </div>
-              <div>
-                <span className="font-medium">希望開始時刻:</span> {content.startTime?.slice(0, 5) || '-'}
-              </div>
-              <div>
-                <span className="font-medium">希望終了時刻:</span> {content.endTime?.slice(0, 5) || '-'}
-              </div>
+              {hasSelectedDates ? (
+                <>
+                  <div>
+                    <span className="font-medium">希望日 ({content.selectedDates.length}日):</span>
+                  </div>
+                  {content.selectedDates.map((date: string, index: number) => {
+                    const timeSlot = content.timeSlots?.[date]
+                    return (
+                      <div key={date} className="ml-4 p-2 bg-gray-50 rounded">
+                        <div>
+                          <span className="font-medium">日付 {index + 1}:</span>{' '}
+                          {new Date(date).toLocaleDateString('ja-JP')}
+                        </div>
+                        {timeSlot && (
+                          <>
+                            <div>
+                              <span className="font-medium">開始時刻:</span> {timeSlot.startTime?.slice(0, 5) || '-'}
+                            </div>
+                            <div>
+                              <span className="font-medium">終了時刻:</span> {timeSlot.endTime?.slice(0, 5) || '-'}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )
+                  })}
+                </>
+              ) : (
+                <>
+                  <div>
+                    <span className="font-medium">希望日:</span>{' '}
+                    {content.date ? new Date(content.date).toLocaleDateString('ja-JP') : '-'}
+                  </div>
+                  <div>
+                    <span className="font-medium">希望開始時刻:</span> {content.startTime?.slice(0, 5) || '-'}
+                  </div>
+                  <div>
+                    <span className="font-medium">希望終了時刻:</span> {content.endTime?.slice(0, 5) || '-'}
+                  </div>
+                </>
+              )}
               {content.reason && (
                 <div>
                   <span className="font-medium">理由:</span> {content.reason}
@@ -569,7 +580,6 @@ export default function AdminApplicationsPage() {
                 <option value="leave">休暇申請</option>
                 <option value="expense_advance">立替金精算</option>
                 <option value="expense_transportation">交通費精算</option>
-                <option value="shift_exchange">シフト交換</option>
                 <option value="shift_request">シフト希望</option>
               </select>
             </div>
@@ -911,12 +921,8 @@ function NewApplicationModal({
     transportationDate: '',
     transportationRoutes: [{ from: '', to: '', amount: '', method: '' }],
     transportationFiles: [],
-    exchangeMyShiftDate: '',
-    exchangeTargetEmployeeId: '',
-    exchangeTargetShiftDate: '',
-    requestDate: '',
-    requestStartTime: '',
-    requestEndTime: '',
+    requestSelectedDates: [] as string[],
+    requestTimeSlots: {} as Record<string, { startTime: string; endTime: string }>,
     requestReason: '',
   })
 
@@ -926,7 +932,6 @@ function NewApplicationModal({
     { value: 'leave', label: '休暇申請' },
     { value: 'expense_advance', label: '立替金精算' },
     { value: 'expense_transportation', label: '交通費精算' },
-    { value: 'shift_exchange', label: 'シフト交換' },
     { value: 'shift_request', label: 'シフト希望' },
   ]
 
@@ -1054,30 +1059,26 @@ function NewApplicationModal({
           reason = `交通費精算（${formData.transportationRoutes.length}経路、合計¥${totalAmount.toLocaleString()}）`
           break
 
-        case 'shift_exchange':
-          if (!formData.exchangeMyShiftDate || !formData.exchangeTargetEmployeeId || !formData.exchangeTargetShiftDate) {
-            setError('自分のシフト日、交換相手、相手のシフト日を入力してください')
-            setLoading(false)
-            return
-          }
-          content = {
-            myShiftDate: formData.exchangeMyShiftDate,
-            targetEmployeeId: parseInt(formData.exchangeTargetEmployeeId),
-            targetShiftDate: formData.exchangeTargetShiftDate,
-          }
-          reason = formData.reason || 'シフト交換申請'
-          break
-
         case 'shift_request':
-          if (!formData.requestDate || !formData.requestStartTime || !formData.requestEndTime) {
-            setError('日付、開始時刻、終了時刻を入力してください')
+          if (!formData.requestSelectedDates || formData.requestSelectedDates.length === 0) {
+            setError('希望日を選択してください')
+            setLoading(false)
+            return
+          }
+          // 選択された日付ごとに時間が設定されているか確認
+          const missingTimeSlots = formData.requestSelectedDates.filter(
+            (date: string) => !formData.requestTimeSlots || !formData.requestTimeSlots[date] || 
+            !formData.requestTimeSlots[date].startTime || 
+            !formData.requestTimeSlots[date].endTime
+          )
+          if (missingTimeSlots.length > 0) {
+            setError('選択した日付すべてに開始時刻と終了時刻を設定してください')
             setLoading(false)
             return
           }
           content = {
-            date: formData.requestDate,
-            startTime: formData.requestStartTime,
-            endTime: formData.requestEndTime,
+            selectedDates: formData.requestSelectedDates.sort(),
+            timeSlots: formData.requestTimeSlots,
             reason: formData.requestReason || '',
           }
           reason = formData.requestReason || 'シフト希望申請'

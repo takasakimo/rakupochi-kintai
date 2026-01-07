@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { useState, useEffect } from 'react'
+import { signIn, useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 
 export default function SignInPage() {
@@ -10,6 +10,23 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const { data: session, status } = useSession()
+
+  // 既にログインしている場合はホームにリダイレクト
+  useEffect(() => {
+    if (status === 'authenticated' && session) {
+      router.push('/')
+      router.refresh()
+    }
+  }, [status, session, router])
+
+  // ページ読み込み時に既存のセッションをクリア（念のため）
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      // セッションが無効な場合は何もしない
+      return
+    }
+  }, [status])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,10 +47,15 @@ export default function SignInPage() {
       }
 
       if (result?.ok) {
+        // ログイン成功後、ページをリロードしてセッションを確実に反映
         router.push('/')
         router.refresh()
+      } else {
+        setError('ログインに失敗しました')
+        setLoading(false)
       }
     } catch (err) {
+      console.error('Login error:', err)
       setError('ログインに失敗しました')
       setLoading(false)
     }

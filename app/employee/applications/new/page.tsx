@@ -12,7 +12,6 @@ const APPLICATION_TYPES = [
   { value: 'leave', label: '休暇申請', icon: null },
   { value: 'expense_advance', label: '立替金精算', icon: null },
   { value: 'expense_transportation', label: '交通費精算', icon: null },
-  { value: 'shift_exchange', label: 'シフト交換', icon: null },
   { value: 'shift_request', label: 'シフト希望', icon: null },
 ]
 
@@ -55,16 +54,9 @@ export default function NewApplicationPage() {
     transportationRoutes: [{ from: '', to: '', amount: '', method: '' }], // 経路配列
     transportationTotalAmount: '',
     transportationFiles: [] as Array<{ name: string; data: string; type: string }>, // ファイル配列
-    // シフト交換用
-    exchangeMyShiftDate: '',
-    exchangeMyShiftId: '',
-    exchangeTargetEmployeeId: '',
-    exchangeTargetShiftDate: '',
-    exchangeTargetShiftId: '',
     // シフト希望用
-    requestDate: '',
-    requestStartTime: '',
-    requestEndTime: '',
+    requestSelectedDates: [] as string[], // 複数日選択用
+    requestTimeSlots: {} as Record<string, { startTime: string; endTime: string }>, // 日付ごとの時間設定
     requestReason: '',
   })
 
@@ -281,36 +273,26 @@ export default function NewApplicationPage() {
           reason = `交通費精算（${formData.transportationRoutes.length}経路、合計¥${totalAmount.toLocaleString()}）`
           break
 
-        case 'shift_exchange':
-          if (
-            !formData.exchangeMyShiftDate ||
-            !formData.exchangeTargetEmployeeId ||
-            !formData.exchangeTargetShiftDate
-          ) {
-            setError('自分のシフト日、交換相手、相手のシフト日を入力してください')
-            setLoading(false)
-            return
-          }
-          content = {
-            myShiftDate: formData.exchangeMyShiftDate,
-            myShiftId: formData.exchangeMyShiftId || null,
-            targetEmployeeId: parseInt(formData.exchangeTargetEmployeeId),
-            targetShiftDate: formData.exchangeTargetShiftDate,
-            targetShiftId: formData.exchangeTargetShiftId || null,
-          }
-          reason = formData.reason || 'シフト交換申請'
-          break
-
         case 'shift_request':
-          if (!formData.requestDate || !formData.requestStartTime || !formData.requestEndTime) {
-            setError('日付、開始時刻、終了時刻を入力してください')
+          if (!formData.requestSelectedDates || formData.requestSelectedDates.length === 0) {
+            setError('希望日を選択してください')
+            setLoading(false)
+            return
+          }
+          // 選択された日付ごとに時間が設定されているか確認
+          const missingTimeSlots = formData.requestSelectedDates.filter(
+            (date: string) => !formData.requestTimeSlots[date] || 
+            !formData.requestTimeSlots[date].startTime || 
+            !formData.requestTimeSlots[date].endTime
+          )
+          if (missingTimeSlots.length > 0) {
+            setError('選択した日付すべてに開始時刻と終了時刻を設定してください')
             setLoading(false)
             return
           }
           content = {
-            date: formData.requestDate,
-            startTime: formData.requestStartTime,
-            endTime: formData.requestEndTime,
+            selectedDates: formData.requestSelectedDates.sort(),
+            timeSlots: formData.requestTimeSlots,
             reason: formData.requestReason || '',
           }
           reason = formData.requestReason || 'シフト希望申請'
@@ -735,7 +717,7 @@ export default function NewApplicationPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    添付ファイル（PDF・画像、最大10枚）
+                    領収書（PDF・画像、最大10枚、1ファイル10MBまで）
                   </label>
                   <input
                     type="file"
@@ -942,7 +924,7 @@ export default function NewApplicationPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    添付ファイル（PDF・画像、最大10枚）
+                    領収書（PDF・画像、最大10枚、1ファイル10MBまで）
                   </label>
                   <input
                     type="file"
@@ -992,115 +974,99 @@ export default function NewApplicationPage() {
               </>
             )}
 
-            {/* シフト交換フォーム */}
-            {selectedType === 'shift_exchange' && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    自分のシフト日 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.exchangeMyShiftDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, exchangeMyShiftDate: e.target.value })
-                    }
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    交換相手の従業員ID <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.exchangeTargetEmployeeId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, exchangeTargetEmployeeId: e.target.value })
-                    }
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    placeholder="従業員IDを入力"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    交換したい相手の従業員IDを入力してください
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    相手のシフト日 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.exchangeTargetShiftDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, exchangeTargetShiftDate: e.target.value })
-                    }
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">理由</label>
-                  <textarea
-                    value={formData.reason}
-                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    placeholder="シフト交換の理由を記入してください"
-                  />
-                </div>
-              </>
-            )}
-
             {/* シフト希望フォーム */}
             {selectedType === 'shift_request' && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    希望日 <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    希望日をカレンダーから選択 <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="date"
-                    value={formData.requestDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, requestDate: e.target.value })
-                    }
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  <LeaveDateCalendar
+                    selectedDates={formData.requestSelectedDates || []}
+                    onDateToggle={(date: string) => {
+                      const dates = [...(formData.requestSelectedDates || [])]
+                      const index = dates.indexOf(date)
+                      const timeSlots = { ...formData.requestTimeSlots }
+                      
+                      if (index > -1) {
+                        // 日付を削除する場合、対応する時間設定も削除
+                        dates.splice(index, 1)
+                        delete timeSlots[date]
+                      } else {
+                        // 日付を追加する場合、デフォルトの時間設定を追加
+                        dates.push(date)
+                        timeSlots[date] = { startTime: '', endTime: '' }
+                      }
+                      setFormData({ 
+                        ...formData, 
+                        requestSelectedDates: dates,
+                        requestTimeSlots: timeSlots
+                      })
+                    }}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      希望開始時刻 <span className="text-red-500">*</span>
+                
+                {/* 選択された日付ごとの時間設定 */}
+                {formData.requestSelectedDates && formData.requestSelectedDates.length > 0 && (
+                  <div className="mt-4 space-y-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      各日付の勤務可能時間 <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="time"
-                      value={formData.requestStartTime}
-                      onChange={(e) =>
-                        setFormData({ ...formData, requestStartTime: e.target.value })
-                      }
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    />
+                    {formData.requestSelectedDates.sort().map((date: string) => (
+                      <div key={date} className="p-4 border border-gray-300 rounded-md bg-gray-50">
+                        <div className="mb-2 font-medium text-gray-900">
+                          {new Date(date).toLocaleDateString('ja-JP', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            weekday: 'short'
+                          })}
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">
+                              開始時刻 <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="time"
+                              value={formData.requestTimeSlots[date]?.startTime || ''}
+                              onChange={(e) => {
+                                const timeSlots = { ...formData.requestTimeSlots }
+                                timeSlots[date] = {
+                                  ...timeSlots[date],
+                                  startTime: e.target.value
+                                }
+                                setFormData({ ...formData, requestTimeSlots: timeSlots })
+                              }}
+                              required
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">
+                              終了時刻 <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="time"
+                              value={formData.requestTimeSlots[date]?.endTime || ''}
+                              onChange={(e) => {
+                                const timeSlots = { ...formData.requestTimeSlots }
+                                timeSlots[date] = {
+                                  ...timeSlots[date],
+                                  endTime: e.target.value
+                                }
+                                setFormData({ ...formData, requestTimeSlots: timeSlots })
+                              }}
+                              required
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      希望終了時刻 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="time"
-                      value={formData.requestEndTime}
-                      onChange={(e) =>
-                        setFormData({ ...formData, requestEndTime: e.target.value })
-                      }
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    />
-                  </div>
-                </div>
+                )}
+                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">理由</label>
                   <textarea
