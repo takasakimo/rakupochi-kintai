@@ -1201,6 +1201,7 @@ export default function EmployeesPage() {
                         }
                         onChange={(e) => {
                           const newHireDate = e.target.value || null
+                          if (!selectedEmployee) return
                           setSelectedEmployee({
                             ...selectedEmployee,
                             hireDate: newHireDate,
@@ -1210,10 +1211,13 @@ export default function EmployeesPage() {
                             const hire = new Date(newHireDate)
                             const now = new Date()
                             const years = (now.getTime() - hire.getTime()) / (1000 * 60 * 60 * 24 * 365.25)
-                            setSelectedEmployee(prev => ({
-                              ...prev,
-                              yearsOfService: parseFloat(years.toFixed(2)),
-                            }))
+                            setSelectedEmployee(prev => {
+                              if (!prev) return prev
+                              return {
+                                ...prev,
+                                yearsOfService: parseFloat(years.toFixed(2)),
+                              }
+                            })
                           }
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
@@ -1230,6 +1234,7 @@ export default function EmployeesPage() {
                         value={selectedEmployee.yearsOfService || ''}
                         onChange={(e) => {
                           const years = e.target.value
+                          if (!selectedEmployee) return
                           setSelectedEmployee({
                             ...selectedEmployee,
                             yearsOfService: years ? parseFloat(years) : null,
@@ -1240,10 +1245,13 @@ export default function EmployeesPage() {
                             const grantDate = new Date(hire)
                             grantDate.setFullYear(grantDate.getFullYear() + Math.floor(parseFloat(years)))
                             grantDate.setMonth(grantDate.getMonth() + Math.floor((parseFloat(years) % 1) * 12))
-                            setSelectedEmployee(prev => ({
-                              ...prev,
-                              paidLeaveGrantDate: grantDate.toISOString().split('T')[0],
-                            }))
+                            setSelectedEmployee(prev => {
+                              if (!prev) return prev
+                              return {
+                                ...prev,
+                                paidLeaveGrantDate: grantDate.toISOString().split('T')[0],
+                              }
+                            })
                           }
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
