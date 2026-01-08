@@ -61,7 +61,8 @@ export default function EmployeesPage() {
   const [showLocationForm, setShowLocationForm] = useState(false)
   const [editingWorkLocation, setEditingWorkLocation] = useState<Location | null>(null)
   const [locationFormData, setLocationFormData] = useState({
-    name: '',
+    storeName: '',
+    departmentName: '',
     address: '',
     latitude: '',
     longitude: '',
@@ -204,12 +205,24 @@ export default function EmployeesPage() {
 
   const handleCreateWorkLocation = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // 店舗名または部署名のどちらかが入力されているかチェック
+    if (!locationFormData.storeName.trim() && !locationFormData.departmentName.trim()) {
+      alert('店舗名または部署名のどちらかを入力してください')
+      return
+    }
+
+    // 店舗名と部署名を結合してnameとして保存（両方入力されている場合は「店舗名 - 部署名」、片方だけの場合はその値）
+    const name = locationFormData.storeName.trim() && locationFormData.departmentName.trim()
+      ? `${locationFormData.storeName.trim()} - ${locationFormData.departmentName.trim()}`
+      : locationFormData.storeName.trim() || locationFormData.departmentName.trim()
+
     try {
       const response = await fetch('/api/admin/locations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: locationFormData.name,
+          name: name,
           address: locationFormData.address || null,
           latitude: locationFormData.latitude ? parseFloat(locationFormData.latitude) : 0,
           longitude: locationFormData.longitude ? parseFloat(locationFormData.longitude) : 0,
@@ -221,7 +234,8 @@ export default function EmployeesPage() {
       if (data.success) {
         setShowLocationForm(false)
         setLocationFormData({
-          name: '',
+          storeName: '',
+          departmentName: '',
           address: '',
           latitude: '',
           longitude: '',
@@ -671,20 +685,37 @@ export default function EmployeesPage() {
               <div className="bg-white rounded-lg shadow-md p-6 mb-6">
                 <h2 className="text-lg font-semibold mb-4 text-gray-900">新規勤務先登録</h2>
                 <form onSubmit={handleCreateWorkLocation} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      勤務先名 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={locationFormData.name}
-                      onChange={(e) =>
-                        setLocationFormData({ ...locationFormData, name: e.target.value })
-                      }
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        店舗名
+                      </label>
+                      <input
+                        type="text"
+                        value={locationFormData.storeName}
+                        onChange={(e) =>
+                          setLocationFormData({ ...locationFormData, storeName: e.target.value })
+                        }
+                        placeholder="店舗名を入力"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        部署名
+                      </label>
+                      <input
+                        type="text"
+                        value={locationFormData.departmentName}
+                        onChange={(e) =>
+                          setLocationFormData({ ...locationFormData, departmentName: e.target.value })
+                        }
+                        placeholder="部署名を入力"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
                   </div>
+                  <p className="text-xs text-gray-500">※ 店舗名または部署名のどちらかを入力してください</p>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       住所
@@ -766,7 +797,8 @@ export default function EmployeesPage() {
                       onClick={() => {
                         setShowLocationForm(false)
                         setLocationFormData({
-                          name: '',
+                          storeName: '',
+                          departmentName: '',
                           address: '',
                           latitude: '',
                           longitude: '',
@@ -825,17 +857,50 @@ export default function EmployeesPage() {
                         <tr key={location.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 text-sm text-gray-900">
                             {editingWorkLocation?.id === location.id ? (
-                              <input
-                                type="text"
-                                value={editingWorkLocation.name}
-                                onChange={(e) =>
-                                  setEditingWorkLocation({
-                                    ...editingWorkLocation,
-                                    name: e.target.value,
-                                  })
-                                }
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white"
-                              />
+                              <div className="grid grid-cols-2 gap-2">
+                                <input
+                                  type="text"
+                                  value={(() => {
+                                    // 既存のnameを「 - 」で分割して店舗名を取得
+                                    const parts = editingWorkLocation.name.split(' - ')
+                                    return parts[0] || ''
+                                  })()}
+                                  onChange={(e) => {
+                                    const storeName = e.target.value
+                                    const parts = editingWorkLocation.name.split(' - ')
+                                    const departmentName = parts[1] || ''
+                                    setEditingWorkLocation({
+                                      ...editingWorkLocation,
+                                      name: departmentName 
+                                        ? `${storeName} - ${departmentName}` 
+                                        : storeName,
+                                    })
+                                  }}
+                                  placeholder="店舗名"
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white"
+                                />
+                                <input
+                                  type="text"
+                                  value={(() => {
+                                    // 既存のnameを「 - 」で分割して部署名を取得
+                                    const parts = editingWorkLocation.name.split(' - ')
+                                    return parts[1] || ''
+                                  })()}
+                                  onChange={(e) => {
+                                    const departmentName = e.target.value
+                                    const parts = editingWorkLocation.name.split(' - ')
+                                    const storeName = parts[0] || ''
+                                    setEditingWorkLocation({
+                                      ...editingWorkLocation,
+                                      name: storeName && departmentName
+                                        ? `${storeName} - ${departmentName}`
+                                        : storeName || departmentName,
+                                    })
+                                  }}
+                                  placeholder="部署名"
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white"
+                                />
+                              </div>
                             ) : (
                               location.name
                             )}
