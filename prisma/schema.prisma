@@ -43,6 +43,8 @@ model Employee {
   password    String    // ハッシュ化されたパスワード
   role        String    @default("employee") // employee, admin
   department  String?
+  workLocation String?  // 店舗・事業所
+  workLocationAddress String?  // 勤務先住所
   position    String?
   phone       String?
   birthDate   DateTime? @db.Date // 生年月日

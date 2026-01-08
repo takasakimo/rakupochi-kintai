@@ -11,6 +11,8 @@ interface Employee {
   email: string
   role: string
   department: string | null
+  workLocation: string | null
+  workLocationAddress: string | null
   position: string | null
   phone: string | null
   birthDate: string | null
@@ -39,7 +41,7 @@ export default function EmployeesPage() {
   const [displayMode, setDisplayMode] = useState<'all' | 'department' | 'location'>('all')
   const [selectedDepartment, setSelectedDepartment] = useState<string>('')
   const [selectedLocation, setSelectedLocation] = useState<string>('')
-  const [locations, setLocations] = useState<string[]>([])
+  const [locations, setLocations] = useState<{ id: number; name: string; address?: string | null }[]>([])
   const [locationEmployeeIds, setLocationEmployeeIds] = useState<Set<number>>(new Set())
 
   const [formData, setFormData] = useState({
@@ -49,6 +51,8 @@ export default function EmployeesPage() {
     password: '',
     role: 'employee',
     department: '',
+    workLocation: '',
+    workLocationAddress: '',
     position: '',
     phone: '',
     birthDate: '',
@@ -177,6 +181,8 @@ export default function EmployeesPage() {
           password: '',
           role: 'employee',
           department: '',
+          workLocation: '',
+          workLocationAddress: '',
           position: '',
           phone: '',
           birthDate: '',
@@ -208,6 +214,8 @@ export default function EmployeesPage() {
         email: employee.email,
         role: employee.role,
         department: employee.department || '',
+        workLocation: employee.workLocation || '',
+        workLocationAddress: employee.workLocationAddress || '',
         position: employee.position || '',
         phone: employee.phone || '',
         birthDate: employee.birthDate || null,
@@ -501,6 +509,39 @@ export default function EmployeesPage() {
                       setFormData({ ...formData, department: e.target.value })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    店舗
+                  </label>
+                  <select
+                    value={formData.workLocation}
+                    onChange={(e) =>
+                      setFormData({ ...formData, workLocation: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  >
+                    <option value="">選択してください</option>
+                    {locations.map((loc) => (
+                      <option key={loc.id} value={loc.name}>
+                        {loc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    勤務先住所
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.workLocationAddress}
+                    onChange={(e) =>
+                      setFormData({ ...formData, workLocationAddress: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    placeholder="店舗の住所を入力してください"
                   />
                 </div>
                 <div>
@@ -844,11 +885,20 @@ export default function EmployeesPage() {
                 >
                   <option value="">選択してください</option>
                   {locations.map((loc) => (
-                    <option key={loc} value={loc}>
-                      {loc}
+                    <option key={loc.id} value={loc.name}>
+                      {loc.name}
                     </option>
                   ))}
                 </select>
+                {selectedLocation && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    住所:{' '}
+                    {
+                      locations.find((loc) => loc.name === selectedLocation)
+                        ?.address || '住所情報が登録されていません'
+                    }
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -898,6 +948,18 @@ export default function EmployeesPage() {
                       <div className="text-sm">
                         <span className="text-gray-600">部署:</span>
                         <span className="text-gray-900 ml-2">{employee.department}</span>
+                      </div>
+                    )}
+                    {employee.workLocation && (
+                      <div className="text-sm">
+                        <span className="text-gray-600">店舗:</span>
+                        <span className="text-gray-900 ml-2">{employee.workLocation}</span>
+                      </div>
+                    )}
+                    {employee.workLocationAddress && (
+                      <div className="text-sm">
+                        <span className="text-gray-600">勤務先住所:</span>
+                        <span className="text-gray-900 ml-2">{employee.workLocationAddress}</span>
                       </div>
                     )}
                     {employee.position && (
@@ -1093,6 +1155,47 @@ export default function EmployeesPage() {
                           })
                         }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        店舗
+                      </label>
+                      <select
+                        value={selectedEmployee.workLocation || ''}
+                        onChange={(e) =>
+                          setSelectedEmployee({
+                            ...selectedEmployee,
+                            workLocation: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                      >
+                        <option value="">選択してください</option>
+                        {locations.map((loc) => (
+                          <option key={loc.id} value={loc.name}>
+                            {loc.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        勤務先住所
+                      </label>
+                      <input
+                        type="text"
+                        value={selectedEmployee.workLocationAddress || ''}
+                        onChange={(e) =>
+                          setSelectedEmployee({
+                            ...selectedEmployee,
+                            workLocationAddress: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                        placeholder="店舗の住所を入力してください"
                       />
                     </div>
                     

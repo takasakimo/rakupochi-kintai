@@ -17,6 +17,7 @@ interface Application {
     id: number
     name: string
     employeeNumber: string
+    department?: string | null
   }
 }
 
@@ -42,12 +43,22 @@ export default function AdminApplicationsPage() {
   const [editingApplication, setEditingApplication] = useState<Application | null>(null)
   const [employees, setEmployees] = useState<any[]>([])
   
+  // ソート状態
+  const [sortBy, setSortBy] = useState<'name' | null>(null)
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+
+  // 部署・店舗フィルター状態（シフト管理と同様の考え方）
+  const [displayMode, setDisplayMode] = useState<'all' | 'department' | 'location'>('all')
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('')
+  const [selectedLocation, setSelectedLocation] = useState<string>('')
+  
   // 検索フィルター
   const [searchFilters, setSearchFilters] = useState({
     startDate: '',
     endDate: '',
     category: '',
     type: '',
+    employee: '',
   })
 
   // URLパラメータからstatusを取得
@@ -193,6 +204,68 @@ export default function AdminApplicationsPage() {
     } catch {
       return null
     }
+  }
+
+  // 部署一覧（シフト管理と同様に従業員マスタから生成）
+  const getDepartments = (): string[] => {
+    const departments = new Set<string>()
+    employees.forEach((emp: any) => {
+      if (emp.department) {
+        departments.add(emp.department)
+      }
+    })
+    return Array.from(departments).sort()
+  }
+
+  // ソート処理
+  const handleSort = (field: 'name') => {
+    if (sortBy === field) {
+      // 同じフィールドをクリックした場合は順序を切り替え
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      // 新しいフィールドをクリックした場合は昇順で開始
+      setSortBy(field)
+      setSortOrder('asc')
+    }
+  }
+
+  // ソート・検索済み申請リストを取得
+  const getSortedApplications = (): Application[] => {
+    let filtered = applications
+
+    // 申請者（氏名・社員番号）での検索
+    if (searchFilters.employee && searchFilters.employee.trim() !== '') {
+      const keyword = searchFilters.employee.trim().toLowerCase()
+      filtered = filtered.filter((app) => {
+        const name = app.employee.name?.toLowerCase() || ''
+        const number = app.employee.employeeNumber?.toLowerCase() || ''
+        return name.includes(keyword) || number.includes(keyword)
+      })
+    }
+
+    // 部署フィルター（シフト管理のロジックに合わせて所属単位で絞り込み）
+    if (displayMode === 'department' && selectedDepartment) {
+      filtered = filtered.filter(
+        (app) => app.employee.department === selectedDepartment
+      )
+    }
+
+    if (!sortBy) {
+      return filtered
+    }
+
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortBy === 'name') {
+        const nameA = a.employee.name.toLowerCase()
+        const nameB = b.employee.name.toLowerCase()
+        if (nameA < nameB) return sortOrder === 'asc' ? -1 : 1
+        if (nameA > nameB) return sortOrder === 'asc' ? 1 : -1
+        return 0
+      }
+      return 0
+    })
+
+    return sorted
   }
 
   // 詳細モーダルを開く
@@ -600,6 +673,53 @@ export default function AdminApplicationsPage() {
                 <option value="other">その他</option>
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                申請者（氏名・社員番号）
+              </label>
+              <input
+                type="text"
+                value={searchFilters.employee}
+                onChange={(e) =>
+                  setSearchFilters({ ...searchFilters, employee: e.target.value })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                placeholder="例）山田 / 0001"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                所属（部署・店舗）
+              </label>
+              <div className="flex gap-2">
+                <select
+                  value={displayMode}
+                  onChange={(e) =>
+                    setDisplayMode(e.target.value as 'all' | 'department' | 'location')
+                  }
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                >
+                  <option value="all">全て</option>
+                  <option value="department">部署</option>
+                  {/* 店舗モードは将来の拡張用。現状は部署での絞り込みを主に利用 */}
+                  <option value="location">店舗</option>
+                </select>
+                {displayMode === 'department' && (
+                  <select
+                    value={selectedDepartment}
+                    onChange={(e) => setSelectedDepartment(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  >
+                    <option value="">部署を選択</option>
+                    {getDepartments().map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
           </div>
           <div className="flex gap-4 items-end">
             <div>
@@ -649,8 +769,17 @@ export default function AdminApplicationsPage() {
             </div>
             <button
               onClick={() => {
-                setSearchFilters({ startDate: '', endDate: '', category: '', type: '' })
+                setSearchFilters({
+                  startDate: '',
+                  endDate: '',
+                  category: '',
+                  type: '',
+                  employee: '',
+                })
                 setFilterStatus('pending')
+                setDisplayMode('all')
+                setSelectedDepartment('')
+                setSelectedLocation('')
               }}
               className="px-4 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-medium"
             >
@@ -676,7 +805,17 @@ export default function AdminApplicationsPage() {
                       申請タイプ
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
-                      申請者
+                      <button
+                        onClick={() => handleSort('name')}
+                        className="flex items-center gap-1 hover:text-blue-600"
+                      >
+                        申請者
+                        {sortBy === 'name' && (
+                          <span className="text-blue-600">
+                            {sortOrder === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </button>
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
                       カテゴリ
@@ -693,7 +832,7 @@ export default function AdminApplicationsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {applications.map((app) => {
+                  {getSortedApplications().map((app) => {
                     const amount = getApplicationAmount(app)
                     const date = getApplicationDate(app)
                     const category = getApplicationCategory(app)

@@ -59,7 +59,7 @@ export default function LocationsPage() {
 
     setGeocodingLoading(true)
     try {
-      const response = await fetch('/api/admin/locations/geocode', {
+      const response = await fetch('/api/admin/geocode-location', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address }),
@@ -92,7 +92,7 @@ export default function LocationsPage() {
 
     setGeocodingLoading(true)
     try {
-      const response = await fetch('/api/admin/locations/geocode', {
+      const response = await fetch('/api/admin/geocode-location', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address }),
