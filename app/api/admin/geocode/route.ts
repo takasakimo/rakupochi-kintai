@@ -4,7 +4,6 @@ import { authOptions } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
-// 住所から緯度経度を取得（ジオコーディング）
 export async function POST(request: NextRequest) {
   try {
     // 認証チェック
@@ -81,4 +80,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
