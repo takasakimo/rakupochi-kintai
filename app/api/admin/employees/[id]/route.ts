@@ -153,14 +153,18 @@ export async function PATCH(
 
     // 勤続年数から有給付与日を自動計算
     let calculatedGrantDate = null
-    const hireDate = body.hireDate ? new Date(body.hireDate) : existingEmployee.hireDate
+    const hireDateValue = body.hireDate ? (body.hireDate === '' ? null : new Date(body.hireDate)) : existingEmployee.hireDate
+    const hireDate = hireDateValue && !isNaN(new Date(hireDateValue).getTime()) ? new Date(hireDateValue) : null
     const yearsOfService = body.yearsOfService !== undefined ? parseFloat(body.yearsOfService) : existingEmployee.yearsOfService
     
-    if (hireDate && yearsOfService !== null && yearsOfService !== undefined) {
+    if (hireDate && yearsOfService !== null && yearsOfService !== undefined && !isNaN(yearsOfService)) {
       const grantDate = new Date(hireDate)
       grantDate.setFullYear(grantDate.getFullYear() + Math.floor(yearsOfService))
       grantDate.setMonth(grantDate.getMonth() + Math.floor((yearsOfService % 1) * 12))
-      calculatedGrantDate = grantDate
+      // 計算結果が有効な日付か確認
+      if (!isNaN(grantDate.getTime())) {
+        calculatedGrantDate = grantDate
+      }
     } else if (hireDate && !body.paidLeaveGrantDate && !existingEmployee.paidLeaveGrantDate) {
       // 勤続年数が未設定でも入社日があれば、入社日を基準に計算
       calculatedGrantDate = hireDate
@@ -203,13 +207,44 @@ export async function PATCH(
         ...(body.workLocationAddress !== undefined && { workLocationAddress: body.workLocationAddress }),
         ...(body.position !== undefined && { position: body.position }),
         ...(body.phone !== undefined && { phone: body.phone }),
-        ...(body.birthDate && { birthDate: new Date(body.birthDate) }),
-        ...(body.birthDate === null && { birthDate: null }),
+        ...(body.birthDate !== undefined && (() => {
+          // 空文字列や無効な日付の場合はnullを設定
+          if (!body.birthDate || body.birthDate === '') {
+            return { birthDate: null }
+          }
+          const birthDate = new Date(body.birthDate)
+          // 無効な日付の場合はnullを設定
+          if (isNaN(birthDate.getTime())) {
+            return { birthDate: null }
+          }
+          return { birthDate }
+        })()),
         ...(body.address !== undefined && { address: body.address }),
         ...(body.bankAccount !== undefined && { bankAccount: body.bankAccount }),
-        ...(body.hireDate && { hireDate: new Date(body.hireDate) }),
-        ...(body.paidLeaveGrantDate && { paidLeaveGrantDate: new Date(body.paidLeaveGrantDate) }),
-        ...(body.paidLeaveGrantDate === null && { paidLeaveGrantDate: null }),
+        ...(body.hireDate !== undefined && (() => {
+          // 空文字列や無効な日付の場合はnullを設定
+          if (!body.hireDate || body.hireDate === '') {
+            return { hireDate: null }
+          }
+          const hireDate = new Date(body.hireDate)
+          // 無効な日付の場合はnullを設定
+          if (isNaN(hireDate.getTime())) {
+            return { hireDate: null }
+          }
+          return { hireDate }
+        })()),
+        ...(body.paidLeaveGrantDate !== undefined && (() => {
+          // 空文字列や無効な日付の場合はnullを設定
+          if (!body.paidLeaveGrantDate || body.paidLeaveGrantDate === '') {
+            return { paidLeaveGrantDate: null }
+          }
+          const grantDate = new Date(body.paidLeaveGrantDate)
+          // 無効な日付の場合はnullを設定
+          if (isNaN(grantDate.getTime())) {
+            return { paidLeaveGrantDate: null }
+          }
+          return { paidLeaveGrantDate: grantDate }
+        })()),
         ...(calculatedGrantDate && !body.paidLeaveGrantDate && { paidLeaveGrantDate: calculatedGrantDate }),
         ...(body.yearsOfService !== undefined && { yearsOfService: body.yearsOfService ? parseFloat(body.yearsOfService) : null }),
         ...(body.paidLeaveBalance !== undefined && { paidLeaveBalance: parseInt(body.paidLeaveBalance) }),
