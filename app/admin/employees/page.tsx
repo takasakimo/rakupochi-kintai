@@ -54,6 +54,7 @@ export default function EmployeesPage() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>('')
   const [selectedLocation, setSelectedLocation] = useState<string>('')
   const [locations, setLocations] = useState<{ id: number; name: string; type?: string; address?: string | null }[]>([])
+  const [departments, setDepartments] = useState<{ id: number; name: string; type?: string; address?: string | null }[]>([])
   const [locationEmployeeIds, setLocationEmployeeIds] = useState<Set<number>>(new Set())
 
   // 勤務先登録用の状態
@@ -108,9 +109,13 @@ export default function EmployeesPage() {
       const response = await fetch('/api/admin/locations')
       if (response.ok) {
         const data = await response.json()
+        const allLocations = data.locations || []
         // 店舗選択では type='store' のもののみを表示
-        const storeLocations = (data.locations || []).filter((loc: any) => loc.type === 'store')
+        const storeLocations = allLocations.filter((loc: any) => loc.type === 'store')
         setLocations(storeLocations)
+        // 部署選択では type='department' のもののみを表示
+        const departmentLocations = allLocations.filter((loc: any) => loc.type === 'department')
+        setDepartments(departmentLocations)
       }
     } catch (err) {
       console.error('Failed to fetch locations:', err)
@@ -1163,14 +1168,20 @@ export default function EmployeesPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     部署
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.department}
                     onChange={(e) =>
                       setFormData({ ...formData, department: e.target.value })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                  />
+                  >
+                    <option value="">選択してください</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.name}>
+                        {dept.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1806,8 +1817,7 @@ export default function EmployeesPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         部署
                       </label>
-                      <input
-                        type="text"
+                      <select
                         value={selectedEmployee.department || ''}
                         onChange={(e) =>
                           setSelectedEmployee({
@@ -1816,7 +1826,14 @@ export default function EmployeesPage() {
                           })
                         }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                      />
+                      >
+                        <option value="">選択してください</option>
+                        {departments.map((dept) => (
+                          <option key={dept.id} value={dept.name}>
+                            {dept.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     
                     <div>
