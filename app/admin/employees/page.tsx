@@ -1170,9 +1170,18 @@ export default function EmployeesPage() {
                   </label>
                   <select
                     value={formData.department}
-                    onChange={(e) =>
-                      setFormData({ ...formData, department: e.target.value })
-                    }
+                    onChange={(e) => {
+                      const selectedDept = departments.find((dept) => dept.name === e.target.value)
+                      // 店舗が選択されている場合は店舗の住所を優先、そうでない場合は部署の住所を使用
+                      const selectedStore = locations.find((loc) => loc.name === formData.workLocation)
+                      const storeAddress = selectedStore?.address || ''
+                      const deptAddress = selectedDept?.address || ''
+                      setFormData({ 
+                        ...formData, 
+                        department: e.target.value,
+                        workLocationAddress: storeAddress || deptAddress || formData.workLocationAddress || ''
+                      })
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                   >
                     <option value="">選択してください</option>
@@ -1189,9 +1198,16 @@ export default function EmployeesPage() {
                   </label>
                   <select
                     value={formData.workLocation}
-                    onChange={(e) =>
-                      setFormData({ ...formData, workLocation: e.target.value })
-                    }
+                    onChange={(e) => {
+                      const selectedLoc = locations.find((loc) => loc.name === e.target.value)
+                      const newAddress = selectedLoc?.address || ''
+                      setFormData({ 
+                        ...formData, 
+                        workLocation: e.target.value,
+                        // 店舗を選択した場合は、店舗の住所を自動入力（店舗の住所が優先）
+                        workLocationAddress: newAddress || formData.workLocationAddress || ''
+                      })
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                   >
                     <option value="">選択してください</option>
@@ -1819,12 +1835,18 @@ export default function EmployeesPage() {
                       </label>
                       <select
                         value={selectedEmployee.department || ''}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const selectedDept = departments.find((dept) => dept.name === e.target.value)
+                          // 店舗が選択されている場合は店舗の住所を優先、そうでない場合は部署の住所を使用
+                          const selectedStore = locations.find((loc) => loc.name === selectedEmployee.workLocation)
+                          const storeAddress = selectedStore?.address || ''
+                          const deptAddress = selectedDept?.address || ''
                           setSelectedEmployee({
                             ...selectedEmployee,
                             department: e.target.value,
+                            workLocationAddress: storeAddress || deptAddress || selectedEmployee.workLocationAddress || ''
                           })
-                        }
+                        }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                       >
                         <option value="">選択してください</option>
@@ -1842,12 +1864,16 @@ export default function EmployeesPage() {
                       </label>
                       <select
                         value={selectedEmployee.workLocation || ''}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const selectedLoc = locations.find((loc) => loc.name === e.target.value)
+                          const newAddress = selectedLoc?.address || ''
                           setSelectedEmployee({
                             ...selectedEmployee,
                             workLocation: e.target.value,
+                            // 店舗を選択した場合は、店舗の住所を自動入力（店舗の住所が優先）
+                            workLocationAddress: newAddress || selectedEmployee.workLocationAddress || ''
                           })
-                        }
+                        }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                       >
                         <option value="">選択してください</option>
