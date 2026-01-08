@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         name: true,
+        type: true,
         address: true,
         latitude: true,
         longitude: true,
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, address, latitude, longitude, radius } = body
+    const { name, type, address, latitude, longitude, radius } = body
 
     if (!name) {
       return NextResponse.json(
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
       data: {
         companyId: session.user.companyId,
         name,
+        type: type || 'store',
         address: address || null,
         latitude: latitude || 0,
         longitude: longitude || 0,

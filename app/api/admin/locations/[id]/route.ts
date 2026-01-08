@@ -39,6 +39,7 @@ export async function PATCH(
       where: { id },
       data: {
         ...(body.name !== undefined && { name: body.name }),
+        ...(body.type !== undefined && { type: body.type }),
         ...(body.address !== undefined && { address: body.address }),
         ...(body.latitude !== undefined && { latitude: body.latitude }),
         ...(body.longitude !== undefined && { longitude: body.longitude }),

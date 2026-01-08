@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 interface Location {
   id: number
   name: string
+  type?: string
   address: string | null
   latitude: number
   longitude: number
@@ -137,6 +138,7 @@ export default function LocationsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: formData.name,
+          type: 'store', // 店舗管理ページでは常に'store'
           address: formData.address || null,
           latitude: formData.latitude ? parseFloat(formData.latitude) : 0,
           longitude: formData.longitude ? parseFloat(formData.longitude) : 0,
@@ -172,6 +174,7 @@ export default function LocationsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: location.name,
+          type: location.type || 'store', // 既存データの互換性のため
           address: location.address,
           latitude: location.latitude,
           longitude: location.longitude,

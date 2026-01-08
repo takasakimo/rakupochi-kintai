@@ -136,7 +136,9 @@ export default function AdminAttendancesPage() {
       }
       const data = await response.json()
       if (data.locations && Array.isArray(data.locations)) {
-        setLocations(data.locations)
+        // 店舗のみを表示
+        const storeLocations = data.locations.filter((loc: any) => loc.type === 'store')
+        setLocations(storeLocations)
       } else {
         setLocations([])
       }

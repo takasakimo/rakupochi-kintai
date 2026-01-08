@@ -30,6 +30,7 @@ interface Employee {
 interface Location {
   id: number
   name: string
+  type?: string
   address: string | null
   latitude: number
   longitude: number
@@ -52,7 +53,7 @@ export default function EmployeesPage() {
   const [displayMode, setDisplayMode] = useState<'all' | 'department' | 'location'>('all')
   const [selectedDepartment, setSelectedDepartment] = useState<string>('')
   const [selectedLocation, setSelectedLocation] = useState<string>('')
-  const [locations, setLocations] = useState<{ id: number; name: string; address?: string | null }[]>([])
+  const [locations, setLocations] = useState<{ id: number; name: string; type?: string; address?: string | null }[]>([])
   const [locationEmployeeIds, setLocationEmployeeIds] = useState<Set<number>>(new Set())
 
   // 勤務先登録用の状態
@@ -107,7 +108,9 @@ export default function EmployeesPage() {
       const response = await fetch('/api/admin/locations')
       if (response.ok) {
         const data = await response.json()
-        setLocations(data.locations || [])
+        // 店舗選択では type='store' のもののみを表示
+        const storeLocations = (data.locations || []).filter((loc: any) => loc.type === 'store')
+        setLocations(storeLocations)
       }
     } catch (err) {
       console.error('Failed to fetch locations:', err)
@@ -216,6 +219,9 @@ export default function EmployeesPage() {
     const name = locationFormData.storeName.trim() && locationFormData.departmentName.trim()
       ? `${locationFormData.storeName.trim()} - ${locationFormData.departmentName.trim()}`
       : locationFormData.storeName.trim() || locationFormData.departmentName.trim()
+    
+    // typeを決定: 店舗名のみまたは両方入力されている場合は'store'、部署名のみの場合は'department'
+    const type = locationFormData.storeName.trim() ? 'store' : 'department'
 
     try {
       const response = await fetch('/api/admin/locations', {
@@ -223,6 +229,7 @@ export default function EmployeesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name,
+          type: type,
           address: locationFormData.address || null,
           latitude: locationFormData.latitude ? parseFloat(locationFormData.latitude) : 0,
           longitude: locationFormData.longitude ? parseFloat(locationFormData.longitude) : 0,
@@ -255,11 +262,17 @@ export default function EmployeesPage() {
 
   const handleUpdateWorkLocation = async (location: Location) => {
     try {
+      // typeを決定: nameに「 - 」が含まれていて、最初の部分（店舗名）が存在する場合は'store'、そうでない場合は'department'
+      const parts = location.name.split(' - ')
+      const hasStoreName = parts[0] && parts[0].trim() !== ''
+      const type = hasStoreName ? 'store' : 'department'
+      
       const response = await fetch(`/api/admin/locations/${location.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: location.name,
+          type: type,
           address: location.address,
           latitude: location.latitude,
           longitude: location.longitude,
@@ -1171,7 +1184,7 @@ export default function EmployeesPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                   >
                     <option value="">選択してください</option>
-                    {locations.map((loc) => (
+                    {locations.filter((loc) => loc.type === 'store').map((loc) => (
                       <option key={loc.id} value={loc.name}>
                         {loc.name}
                       </option>
@@ -1532,7 +1545,7 @@ export default function EmployeesPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                 >
                   <option value="">選択してください</option>
-                  {locations.map((loc) => (
+                  {locations.filter((loc) => loc.type === 'store').map((loc) => (
                     <option key={loc.id} value={loc.name}>
                       {loc.name}
                     </option>
@@ -1821,7 +1834,7 @@ export default function EmployeesPage() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                       >
                         <option value="">選択してください</option>
-                        {locations.map((loc) => (
+                        {locations.filter((loc) => loc.type === 'store').map((loc) => (
                           <option key={loc.id} value={loc.name}>
                             {loc.name}
                           </option>

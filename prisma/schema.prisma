@@ -74,6 +74,7 @@ model Location {
   id          Int       @id @default(autoincrement())
   companyId   Int
   name        String    // 店舗名・事業所名
+  type        String    @default("store") // "store" (店舗) または "department" (部署)
   address     String?
   latitude    Float     // 緯度
   longitude   Float     // 経度
