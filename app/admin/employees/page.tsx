@@ -27,9 +27,20 @@ interface Employee {
   isActive: boolean
 }
 
+interface Location {
+  id: number
+  name: string
+  address: string | null
+  latitude: number
+  longitude: number
+  radius: number
+  isActive: boolean
+}
+
 export default function EmployeesPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const [activeTab, setActiveTab] = useState<'employees' | 'locations'>('employees')
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
@@ -43,6 +54,20 @@ export default function EmployeesPage() {
   const [selectedLocation, setSelectedLocation] = useState<string>('')
   const [locations, setLocations] = useState<{ id: number; name: string; address?: string | null }[]>([])
   const [locationEmployeeIds, setLocationEmployeeIds] = useState<Set<number>>(new Set())
+
+  // 勤務先登録用の状態
+  const [workLocations, setWorkLocations] = useState<Location[]>([])
+  const [workLocationsLoading, setWorkLocationsLoading] = useState(false)
+  const [showLocationForm, setShowLocationForm] = useState(false)
+  const [editingWorkLocation, setEditingWorkLocation] = useState<Location | null>(null)
+  const [locationFormData, setLocationFormData] = useState({
+    name: '',
+    address: '',
+    latitude: '',
+    longitude: '',
+    radius: '500',
+  })
+  const [geocodingLoading, setGeocodingLoading] = useState(false)
 
   const [formData, setFormData] = useState({
     employeeNumber: '',
@@ -70,8 +95,11 @@ export default function EmployeesPage() {
     if (status === 'authenticated' && session?.user.role === 'admin') {
       fetchEmployees()
       fetchLocations()
+      if (activeTab === 'locations') {
+        fetchWorkLocations()
+      }
     }
-  }, [status, session])
+  }, [status, session, activeTab])
   
   const fetchLocations = async () => {
     try {
@@ -82,6 +110,184 @@ export default function EmployeesPage() {
       }
     } catch (err) {
       console.error('Failed to fetch locations:', err)
+    }
+  }
+
+  const fetchWorkLocations = async () => {
+    setWorkLocationsLoading(true)
+    try {
+      const response = await fetch('/api/admin/locations?all=true')
+      if (response.ok) {
+        const data = await response.json()
+        setWorkLocations(data.locations || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch work locations:', err)
+    } finally {
+      setWorkLocationsLoading(false)
+    }
+  }
+
+  // 住所から緯度経度を自動取得（勤務先登録用）
+  const handleAddressGeocode = async (address: string) => {
+    if (!address || address.trim() === '') {
+      return
+    }
+
+    setGeocodingLoading(true)
+    try {
+      const response = await fetch('/api/admin/geocode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address }),
+      })
+
+      const data = await response.json()
+      
+      if (!response.ok) {
+        console.warn('緯度経度の取得に失敗しました:', response.status, data.error || response.statusText)
+        return
+      }
+
+      if (data.success && data.latitude && data.longitude) {
+        setLocationFormData({
+          ...locationFormData,
+          latitude: data.latitude.toString(),
+          longitude: data.longitude.toString(),
+        })
+      } else {
+        console.warn('緯度経度の取得に失敗しました:', data.error || '住所が見つかりませんでした')
+      }
+    } catch (err) {
+      console.error('Failed to geocode address:', err)
+    } finally {
+      setGeocodingLoading(false)
+    }
+  }
+
+  // 住所から緯度経度を自動取得（編集用）
+  const handleEditAddressGeocode = async (address: string) => {
+    if (!address || address.trim() === '' || !editingWorkLocation) {
+      return
+    }
+
+    setGeocodingLoading(true)
+    try {
+      const response = await fetch('/api/admin/geocode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address }),
+      })
+
+      const data = await response.json()
+      
+      if (!response.ok) {
+        console.warn('緯度経度の取得に失敗しました:', response.status, data.error || response.statusText)
+        return
+      }
+
+      if (data.success && data.latitude && data.longitude) {
+        setEditingWorkLocation({
+          ...editingWorkLocation,
+          latitude: data.latitude,
+          longitude: data.longitude,
+        })
+      } else {
+        console.warn('緯度経度の取得に失敗しました:', data.error || '住所が見つかりませんでした')
+      }
+    } catch (err) {
+      console.error('Failed to geocode address:', err)
+    } finally {
+      setGeocodingLoading(false)
+    }
+  }
+
+  const handleCreateWorkLocation = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const response = await fetch('/api/admin/locations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: locationFormData.name,
+          address: locationFormData.address || null,
+          latitude: locationFormData.latitude ? parseFloat(locationFormData.latitude) : 0,
+          longitude: locationFormData.longitude ? parseFloat(locationFormData.longitude) : 0,
+          radius: locationFormData.radius ? parseInt(locationFormData.radius) : 500,
+        }),
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setShowLocationForm(false)
+        setLocationFormData({
+          name: '',
+          address: '',
+          latitude: '',
+          longitude: '',
+          radius: '500',
+        })
+        fetchWorkLocations()
+        fetchLocations() // 従業員管理のフィルター用にも更新
+        alert('勤務先を登録しました')
+      } else {
+        alert(data.error || '勤務先の登録に失敗しました')
+      }
+    } catch (err) {
+      console.error('Failed to create work location:', err)
+      alert('勤務先の登録に失敗しました')
+    }
+  }
+
+  const handleUpdateWorkLocation = async (location: Location) => {
+    try {
+      const response = await fetch(`/api/admin/locations/${location.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: location.name,
+          address: location.address,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          radius: location.radius,
+          isActive: location.isActive,
+        }),
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setEditingWorkLocation(null)
+        fetchWorkLocations()
+        fetchLocations() // 従業員管理のフィルター用にも更新
+        alert('勤務先を更新しました')
+      } else {
+        alert(data.error || '勤務先の更新に失敗しました')
+      }
+    } catch (err) {
+      console.error('Failed to update work location:', err)
+      alert('勤務先の更新に失敗しました')
+    }
+  }
+
+  const handleDeleteWorkLocation = async (id: number) => {
+    if (!confirm('この勤務先を削除しますか？')) return
+
+    try {
+      const response = await fetch(`/api/admin/locations/${id}`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        fetchWorkLocations()
+        fetchLocations() // 従業員管理のフィルター用にも更新
+        alert('勤務先を削除しました')
+      } else {
+        alert(data.error || '勤務先の削除に失敗しました')
+      }
+    } catch (err) {
+      console.error('Failed to delete work location:', err)
+      alert('勤務先の削除に失敗しました')
     }
   }
   
@@ -407,16 +613,393 @@ export default function EmployeesPage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-900">従業員管理</h1>
-          <button
-            onClick={() => {
-              setShowCreateForm(!showCreateForm)
-              setEditingEmployee(null)
-            }}
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium"
-          >
-            {showCreateForm ? 'キャンセル' : '+ 従業員登録'}
-          </button>
+          {activeTab === 'employees' && (
+            <button
+              onClick={() => {
+                setShowCreateForm(!showCreateForm)
+                setEditingEmployee(null)
+              }}
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium"
+            >
+              {showCreateForm ? 'キャンセル' : '+ 従業員登録'}
+            </button>
+          )}
+          {activeTab === 'locations' && (
+            <button
+              onClick={() => {
+                setShowLocationForm(!showLocationForm)
+                setEditingWorkLocation(null)
+              }}
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium"
+            >
+              {showLocationForm ? 'キャンセル' : '+ 勤務先登録'}
+            </button>
+          )}
         </div>
+
+        {/* タブ */}
+        <div className="mb-6 border-b border-gray-200">
+          <nav className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab('employees')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'employees'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              従業員管理
+            </button>
+            <button
+              onClick={() => setActiveTab('locations')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'locations'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              勤務先登録
+            </button>
+          </nav>
+        </div>
+
+        {/* 勤務先登録タブのコンテンツ */}
+        {activeTab === 'locations' && (
+          <>
+            {/* 新規勤務先登録フォーム */}
+            {showLocationForm && (
+              <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 className="text-lg font-semibold mb-4 text-gray-900">新規勤務先登録</h2>
+                <form onSubmit={handleCreateWorkLocation} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      勤務先名 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={locationFormData.name}
+                      onChange={(e) =>
+                        setLocationFormData({ ...locationFormData, name: e.target.value })
+                      }
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      住所
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={locationFormData.address}
+                        onChange={(e) =>
+                          setLocationFormData({ ...locationFormData, address: e.target.value })
+                        }
+                        onBlur={(e) => {
+                          if (e.target.value.trim() && (!locationFormData.latitude || !locationFormData.longitude)) {
+                            handleAddressGeocode(e.target.value)
+                          }
+                        }}
+                        placeholder="住所を入力すると自動的に緯度経度が取得されます"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                      />
+                      {geocodingLoading && (
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500">
+                          取得中...
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        緯度
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={locationFormData.latitude}
+                        onChange={(e) =>
+                          setLocationFormData({ ...locationFormData, latitude: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        経度
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={locationFormData.longitude}
+                        onChange={(e) =>
+                          setLocationFormData({ ...locationFormData, longitude: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      許容範囲（メートル）
+                    </label>
+                    <input
+                      type="number"
+                      value={locationFormData.radius}
+                      onChange={(e) =>
+                        setLocationFormData({ ...locationFormData, radius: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium"
+                    >
+                      登録
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowLocationForm(false)
+                        setLocationFormData({
+                          name: '',
+                          address: '',
+                          latitude: '',
+                          longitude: '',
+                          radius: '500',
+                        })
+                      }}
+                      className="px-4 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-medium"
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* 勤務先一覧 */}
+            {workLocationsLoading ? (
+              <div className="p-8 text-center text-gray-900">読み込み中...</div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        勤務先名
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        住所
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        緯度
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        経度
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        許容範囲
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        状態
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        操作
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {workLocations.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-6 text-center text-gray-700">
+                          勤務先が登録されていません
+                        </td>
+                      </tr>
+                    ) : (
+                      workLocations.map((location) => (
+                        <tr key={location.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {editingWorkLocation?.id === location.id ? (
+                              <input
+                                type="text"
+                                value={editingWorkLocation.name}
+                                onChange={(e) =>
+                                  setEditingWorkLocation({
+                                    ...editingWorkLocation,
+                                    name: e.target.value,
+                                  })
+                                }
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white"
+                              />
+                            ) : (
+                              location.name
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {editingWorkLocation?.id === location.id ? (
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={editingWorkLocation.address || ''}
+                                  onChange={(e) =>
+                                    setEditingWorkLocation({
+                                      ...editingWorkLocation,
+                                      address: e.target.value,
+                                    })
+                                  }
+                                  onBlur={(e) => {
+                                    if (
+                                      e.target.value.trim() &&
+                                      (editingWorkLocation.latitude === 0 ||
+                                        editingWorkLocation.longitude === 0)
+                                    ) {
+                                      handleEditAddressGeocode(e.target.value)
+                                    }
+                                  }}
+                                  placeholder="住所を入力すると自動的に緯度経度が取得されます"
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white"
+                                />
+                                {geocodingLoading && editingWorkLocation?.id === location.id && (
+                                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">
+                                    取得中...
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              location.address || '-'
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {editingWorkLocation?.id === location.id ? (
+                              <input
+                                type="number"
+                                step="any"
+                                value={editingWorkLocation.latitude}
+                                onChange={(e) =>
+                                  setEditingWorkLocation({
+                                    ...editingWorkLocation,
+                                    latitude: parseFloat(e.target.value) || 0,
+                                  })
+                                }
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white"
+                              />
+                            ) : (
+                              location.latitude
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {editingWorkLocation?.id === location.id ? (
+                              <input
+                                type="number"
+                                step="any"
+                                value={editingWorkLocation.longitude}
+                                onChange={(e) =>
+                                  setEditingWorkLocation({
+                                    ...editingWorkLocation,
+                                    longitude: parseFloat(e.target.value) || 0,
+                                  })
+                                }
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white"
+                              />
+                            ) : (
+                              location.longitude
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {editingWorkLocation?.id === location.id ? (
+                              <input
+                                type="number"
+                                value={editingWorkLocation.radius}
+                                onChange={(e) =>
+                                  setEditingWorkLocation({
+                                    ...editingWorkLocation,
+                                    radius: parseInt(e.target.value) || 500,
+                                  })
+                                }
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white"
+                              />
+                            ) : (
+                              `${location.radius}m`
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {editingWorkLocation?.id === location.id ? (
+                              <select
+                                value={editingWorkLocation.isActive ? 'true' : 'false'}
+                                onChange={(e) =>
+                                  setEditingWorkLocation({
+                                    ...editingWorkLocation,
+                                    isActive: e.target.value === 'true',
+                                  })
+                                }
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white"
+                              >
+                                <option value="true">有効</option>
+                                <option value="false">無効</option>
+                              </select>
+                            ) : (
+                              <span
+                                className={`px-2 py-1 rounded text-xs font-medium ${
+                                  location.isActive
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}
+                              >
+                                {location.isActive ? '有効' : '無効'}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {editingWorkLocation?.id === location.id ? (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleUpdateWorkLocation(editingWorkLocation)}
+                                  className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600"
+                                >
+                                  保存
+                                </button>
+                                <button
+                                  onClick={() => setEditingWorkLocation(null)}
+                                  className="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
+                                >
+                                  キャンセル
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => setEditingWorkLocation(location)}
+                                  className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                                >
+                                  編集
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteWorkLocation(location.id)}
+                                  className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                                >
+                                  削除
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* 従業員管理タブのコンテンツ */}
+        {activeTab === 'employees' && (
+          <>
 
         {/* 従業員登録フォーム */}
         {showCreateForm && (
@@ -1610,6 +2193,8 @@ export default function EmployeesPage() {
               </div>
             </div>
           </div>
+        )}
+          </>
         )}
       </div>
     </div>
