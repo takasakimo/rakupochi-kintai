@@ -26,52 +26,115 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // OpenStreetMap Nominatim APIを使用（無料、1秒に1リクエスト制限あり）
-    // 日本の住所を優先的に検索するため、countrycodes=jpを指定
     const encodedAddress = encodeURIComponent(address.trim())
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&countrycodes=jp&limit=1&addressdetails=1`,
-      {
-        headers: {
-          'User-Agent': 'Rakupochi-Kintai/1.0', // 必須：User-Agentを設定
-        },
+    
+    // 方法1: OpenStreetMap Nominatim APIを試す
+    try {
+      const nominatimResponse = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&countrycodes=jp&limit=1&addressdetails=1`,
+        {
+          headers: {
+            'User-Agent': 'Rakupochi-Kintai/1.0',
+          },
+        }
+      )
+
+      if (nominatimResponse.ok) {
+        const nominatimData = await nominatimResponse.json()
+        if (nominatimData && nominatimData.length > 0) {
+          const result = nominatimData[0]
+          const latitude = parseFloat(result.lat)
+          const longitude = parseFloat(result.lon)
+
+          if (!isNaN(latitude) && !isNaN(longitude)) {
+            return NextResponse.json({
+              success: true,
+              latitude,
+              longitude,
+              displayName: result.display_name,
+            })
+          }
+        }
       }
+    } catch (error) {
+      console.log('Nominatim failed, trying alternative service:', error)
+    }
+
+    // 方法2: Geocoding.jpを試す（日本の住所に特化）
+    try {
+      const geocodingResponse = await fetch(
+        `https://www.geocoding.jp/api/?q=${encodedAddress}`,
+        {
+          headers: {
+            'User-Agent': 'Rakupochi-Kintai/1.0',
+          },
+        }
+      )
+
+      if (geocodingResponse.ok) {
+        const xmlText = await geocodingResponse.text()
+        
+        // XMLをパースして緯度経度を取得
+        const latMatch = xmlText.match(/<lat>([^<]+)<\/lat>/)
+        const lngMatch = xmlText.match(/<lng>([^<]+)<\/lng>/)
+        
+        if (latMatch && lngMatch) {
+          const latitude = parseFloat(latMatch[1])
+          const longitude = parseFloat(lngMatch[1])
+
+          if (!isNaN(latitude) && !isNaN(longitude)) {
+            return NextResponse.json({
+              success: true,
+              latitude,
+              longitude,
+              displayName: address,
+            })
+          }
+        }
+      }
+    } catch (error) {
+      console.log('Geocoding.jp failed:', error)
+    }
+
+    // 方法3: より詳細な検索を試す（都道府県名を追加）
+    try {
+      // 都道府県名が含まれていない場合、より広範囲で検索
+      const broadSearchResponse = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=5&addressdetails=1`,
+        {
+          headers: {
+            'User-Agent': 'Rakupochi-Kintai/1.0',
+          },
+        }
+      )
+
+      if (broadSearchResponse.ok) {
+        const broadData = await broadSearchResponse.json()
+        if (broadData && broadData.length > 0) {
+          // 最初の結果を使用
+          const result = broadData[0]
+          const latitude = parseFloat(result.lat)
+          const longitude = parseFloat(result.lon)
+
+          if (!isNaN(latitude) && !isNaN(longitude)) {
+            return NextResponse.json({
+              success: true,
+              latitude,
+              longitude,
+              displayName: result.display_name,
+            })
+          }
+        }
+      }
+    } catch (error) {
+      console.log('Broad search failed:', error)
+    }
+
+    // すべての方法が失敗した場合
+    return NextResponse.json(
+      { success: false, error: '住所が見つかりませんでした。手動で緯度経度を入力してください。' },
+      { status: 200 }
     )
-
-    if (!response.ok) {
-      console.error('Geocoding failed:', response.status)
-      return NextResponse.json(
-        { error: '住所の検索に失敗しました' },
-        { status: 500 }
-      )
-    }
-
-    const data = await response.json()
-
-    if (!data || data.length === 0) {
-      return NextResponse.json(
-        { success: false, error: '住所が見つかりませんでした' },
-        { status: 200 }
-      )
-    }
-
-    const result = data[0]
-    const latitude = parseFloat(result.lat)
-    const longitude = parseFloat(result.lon)
-
-    if (isNaN(latitude) || isNaN(longitude)) {
-      return NextResponse.json(
-        { error: '緯度経度の取得に失敗しました' },
-        { status: 500 }
-      )
-    }
-
-    return NextResponse.json({
-      success: true,
-      latitude,
-      longitude,
-      displayName: result.display_name,
-    })
   } catch (error) {
     console.error('Geocoding error:', error)
     return NextResponse.json(
