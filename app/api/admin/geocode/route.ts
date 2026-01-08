@@ -50,8 +50,8 @@ export async function POST(request: NextRequest) {
 
     if (!data || data.length === 0) {
       return NextResponse.json(
-        { error: '住所が見つかりませんでした' },
-        { status: 404 }
+        { success: false, error: '住所が見つかりませんでした' },
+        { status: 200 }
       )
     }
 

@@ -65,12 +65,13 @@ export default function LocationsPage() {
         body: JSON.stringify({ address }),
       })
 
+      const data = await response.json()
+      
       if (!response.ok) {
-        console.warn('緯度経度の取得に失敗しました:', response.status, response.statusText)
+        console.warn('緯度経度の取得に失敗しました:', response.status, data.error || response.statusText)
         return
       }
 
-      const data = await response.json()
       if (data.success && data.latitude && data.longitude) {
         setFormData({
           ...formData,
@@ -78,7 +79,7 @@ export default function LocationsPage() {
           longitude: data.longitude.toString(),
         })
       } else {
-        console.warn('緯度経度の取得に失敗しました:', data.error)
+        console.warn('緯度経度の取得に失敗しました:', data.error || '住所が見つかりませんでした')
         // エラーは警告のみで、ユーザーに通知しない（手動入力も可能なため）
       }
     } catch (err) {
@@ -103,12 +104,13 @@ export default function LocationsPage() {
         body: JSON.stringify({ address }),
       })
 
+      const data = await response.json()
+      
       if (!response.ok) {
-        console.warn('緯度経度の取得に失敗しました:', response.status, response.statusText)
+        console.warn('緯度経度の取得に失敗しました:', response.status, data.error || response.statusText)
         return
       }
 
-      const data = await response.json()
       if (data.success && data.latitude && data.longitude) {
         setEditingLocation({
           ...editingLocation,
@@ -116,7 +118,7 @@ export default function LocationsPage() {
           longitude: data.longitude,
         })
       } else {
-        console.warn('緯度経度の取得に失敗しました:', data.error)
+        console.warn('緯度経度の取得に失敗しました:', data.error || '住所が見つかりませんでした')
         // エラーは警告のみで、ユーザーに通知しない（手動入力も可能なため）
       }
     } catch (err) {
