@@ -65,6 +65,11 @@ export default function LocationsPage() {
         body: JSON.stringify({ address }),
       })
 
+      if (!response.ok) {
+        console.warn('緯度経度の取得に失敗しました:', response.status, response.statusText)
+        return
+      }
+
       const data = await response.json()
       if (data.success && data.latitude && data.longitude) {
         setFormData({
@@ -97,6 +102,11 @@ export default function LocationsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address }),
       })
+
+      if (!response.ok) {
+        console.warn('緯度経度の取得に失敗しました:', response.status, response.statusText)
+        return
+      }
 
       const data = await response.json()
       if (data.success && data.latitude && data.longitude) {
