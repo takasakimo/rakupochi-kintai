@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     }
 
     const where: any = {
-      companyId: session.user.companyId,
+      companyId: session.user.companyId!,
       date: {
         gte: start,
         lte: end,
@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
     let companySettings = null
     try {
       companySettings = await prisma.companySetting.findUnique({
-        where: { companyId: session.user.companyId },
+        where: { companyId: session.user.companyId! },
       })
       console.log('Company settings found:', companySettings ? 'yes' : 'no')
     } catch (error: any) {
@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
               "standardBreakMinutes", "overtimeThreshold40", "overtimeThreshold60",
               "consecutiveWorkAlert", "leaveExpiryAlertDays", "createdAt", "updatedAt"
             FROM company_settings
-            WHERE "companyId" = ${session.user.companyId}
+            WHERE "companyId" = ${session.user.companyId!}
             LIMIT 1
           ` as any
           if (result && Array.isArray(result) && result.length > 0) {
