@@ -1,5 +1,6 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from './auth'
+import { Session } from 'next-auth'
 
 /**
  * スーパー管理者が選択した企業IDを取得
@@ -22,6 +23,30 @@ export async function getEffectiveCompanyId(): Promise<number | null> {
 
   // 通常の管理者の場合はcompanyIdを使用
   return session.user.companyId || null
+}
+
+/**
+ * セッションから有効な企業IDを取得（ヘルパー関数）
+ * スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+ * エラーハンドリングも含む
+ */
+export function getEffectiveCompanyIdFromSession(session: Session | null): number {
+  if (!session || !session.user) {
+    throw new Error('Unauthorized')
+  }
+
+  const isSuperAdmin = session.user.role === 'super_admin' || 
+                       session.user.email === 'superadmin@rakupochi.com'
+
+  const effectiveCompanyId = isSuperAdmin 
+    ? session.user.selectedCompanyId 
+    : session.user.companyId
+
+  if (!effectiveCompanyId) {
+    throw new Error(isSuperAdmin ? '企業が選択されていません' : 'Company ID not found')
+  }
+
+  return effectiveCompanyId
 }
 
 /**

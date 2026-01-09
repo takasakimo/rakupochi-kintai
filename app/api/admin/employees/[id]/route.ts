@@ -26,7 +26,7 @@ export async function GET(
     const employee = await prisma.employee.findFirst({
       where: {
         id,
-        companyId: session.user.companyId,
+        companyId: session.user.companyId!,
       },
       select: {
         id: true,
@@ -123,7 +123,7 @@ export async function PATCH(
     const existingEmployee = await prisma.employee.findFirst({
       where: {
         id,
-        companyId: session.user.companyId,
+        companyId: session.user.companyId!,
       },
     })
 
@@ -313,7 +313,7 @@ export async function DELETE(
     const employee = await prisma.employee.findFirst({
       where: {
         id,
-        companyId: session.user.companyId,
+        companyId: session.user.companyId!,
       },
     })
 

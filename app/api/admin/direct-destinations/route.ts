@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     const shifts = await prisma.shift.findMany({
       where: {
-        companyId: session.user.companyId,
+        companyId: session.user.companyId!,
         directDestination: {
           not: null,
         },
