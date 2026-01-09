@@ -15,8 +15,8 @@ export default async function Home() {
                        session.user.email === 'superadmin@rakupochi.com'
   
   if (isSuperAdmin) {
-    // スーパー管理者の場合は企業選択画面へ
-    redirect('/super-admin/select-company')
+    // スーパー管理者の場合は企業管理画面へ
+    redirect('/super-admin/companies')
   } else if (session.user.role === 'admin') {
     redirect('/admin/dashboard')
   } else {
