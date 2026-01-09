@@ -1171,15 +1171,20 @@ export default function EmployeesPage() {
                   <select
                     value={formData.department}
                     onChange={(e) => {
-                      const selectedDept = departments.find((dept) => dept.name === e.target.value)
+                      const newDepartment = e.target.value || ''
+                      const selectedDept = newDepartment ? departments.find((dept) => dept.name === newDepartment) : null
                       // 店舗が選択されている場合は店舗の住所を優先、そうでない場合は部署の住所を使用
                       const selectedStore = locations.find((loc) => loc.name === formData.workLocation)
                       const storeAddress = selectedStore?.address || ''
                       const deptAddress = selectedDept?.address || ''
+                      // 部署を「なし」に選択した場合、店舗が選択されていない場合は住所もクリア
+                      const newAddress = newDepartment 
+                        ? (storeAddress || deptAddress || '')
+                        : (storeAddress || '')
                       setFormData({ 
                         ...formData, 
-                        department: e.target.value,
-                        workLocationAddress: storeAddress || deptAddress || formData.workLocationAddress || ''
+                        department: newDepartment,
+                        workLocationAddress: newAddress
                       })
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
@@ -1199,13 +1204,20 @@ export default function EmployeesPage() {
                   <select
                     value={formData.workLocation}
                     onChange={(e) => {
-                      const selectedLoc = locations.find((loc) => loc.name === e.target.value)
-                      const newAddress = selectedLoc?.address || ''
+                      const newWorkLocation = e.target.value || ''
+                      const selectedLoc = newWorkLocation ? locations.find((loc) => loc.name === newWorkLocation) : null
+                      const storeAddress = selectedLoc?.address || ''
+                      // 店舗を「なし」に選択した場合、部署が選択されている場合は部署の住所を使用
+                      const selectedDept = departments.find((dept) => dept.name === formData.department)
+                      const deptAddress = selectedDept?.address || ''
+                      // 店舗を選択した場合は店舗の住所を優先、店舗を「なし」にした場合は部署の住所を使用
+                      const newAddress = newWorkLocation 
+                        ? storeAddress 
+                        : (deptAddress || '')
                       setFormData({ 
                         ...formData, 
-                        workLocation: e.target.value,
-                        // 店舗を選択した場合は、店舗の住所を自動入力（店舗の住所が優先）
-                        workLocationAddress: newAddress || formData.workLocationAddress || ''
+                        workLocation: newWorkLocation,
+                        workLocationAddress: newAddress
                       })
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
@@ -1836,15 +1848,20 @@ export default function EmployeesPage() {
                       <select
                         value={selectedEmployee.department || ''}
                         onChange={(e) => {
-                          const selectedDept = departments.find((dept) => dept.name === e.target.value)
+                          const newDepartment = e.target.value || ''
+                          const selectedDept = newDepartment ? departments.find((dept) => dept.name === newDepartment) : null
                           // 店舗が選択されている場合は店舗の住所を優先、そうでない場合は部署の住所を使用
                           const selectedStore = locations.find((loc) => loc.name === selectedEmployee.workLocation)
                           const storeAddress = selectedStore?.address || ''
                           const deptAddress = selectedDept?.address || ''
+                          // 部署を「なし」に選択した場合、店舗が選択されていない場合は住所もクリア
+                          const newAddress = newDepartment 
+                            ? (storeAddress || deptAddress || '')
+                            : (storeAddress || '')
                           setSelectedEmployee({
                             ...selectedEmployee,
-                            department: e.target.value,
-                            workLocationAddress: storeAddress || deptAddress || selectedEmployee.workLocationAddress || ''
+                            department: newDepartment,
+                            workLocationAddress: newAddress
                           })
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
@@ -1865,13 +1882,20 @@ export default function EmployeesPage() {
                       <select
                         value={selectedEmployee.workLocation || ''}
                         onChange={(e) => {
-                          const selectedLoc = locations.find((loc) => loc.name === e.target.value)
-                          const newAddress = selectedLoc?.address || ''
+                          const newWorkLocation = e.target.value || ''
+                          const selectedLoc = newWorkLocation ? locations.find((loc) => loc.name === newWorkLocation) : null
+                          const storeAddress = selectedLoc?.address || ''
+                          // 店舗を「なし」に選択した場合、部署が選択されている場合は部署の住所を使用
+                          const selectedDept = departments.find((dept) => dept.name === selectedEmployee.department)
+                          const deptAddress = selectedDept?.address || ''
+                          // 店舗を選択した場合は店舗の住所を優先、店舗を「なし」にした場合は部署の住所を使用
+                          const newAddress = newWorkLocation 
+                            ? storeAddress 
+                            : (deptAddress || '')
                           setSelectedEmployee({
                             ...selectedEmployee,
-                            workLocation: e.target.value,
-                            // 店舗を選択した場合は、店舗の住所を自動入力（店舗の住所が優先）
-                            workLocationAddress: newAddress || selectedEmployee.workLocationAddress || ''
+                            workLocation: newWorkLocation,
+                            workLocationAddress: newAddress
                           })
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
