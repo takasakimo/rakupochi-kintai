@@ -27,7 +27,7 @@ export async function PATCH(
     const existingLocation = await prisma.location.findFirst({
       where: {
         id,
-        companyId: session.user.companyId,
+        companyId: session.user.companyId!,
       },
     })
 
@@ -79,7 +79,7 @@ export async function DELETE(
     const existingLocation = await prisma.location.findFirst({
       where: {
         id,
-        companyId: session.user.companyId,
+        companyId: session.user.companyId!,
       },
     })
 

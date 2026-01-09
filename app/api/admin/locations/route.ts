@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     const locations = await prisma.location.findMany({
       where: {
-        companyId: session.user.companyId,
+        companyId: session.user.companyId!,
         ...(all ? {} : { isActive: true }),
       },
       select: {
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     const location = await prisma.location.create({
       data: {
-        companyId: session.user.companyId,
+        companyId: session.user.companyId!,
         name,
         type: type || 'store',
         address: address || null,
