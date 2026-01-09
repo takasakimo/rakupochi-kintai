@@ -48,6 +48,10 @@ export default function EmployeesPage() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importLoading, setImportLoading] = useState(false)
+  const [importResult, setImportResult] = useState<any>(null)
   
   // フィルター用の状態
   const [displayMode, setDisplayMode] = useState<'all' | 'department' | 'location'>('all')
@@ -646,15 +650,35 @@ export default function EmployeesPage() {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-900">従業員管理</h1>
           {activeTab === 'employees' && (
-            <button
-              onClick={() => {
-                setShowCreateForm(!showCreateForm)
-                setEditingEmployee(null)
-              }}
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium"
-            >
-              {showCreateForm ? 'キャンセル' : '+ 従業員登録'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  window.location.href = '/api/admin/employees/export'
+                }}
+                className="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 font-medium"
+              >
+                CSVエクスポート
+              </button>
+              <button
+                onClick={() => {
+                  setShowImportModal(true)
+                  setImportResult(null)
+                  setImportFile(null)
+                }}
+                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 font-medium"
+              >
+                CSVインポート
+              </button>
+              <button
+                onClick={() => {
+                  setShowCreateForm(!showCreateForm)
+                  setEditingEmployee(null)
+                }}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium"
+              >
+                {showCreateForm ? 'キャンセル' : '+ 従業員登録'}
+              </button>
+            </div>
           )}
           {activeTab === 'locations' && (
             <button
@@ -2340,6 +2364,235 @@ export default function EmployeesPage() {
           </div>
         )}
           </>
+        )}
+
+        {/* CSVインポートモーダル */}
+        {showImportModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <h2 className="text-xl font-bold mb-4 text-gray-900">CSVインポート</h2>
+              
+              {!importResult ? (
+                <>
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-600 mb-2">
+                      CSVファイルを選択して、従業員を一括登録できます。
+                    </p>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-gray-700 mb-2">テンプレート（空のフォーマット）:</p>
+                      <div className="flex flex-wrap gap-2">
+                        <a
+                          href="/api/admin/employees/template?format=rakupochi"
+                          download
+                          className="px-3 py-1 bg-gray-200 text-gray-900 rounded text-sm hover:bg-gray-300"
+                        >
+                          らくポチ形式テンプレート
+                        </a>
+                        <a
+                          href="/api/admin/employees/template?format=general"
+                          download
+                          className="px-3 py-1 bg-gray-200 text-gray-900 rounded text-sm hover:bg-gray-300"
+                        >
+                          一般的な形式テンプレート
+                        </a>
+                        <a
+                          href="/api/admin/employees/template?format=simple"
+                          download
+                          className="px-3 py-1 bg-gray-200 text-gray-900 rounded text-sm hover:bg-gray-300"
+                        >
+                          シンプル形式テンプレート
+                        </a>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-700 mb-2">サンプルデータ（テスト用）:</p>
+                      <div className="flex flex-wrap gap-2">
+                        <a
+                          href="/samples/sample_employees_rakupochi.csv"
+                          download
+                          className="px-3 py-1 bg-blue-200 text-blue-900 rounded text-sm hover:bg-blue-300"
+                        >
+                          らくポチ形式サンプル
+                        </a>
+                        <a
+                          href="/samples/sample_employees_general.csv"
+                          download
+                          className="px-3 py-1 bg-blue-200 text-blue-900 rounded text-sm hover:bg-blue-300"
+                        >
+                          一般的な形式サンプル
+                        </a>
+                        <a
+                          href="/samples/sample_employees_simple.csv"
+                          download
+                          className="px-3 py-1 bg-blue-200 text-blue-900 rounded text-sm hover:bg-blue-300"
+                        >
+                          シンプル形式サンプル
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      CSVファイルを選択
+                    </label>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          setImportFile(file)
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      ファイルサイズ: 10MB以下、行数: 1000行以下
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        if (!importFile) {
+                          alert('CSVファイルを選択してください')
+                          return
+                        }
+
+                        setImportLoading(true)
+                        try {
+                          const formData = new FormData()
+                          formData.append('file', importFile)
+
+                          const response = await fetch('/api/admin/employees/import', {
+                            method: 'POST',
+                            body: formData,
+                          })
+
+                          const data = await response.json()
+                          setImportResult(data)
+                          
+                          if (data.success && data.errorCount === 0) {
+                            fetchEmployees()
+                          }
+                        } catch (error) {
+                          console.error('Import error:', error)
+                          alert('インポート処理中にエラーが発生しました')
+                        } finally {
+                          setImportLoading(false)
+                        }
+                      }}
+                      disabled={!importFile || importLoading}
+                      className="flex-1 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {importLoading ? 'インポート中...' : 'インポート実行'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowImportModal(false)
+                        setImportFile(null)
+                        setImportResult(null)
+                      }}
+                      className="px-4 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-medium"
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="mb-4">
+                    <div className={`p-4 rounded-md ${importResult.success && importResult.errorCount === 0 ? 'bg-green-50' : 'bg-yellow-50'}`}>
+                      <h3 className="font-semibold mb-2 text-gray-900">
+                        {importResult.success && importResult.errorCount === 0
+                          ? 'インポート完了'
+                          : 'インポート結果'}
+                      </h3>
+                      <div className="text-sm text-gray-700 space-y-1">
+                        <p>総件数: {importResult.total}件</p>
+                        <p className="text-green-600">成功: {importResult.successCount}件</p>
+                        {importResult.errorCount > 0 && (
+                          <p className="text-red-600">失敗: {importResult.errorCount}件</p>
+                        )}
+                        {importResult.format && (
+                          <p>検出フォーマット: {importResult.format}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {importResult.errors && importResult.errors.length > 0 && (
+                    <div className="mb-4">
+                      <h3 className="font-semibold mb-2 text-gray-900">エラー詳細</h3>
+                      <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-100">
+                            <tr>
+                              <th className="px-2 py-1 text-left text-gray-900">行</th>
+                              <th className="px-2 py-1 text-left text-gray-900">社員番号</th>
+                              <th className="px-2 py-1 text-left text-gray-900">氏名</th>
+                              <th className="px-2 py-1 text-left text-gray-900">エラー</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {importResult.errors.map((error: any, index: number) => (
+                              <tr key={index} className="border-t">
+                                <td className="px-2 py-1 text-gray-900">{error.row}</td>
+                                <td className="px-2 py-1 text-gray-900">{error.employeeNumber}</td>
+                                <td className="px-2 py-1 text-gray-900">{error.name}</td>
+                                <td className="px-2 py-1 text-red-600">{error.error}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {importResult.successEmployees && importResult.successEmployees.length > 0 && (
+                    <div className="mb-4">
+                      <h3 className="font-semibold mb-2 text-gray-900">登録成功した従業員</h3>
+                      <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-100">
+                            <tr>
+                              <th className="px-2 py-1 text-left text-gray-900">社員番号</th>
+                              <th className="px-2 py-1 text-left text-gray-900">氏名</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {importResult.successEmployees.map((emp: any, index: number) => (
+                              <tr key={index} className="border-t">
+                                <td className="px-2 py-1 text-gray-900">{emp.employeeNumber}</td>
+                                <td className="px-2 py-1 text-gray-900">{emp.name}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setShowImportModal(false)
+                        setImportFile(null)
+                        setImportResult(null)
+                        if (importResult.success && importResult.successCount > 0) {
+                          fetchEmployees()
+                        }
+                      }}
+                      className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium"
+                    >
+                      閉じる
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>

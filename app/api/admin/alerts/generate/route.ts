@@ -13,12 +13,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'admin') {
+    // スーパー管理者または管理者のみアクセス可能
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+
+    if (!isSuperAdmin && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+    const effectiveCompanyId = isSuperAdmin 
+      ? session.user.selectedCompanyId 
+      : session.user.companyId
+
+    if (!effectiveCompanyId) {
+      return NextResponse.json(
+        { error: isSuperAdmin ? '企業が選択されていません' : 'Company ID not found' },
+        { status: 400 }
+      )
+    }
+
     const companySettings = await prisma.companySetting.findUnique({
-      where: { companyId: session.user.companyId },
+      where: { companyId: effectiveCompanyId },
     })
 
     if (!companySettings) {
@@ -30,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     const employees = await prisma.employee.findMany({
       where: {
-        companyId: session.user.companyId,
+        companyId: effectiveCompanyId,
         isActive: true,
       },
     })
@@ -43,7 +60,7 @@ export async function POST(request: NextRequest) {
     // 今月の勤怠データを取得
     const attendances = await prisma.attendance.findMany({
       where: {
-        companyId: session.user.companyId,
+        companyId: effectiveCompanyId,
         date: {
           gte: currentMonth,
           lte: endOfMonth,
