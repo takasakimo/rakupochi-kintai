@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     const attendances = await prisma.attendance.findMany({
       where: {
-        companyId: session.user.companyId!
+        companyId: session.user.companyId!,
         employeeId,
         date: {
           gte: startDate,

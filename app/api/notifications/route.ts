@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       } else {
         // 全従業員の通知を取得
         const employees = await prisma.employee.findMany({
-          where: { companyId: session.user.companyId },
+          where: { companyId: session.user.companyId! },
           select: { id: true },
         })
         where.employeeId = {

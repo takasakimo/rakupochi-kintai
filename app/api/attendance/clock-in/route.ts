@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     const attendance = await prisma.attendance.upsert({
       where: {
         companyId_employeeId_date: {
-          companyId: session.user.companyId!
+          companyId: session.user.companyId!,
           employeeId: parseInt(session.user.id),
           date: new Date(date),
         },
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
         clockInLocation: locationData as any,
       },
       create: {
-        companyId: session.user.companyId!
+        companyId: session.user.companyId!,
         employeeId: parseInt(session.user.id),
         date: new Date(date),
         clockIn: new Date(`2000-01-01T${time}`),
