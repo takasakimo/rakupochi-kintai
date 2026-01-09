@@ -19,19 +19,36 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'admin') {
-      console.log('[Employees] Forbidden: not admin role')
+    // スーパー管理者または管理者のみアクセス可能
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+
+    if (!isSuperAdmin && !isAdmin) {
+      console.log('[Employees] Forbidden: not admin or super admin role')
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    console.log('[Employees] Company ID:', session.user.companyId)
+    // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+    const effectiveCompanyId = isSuperAdmin 
+      ? session.user.selectedCompanyId 
+      : session.user.companyId
+
+    if (!effectiveCompanyId) {
+      return NextResponse.json(
+        { error: isSuperAdmin ? '企業が選択されていません' : 'Company ID not found' },
+        { status: 400 }
+      )
+    }
+
+    console.log('[Employees] Company ID:', effectiveCompanyId)
 
     let employees
     try {
       console.log('[Employees] Attempting to query database...')
       employees = await prisma.employee.findMany({
         where: {
-          companyId: session.user.companyId,
+          companyId: effectiveCompanyId,
         },
         select: {
           id: true,
@@ -127,8 +144,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'admin') {
+    // スーパー管理者または管理者のみアクセス可能
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+
+    if (!isSuperAdmin && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+    const effectiveCompanyId = isSuperAdmin 
+      ? session.user.selectedCompanyId 
+      : session.user.companyId
+
+    if (!effectiveCompanyId) {
+      return NextResponse.json(
+        { error: isSuperAdmin ? '企業が選択されていません' : 'Company ID not found' },
+        { status: 400 }
+      )
     }
 
     const body = await request.json()
@@ -189,9 +223,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 社員番号の重複チェック
-    const existingEmployeeNumber = await prisma.employee.findUnique({
-      where: { employeeNumber },
+    // 社員番号の重複チェック（企業ごとにユニーク）
+    const existingEmployeeNumber = await prisma.employee.findFirst({
+      where: {
+        employeeNumber,
+        companyId: effectiveCompanyId,
+      },
     })
 
     if (existingEmployeeNumber) {
@@ -206,7 +243,7 @@ export async function POST(request: NextRequest) {
 
     const employee = await prisma.employee.create({
       data: {
-        companyId: session.user.companyId,
+        companyId: effectiveCompanyId,
         employeeNumber,
         name,
         email,

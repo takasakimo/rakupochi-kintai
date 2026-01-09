@@ -7,7 +7,8 @@ declare module 'next-auth' {
       email: string
       name: string
       role: string
-      companyId: number
+      companyId: number | null // スーパー管理者の場合はnull
+      selectedCompanyId?: number | null // スーパー管理者が選択した企業ID
     }
   }
 
@@ -16,7 +17,7 @@ declare module 'next-auth' {
     email: string
     name: string
     role: string
-    companyId: number
+    companyId: number | null // スーパー管理者の場合はnull
   }
 }
 
@@ -24,7 +25,8 @@ declare module 'next-auth/jwt' {
   interface JWT {
     id: string
     role: string
-    companyId: number
+    companyId: number | null // スーパー管理者の場合はnull
+    selectedCompanyId?: number | null // スーパー管理者が選択した企業ID
   }
 }
 

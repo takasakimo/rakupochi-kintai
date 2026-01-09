@@ -20,9 +20,21 @@ export default function AdminLayout({
       return
     }
 
-    if (status === 'authenticated' && session?.user.role !== 'admin') {
-      router.push('/employee/clock')
-      return
+    if (status === 'authenticated') {
+      const isSuperAdmin = session?.user.role === 'super_admin' || 
+                           session?.user.email === 'superadmin@rakupochi.com'
+      const isAdmin = session?.user.role === 'admin'
+
+      if (isSuperAdmin) {
+        // スーパー管理者の場合は企業が選択されているか確認
+        if (!session.user.selectedCompanyId) {
+          router.push('/super-admin/select-company')
+          return
+        }
+      } else if (!isAdmin) {
+        router.push('/employee/clock')
+        return
+      }
     }
   }, [status, router, session])
 
@@ -34,7 +46,20 @@ export default function AdminLayout({
     )
   }
 
-  if (!session || session.user.role !== 'admin') {
+  if (!session) {
+    return null
+  }
+
+  const isSuperAdmin = session.user.role === 'super_admin' || 
+                       session.user.email === 'superadmin@rakupochi.com'
+  const isAdmin = session.user.role === 'admin'
+
+  if (!isSuperAdmin && !isAdmin) {
+    return null
+  }
+
+  // スーパー管理者の場合は企業が選択されているか確認
+  if (isSuperAdmin && !session.user.selectedCompanyId) {
     return null
   }
 

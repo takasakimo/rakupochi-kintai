@@ -169,8 +169,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'admin') {
+    // スーパー管理者または管理者のみアクセス可能
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+
+    if (!isSuperAdmin && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+    const effectiveCompanyId = isSuperAdmin 
+      ? session.user.selectedCompanyId 
+      : session.user.companyId
+
+    if (!effectiveCompanyId) {
+      return NextResponse.json(
+        { error: isSuperAdmin ? '企業が選択されていません' : 'Company ID not found' },
+        { status: 400 }
+      )
     }
 
     const formData = await request.formData()
@@ -255,7 +272,7 @@ export async function POST(request: NextRequest) {
     // 既存のメールアドレスと社員番号を事前取得（重複チェック用）
     // メールアドレスはグローバルにユニーク、社員番号は企業ごとにユニーク
     const existingEmployees = await prisma.employee.findMany({
-      where: { companyId: session.user.companyId },
+      where: { companyId: effectiveCompanyId },
       select: { email: true, employeeNumber: true },
     })
     const existingEmails = new Set(existingEmployees.map(e => e.email))
@@ -476,7 +493,7 @@ export async function POST(request: NextRequest) {
         console.log(`[CSV Import] Row ${rowNumber}: 従業員作成開始 - 社員番号: ${employeeNumber}, メール: ${email}`)
         await prisma.employee.create({
           data: {
-            companyId: session.user.companyId,
+            companyId: effectiveCompanyId,
             employeeNumber,
             name,
             email,
@@ -539,7 +556,7 @@ export async function POST(request: NextRequest) {
               const dbCheck = await prisma.employee.findFirst({
                 where: {
                   employeeNumber: currentEmployeeNumber,
-                  companyId: session.user.companyId,
+                  companyId: effectiveCompanyId,
                 },
                 select: { employeeNumber: true, name: true },
               })
@@ -561,7 +578,7 @@ export async function POST(request: NextRequest) {
                   const otherCompanyCheck = await prisma.employee.findFirst({
                     where: {
                       employeeNumber: currentEmployeeNumber,
-                      companyId: { not: session.user.companyId },
+                      companyId: { not: effectiveCompanyId },
                     },
                     select: { employeeNumber: true, companyId: true },
                   })

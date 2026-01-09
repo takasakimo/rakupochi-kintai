@@ -89,12 +89,17 @@ export const authOptions: NextAuthOptions = {
           }
 
           console.log('[Auth] Authentication successful for:', credentials.email)
+          
+          // スーパー管理者の判定
+          const isSuperAdmin = employee.role === 'super_admin' || 
+                               employee.email === 'superadmin@rakupochi.com'
+          
           return {
             id: employee.id.toString(),
             email: employee.email,
             name: employee.name,
             role: employee.role,
-            companyId: employee.companyId,
+            companyId: isSuperAdmin ? null : employee.companyId, // スーパー管理者の場合はnull
           }
         } catch (error: any) {
           console.error('[Auth] Auth error:', error)
@@ -116,11 +121,19 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger, session }) {
       if (user) {
         token.id = user.id
         token.role = user.role
         token.companyId = user.companyId
+        // スーパー管理者の場合はselectedCompanyIdも初期化
+        if (user.companyId === null) {
+          token.selectedCompanyId = null
+        }
+      }
+      // セッション更新時にselectedCompanyIdを反映
+      if (trigger === 'update' && session?.selectedCompanyId !== undefined) {
+        token.selectedCompanyId = session.selectedCompanyId
       }
       return token
     },
@@ -128,9 +141,17 @@ export const authOptions: NextAuthOptions = {
       if (session.user && token) {
         session.user.id = token.id as string
         session.user.role = token.role as string
-        session.user.companyId = token.companyId as number
+        session.user.companyId = token.companyId as number | null
+        session.user.selectedCompanyId = token.selectedCompanyId as number | null | undefined
       }
       return session
+    },
+    async signIn({ user, account, profile }) {
+      // スーパー管理者の場合はcompanyIdをnullに設定
+      if (user.role === 'super_admin' || user.email === 'superadmin@rakupochi.com') {
+        return true
+      }
+      return true
     }
   },
   pages: {

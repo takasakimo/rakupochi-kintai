@@ -9,19 +9,41 @@ export async function GET() {
   try {
     console.log('[Dashboard] Starting dashboard data fetch')
     const session = await getServerSession(authOptions)
-    if (!session || !session.user || session.user.role !== 'admin') {
+    if (!session || !session.user) {
       console.log('[Dashboard] Unauthorized')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    console.log('[Dashboard] Session valid, companyId:', session.user.companyId)
+    // スーパー管理者または管理者のみアクセス可能
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+
+    if (!isSuperAdmin && !isAdmin) {
+      console.log('[Dashboard] Forbidden')
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+    const effectiveCompanyId = isSuperAdmin 
+      ? session.user.selectedCompanyId 
+      : session.user.companyId
+
+    if (!effectiveCompanyId) {
+      return NextResponse.json(
+        { error: isSuperAdmin ? '企業が選択されていません' : 'Company ID not found' },
+        { status: 400 }
+      )
+    }
+
+    console.log('[Dashboard] Session valid, companyId:', effectiveCompanyId)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
     // 本日の出勤者数（重複を避けるため、従業員IDでユニークにカウント）
     const todayAttendances = await prisma.attendance.findMany({
       where: {
-        companyId: session.user.companyId,
+        companyId: effectiveCompanyId,
         date: today,
         clockIn: { not: null },
         isDeleted: { not: true },
@@ -58,7 +80,7 @@ export async function GET() {
       
       const todayShifts = await prisma.shift.findMany({
         where: {
-          companyId: session.user.companyId,
+          companyId: effectiveCompanyId,
           date: {
             gte: todayStartUTC,
             lte: todayEndUTC,
@@ -80,7 +102,7 @@ export async function GET() {
       // 本日の打刻済み従業員IDを取得（重複を避ける）
       const clockedInEmployeeIds = await prisma.attendance.findMany({
         where: {
-          companyId: session.user.companyId,
+          companyId: effectiveCompanyId,
           date: {
             gte: todayStartUTC,
             lte: todayEndUTC,
@@ -190,7 +212,7 @@ export async function GET() {
     // 承認待ち申請数
     const pendingApplicationsCount = await prisma.application.count({
       where: {
-        companyId: session.user.companyId,
+        companyId: effectiveCompanyId,
         status: 'pending',
       },
     })
@@ -205,7 +227,7 @@ export async function GET() {
 
     const attendances = await prisma.attendance.findMany({
       where: {
-        companyId: session.user.companyId,
+        companyId: effectiveCompanyId,
         date: {
           gte: startOfMonth,
           lte: endOfMonth,

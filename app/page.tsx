@@ -11,7 +11,13 @@ export default async function Home() {
   }
 
   // ロールに応じてリダイレクト
-  if (session.user.role === 'admin') {
+  const isSuperAdmin = session.user.role === 'super_admin' || 
+                       session.user.email === 'superadmin@rakupochi.com'
+  
+  if (isSuperAdmin) {
+    // スーパー管理者の場合は企業選択画面へ
+    redirect('/super-admin/select-company')
+  } else if (session.user.role === 'admin') {
     redirect('/admin/dashboard')
   } else {
     redirect('/employee/clock')
