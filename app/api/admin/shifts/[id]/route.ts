@@ -26,7 +26,7 @@ export async function PATCH(
     const shift = await prisma.shift.findFirst({
       where: {
         id,
-        companyId: session.user.companyId,
+        companyId: session.user.companyId!
       },
     })
 
@@ -211,7 +211,7 @@ export async function DELETE(
     const shift = await prisma.shift.findFirst({
       where: {
         id,
-        companyId: session.user.companyId,
+        companyId: session.user.companyId!
       },
     })
 

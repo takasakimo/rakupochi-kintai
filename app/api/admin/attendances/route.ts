@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('end_date')
 
     const where: any = {
-      companyId: session.user.companyId,
+      companyId: session.user.companyId!,
       // isDeletedがtrueでないデータを取得（falseとnullの両方を含む）
       isDeleted: { not: true },
     }

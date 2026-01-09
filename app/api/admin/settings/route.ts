@@ -18,14 +18,14 @@ export async function GET(request: NextRequest) {
     }
 
     const settings = await prisma.companySetting.findUnique({
-      where: { companyId: session.user.companyId },
+        where: { companyId: session.user.companyId! },
     })
 
     if (!settings) {
       // 設定が存在しない場合はデフォルト値で作成
       const defaultSettings = await prisma.companySetting.create({
         data: {
-          companyId: session.user.companyId,
+          companyId: session.user.companyId!,
           payday: 25,
           overtimeThreshold40: 40,
           overtimeThreshold60: 60,
@@ -71,7 +71,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const settings = await prisma.companySetting.upsert({
-      where: { companyId: session.user.companyId },
+        where: { companyId: session.user.companyId! },
       update: {
         ...(body.payday !== undefined && { payday: body.payday }),
         ...(body.workStartTime !== undefined && {
@@ -104,7 +104,7 @@ export async function PATCH(request: NextRequest) {
         }),
       },
       create: {
-        companyId: session.user.companyId,
+        companyId: session.user.companyId!,
         payday: body.payday || 25,
         workStartTime: body.workStartTime
           ? new Date(`2000-01-01T${body.workStartTime}`)

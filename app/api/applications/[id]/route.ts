@@ -23,7 +23,7 @@ export async function PATCH(
     const existingApplication = await prisma.application.findUnique({
       where: {
         id: parseInt(params.id),
-        companyId: session.user.companyId,
+        companyId: session.user.companyId!,
       },
     })
 
@@ -97,7 +97,7 @@ export async function PATCH(
 
               const existingShift = await prisma.shift.findFirst({
                 where: {
-                  companyId: session.user.companyId,
+                  companyId: session.user.companyId!,
                   employeeId: existingApplication.employeeId,
                   date: shiftDate,
                 },
@@ -122,7 +122,7 @@ export async function PATCH(
                 // 新規シフトを作成
                 await prisma.shift.create({
                   data: {
-                    companyId: session.user.companyId,
+                    companyId: session.user.companyId!,
                     employeeId: existingApplication.employeeId,
                     date: shiftDate,
                     isPublicHoliday: true,
@@ -150,7 +150,7 @@ export async function PATCH(
       const application = await prisma.application.update({
         where: {
           id: parseInt(params.id),
-          companyId: session.user.companyId,
+          companyId: session.user.companyId!,
         },
         data: updateData,
       })
@@ -194,7 +194,7 @@ export async function PATCH(
       const application = await prisma.application.update({
         where: {
           id: parseInt(params.id),
-          companyId: session.user.companyId,
+          companyId: session.user.companyId!,
         },
         data: updateData,
       })

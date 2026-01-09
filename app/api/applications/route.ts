@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
 
     const application = await prisma.application.create({
       data: {
-        companyId: session.user.companyId,
+        companyId: session.user.companyId!,
         employeeId: targetEmployeeId,
         type,
         title: title || null,

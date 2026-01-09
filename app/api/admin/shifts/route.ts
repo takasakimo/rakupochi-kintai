@@ -27,10 +27,10 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('start_date')
     const endDate = searchParams.get('end_date')
 
-    console.log('[Shifts] Query params:', { employeeId, startDate, endDate, companyId: session.user.companyId })
+    console.log('[Shifts] Query params:', { employeeId, startDate, endDate, companyId: session.user.companyId!})
 
     const where: any = {
-      companyId: session.user.companyId,
+      companyId: session.user.companyId!
     }
 
     if (employeeId) {
@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
           
           const existingShift = await prisma.shift.findFirst({
             where: {
-              companyId: session.user.companyId,
+              companyId: session.user.companyId!,
               employeeId: shift.employeeId,
               date: shiftDate,
             },
@@ -263,7 +263,7 @@ export async function POST(request: NextRequest) {
             
             return prisma.shift.create({
               data: {
-                companyId: session.user.companyId,
+                companyId: session.user.companyId!,
                 employeeId: shift.employeeId,
                 date: createDate,
                 ...shiftData,

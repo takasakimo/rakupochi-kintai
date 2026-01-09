@@ -31,14 +31,14 @@ export async function POST(request: NextRequest) {
 
     // 最寄りの店舗・事業所を検索
     const locationData = await findNearestLocation(
-      session.user.companyId,
+      session.user.companyId!
       location as LocationData
     )
 
     const attendance = await prisma.attendance.upsert({
       where: {
         companyId_employeeId_date: {
-          companyId: session.user.companyId,
+          companyId: session.user.companyId!
           employeeId: parseInt(session.user.id),
           date: new Date(date),
         },
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         clockOutLocation: locationData as any,
       },
       create: {
-        companyId: session.user.companyId,
+        companyId: session.user.companyId!
         employeeId: parseInt(session.user.id),
         date: new Date(date),
         clockOut: new Date(`2000-01-01T${time}`),

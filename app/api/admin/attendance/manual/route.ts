@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       where: { id: parseInt(employeeId) },
     })
 
-    if (!employee || employee.companyId !== session.user.companyId) {
+    if (!employee || employee.companyId !== session.user.companyId!) {
       return NextResponse.json(
         { error: 'Employee not found or unauthorized' },
         { status: 404 }
@@ -88,14 +88,14 @@ export async function POST(request: NextRequest) {
     const attendance = await prisma.attendance.upsert({
       where: {
         companyId_employeeId_date: {
-          companyId: session.user.companyId,
+          companyId: session.user.companyId!,
           employeeId: parseInt(employeeId),
           date: new Date(date),
         },
       },
       update: updateData,
       create: {
-        companyId: session.user.companyId,
+        companyId: session.user.companyId!,
         employeeId: parseInt(employeeId),
         date: new Date(date),
         ...updateData,

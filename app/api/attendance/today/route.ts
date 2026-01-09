@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const attendance = await prisma.attendance.findUnique({
       where: {
         companyId_employeeId_date: {
-          companyId: session.user.companyId,
+          companyId: session.user.companyId!
           employeeId,
           date: today,
         },
