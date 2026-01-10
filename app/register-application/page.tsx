@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { signIn } from 'next-auth/react'
 import Link from 'next/link'
 
 function RegisterApplicationForm() {
@@ -17,6 +18,8 @@ function RegisterApplicationForm() {
     companyCode: companyCode || '',
     name: '',
     email: '',
+    password: '',
+    passwordConfirm: '',
     phone: '',
     address: '',
     transportationRoutes: [] as Array<{ from: string; to: string; method: string; amount: string }>,
@@ -28,8 +31,22 @@ function RegisterApplicationForm() {
     setLoading(true)
 
     // バリデーション
-    if (!formData.companyCode || !formData.name || !formData.email || !formData.phone || !formData.address) {
-      setError('必須項目（企業コード、氏名、メールアドレス、電話番号、住所）を入力してください')
+    if (!formData.companyCode || !formData.name || !formData.email || !formData.password || !formData.phone || !formData.address) {
+      setError('必須項目（企業コード、氏名、メールアドレス、パスワード、電話番号、住所）を入力してください')
+      setLoading(false)
+      return
+    }
+
+    // パスワード確認
+    if (formData.password !== formData.passwordConfirm) {
+      setError('パスワードが一致しません')
+      setLoading(false)
+      return
+    }
+
+    // パスワードの長さチェック
+    if (formData.password.length < 8) {
+      setError('パスワードは8文字以上で入力してください')
       setLoading(false)
       return
     }
@@ -43,13 +60,14 @@ function RegisterApplicationForm() {
     }
 
     try {
-      const response = await fetch('/api/applications/employee-registration', {
+      const response = await fetch('/api/employee/register-direct', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           companyCode: formData.companyCode.toUpperCase(),
           name: formData.name,
           email: formData.email,
+          password: formData.password,
           phone: formData.phone,
           address: formData.address,
           transportationRoutes: formData.transportationRoutes.length > 0 ? formData.transportationRoutes : null,
@@ -59,13 +77,32 @@ function RegisterApplicationForm() {
       const data = await response.json()
 
       if (response.ok && data.success) {
-        setSuccess(true)
+        // 自動ログイン
+        const result = await signIn('credentials', {
+          email: formData.email,
+          password: formData.password,
+          redirect: false,
+        })
+
+        if (result?.ok) {
+          // ログイン成功後、少し待ってから従業員ページにリダイレクト
+          setTimeout(() => {
+            router.push('/employee/clock')
+            router.refresh()
+          }, 500)
+        } else {
+          // ログインに失敗した場合は、ログインページにリダイレクト
+          setError('登録は完了しましたが、自動ログインに失敗しました。ログインページからログインしてください。')
+          setTimeout(() => {
+            router.push('/auth/signin')
+          }, 2000)
+        }
       } else {
-        setError(data.error || '申請の送信に失敗しました')
+        setError(data.error || '登録に失敗しました')
       }
     } catch (err) {
-      console.error('Application error:', err)
-      setError('申請の送信に失敗しました')
+      console.error('Registration error:', err)
+      setError('登録に失敗しました')
     } finally {
       setLoading(false)
     }
@@ -98,11 +135,11 @@ function RegisterApplicationForm() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
-          <h1 className="text-2xl font-bold mb-4 text-gray-900">申請完了</h1>
+          <h1 className="text-2xl font-bold mb-4 text-gray-900">登録完了</h1>
           <p className="text-gray-700 mb-6">
-            従業員登録申請を送信しました。
+            従業員登録が完了しました。
             <br />
-            管理者による承認をお待ちください。
+            ログインページからログインしてください。
           </p>
           <Link
             href="/auth/signin"
@@ -121,7 +158,7 @@ function RegisterApplicationForm() {
         <h1 className="text-3xl font-bold text-center mb-2 text-gray-900">
           らくポチ勤怠
         </h1>
-        <p className="text-center text-gray-600 mb-6">従業員登録申請</p>
+        <p className="text-center text-gray-600 mb-6">従業員登録</p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="border-b pb-6">
@@ -176,6 +213,37 @@ function RegisterApplicationForm() {
                     setFormData({ ...formData, email: e.target.value })
                   }
                   required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  パスワード <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  required
+                  minLength={8}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                />
+                <p className="mt-1 text-xs text-gray-500">8文字以上</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  パスワード（確認） <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  value={formData.passwordConfirm}
+                  onChange={(e) =>
+                    setFormData({ ...formData, passwordConfirm: e.target.value })
+                  }
+                  required
+                  minLength={8}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                 />
               </div>
@@ -307,7 +375,7 @@ function RegisterApplicationForm() {
               disabled={loading}
               className="flex-1 py-2 px-4 bg-blue-500 text-white rounded-md font-semibold hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? '送信中...' : '申請を送信'}
+              {loading ? '登録中...' : '登録する'}
             </button>
             <Link
               href="/auth/signin"
