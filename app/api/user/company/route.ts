@@ -13,13 +13,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = session.user.companyId
-    if (!companyId) {
-      return NextResponse.json({ error: 'Company ID not found' }, { status: 404 })
+    // スーパー管理者または管理者の判定
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    
+    // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+    const effectiveCompanyId = isSuperAdmin 
+      ? session.user.selectedCompanyId 
+      : session.user.companyId
+
+    if (!effectiveCompanyId) {
+      return NextResponse.json(
+        { error: isSuperAdmin ? '企業が選択されていません' : 'Company ID not found' },
+        { status: 404 }
+      )
     }
 
     const company = await prisma.company.findUnique({
-      where: { id: companyId },
+      where: { id: effectiveCompanyId },
       select: {
         id: true,
         code: true,
