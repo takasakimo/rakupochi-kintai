@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import QRCodeSVG from 'react-qr-code'
 
 interface Employee {
   id: number
@@ -52,6 +53,8 @@ export default function EmployeesPage() {
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importLoading, setImportLoading] = useState(false)
   const [importResult, setImportResult] = useState<any>(null)
+  const [showQRCodeModal, setShowQRCodeModal] = useState(false)
+  const [companyCode, setCompanyCode] = useState<string>('')
   
   // フィルター用の状態
   const [displayMode, setDisplayMode] = useState<'all' | 'department' | 'location'>('all')
@@ -99,14 +102,33 @@ export default function EmployeesPage() {
   })
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user.role === 'admin') {
-      fetchEmployees()
-      fetchLocations()
-      if (activeTab === 'locations') {
-        fetchWorkLocations()
+    if (status === 'authenticated') {
+      const isAdmin = session?.user.role === 'admin'
+      const isSuperAdmin = session?.user.role === 'super_admin' || 
+                          session?.user.email === 'superadmin@rakupochi.com'
+      
+      if (isAdmin || (isSuperAdmin && session?.user.selectedCompanyId)) {
+        fetchEmployees()
+        fetchLocations()
+        fetchCompanyCode()
+        if (activeTab === 'locations') {
+          fetchWorkLocations()
+        }
       }
     }
   }, [status, session, activeTab])
+
+  const fetchCompanyCode = async () => {
+    try {
+      const response = await fetch('/api/user/company')
+      if (response.ok) {
+        const data = await response.json()
+        setCompanyCode(data.company?.code || '')
+      }
+    } catch (err) {
+      console.error('Failed to fetch company code:', err)
+    }
+  }
   
   const fetchLocations = async () => {
     try {
@@ -677,6 +699,14 @@ export default function EmployeesPage() {
                 className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium"
               >
                 {showCreateForm ? 'キャンセル' : '+ 従業員登録'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowQRCodeModal(true)
+                }}
+                className="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 font-medium"
+              >
+                QRコード発行
               </button>
             </div>
           )}
@@ -2591,6 +2621,57 @@ export default function EmployeesPage() {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* QRコード発行モーダル */}
+        {showQRCodeModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+              <h2 className="text-xl font-bold mb-4 text-gray-900">従業員登録用QRコード</h2>
+              
+              {companyCode ? (
+                <>
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-600 mb-4">
+                      このQRコードを従業員に提示してください。従業員はQRコードをスキャンして、登録申請フォームにアクセスできます。
+                    </p>
+                    <div className="flex justify-center mb-4 p-4 bg-gray-50 rounded-lg">
+                      <QRCodeSVG
+                        value={`${typeof window !== 'undefined' ? window.location.origin : ''}/employee/register-application?company=${companyCode}`}
+                        size={256}
+                        level="H"
+                      />
+                    </div>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        登録URL
+                      </label>
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${typeof window !== 'undefined' ? window.location.origin : ''}/employee/register-application?company=${companyCode}`}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-900 text-sm"
+                        onClick={(e) => (e.target as HTMLInputElement).select()}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-gray-600">企業コードを読み込み中...</p>
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowQRCodeModal(false)}
+                  className="px-4 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-medium"
+                >
+                  閉じる
+                </button>
+              </div>
             </div>
           </div>
         )}

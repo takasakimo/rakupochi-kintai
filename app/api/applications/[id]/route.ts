@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,14 +18,31 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // スーパー管理者または管理者の判定
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+    
+    // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+    const effectiveCompanyId = isSuperAdmin 
+      ? session.user.selectedCompanyId 
+      : session.user.companyId
+
+    if (!effectiveCompanyId) {
+      return NextResponse.json(
+        { error: isSuperAdmin ? '企業が選択されていません' : 'Company ID not found' },
+        { status: 400 }
+      )
+    }
+
     const body = await request.json()
-    const { status, rejectionReason, type, title, content, reason, employeeId } = body
+    const { status, rejectionReason, type, title, content, reason, employeeId, employeeNumber } = body
 
     // 申請の存在確認
     const existingApplication = await prisma.application.findUnique({
       where: {
         id: parseInt(params.id),
-        companyId: session.user.companyId!,
+        companyId: effectiveCompanyId,
       },
     })
 
@@ -36,7 +55,7 @@ export async function PATCH(
 
     // 承認・却下の場合
     if (status && ['approved', 'rejected'].includes(status)) {
-      if (session.user.role !== 'admin') {
+      if (!isAdmin && !isSuperAdmin) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
 
@@ -49,6 +68,80 @@ export async function PATCH(
         updateData.approvedAt = new Date()
         updateData.rejectedAt = null
         updateData.rejectionReason = null
+
+        // 従業員登録申請が承認された場合、従業員を作成
+        if (existingApplication.type === 'employee_registration') {
+          try {
+            if (!employeeNumber) {
+              return NextResponse.json(
+                { error: '従業員登録申請を承認するには従業員番号が必要です' },
+                { status: 400 }
+              )
+            }
+
+            const applicationContent = JSON.parse(existingApplication.content)
+            const { name, email, phone, address, transportationRoutes } = applicationContent
+
+            // メールアドレスの重複チェック
+            const existingEmployee = await prisma.employee.findUnique({
+              where: { email },
+            })
+
+            if (existingEmployee) {
+              return NextResponse.json(
+                { error: 'このメールアドレスは既に使用されています' },
+                { status: 409 }
+              )
+            }
+
+            // 社員番号の重複チェック（同じ企業内）
+            const existingEmployeeNumber = await prisma.employee.findFirst({
+              where: {
+                employeeNumber,
+                companyId: effectiveCompanyId,
+              },
+            })
+
+            if (existingEmployeeNumber) {
+              return NextResponse.json(
+                { error: 'この社員番号は既に使用されています' },
+                { status: 409 }
+              )
+            }
+
+            // 一時的な従業員レコードを取得
+            const tempEmployee = await prisma.employee.findUnique({
+              where: { id: existingApplication.employeeId },
+            })
+
+            // 一時的なパスワードを生成
+            const tempPassword = crypto.randomBytes(16).toString('hex')
+            const hashedPassword = await bcrypt.hash(tempPassword, 10)
+
+            // 一時的な従業員レコードを更新して実際の従業員情報に置き換え
+            const newEmployee = await prisma.employee.update({
+              where: { id: existingApplication.employeeId },
+              data: {
+                employeeNumber,
+                name,
+                email,
+                password: hashedPassword,
+                phone: phone || null,
+                address: address || null,
+                transportationRoutes: transportationRoutes || null,
+                isActive: true,
+              },
+            })
+
+            // 申請のemployeeIdは既に正しいので更新不要
+          } catch (error) {
+            console.error('Failed to create employee for registration application:', error)
+            return NextResponse.json(
+              { error: '従業員の作成に失敗しました' },
+              { status: 500 }
+            )
+          }
+        }
 
         // 休暇申請が承認された場合、シフトを作成または更新
         if (existingApplication.type === 'leave') {
@@ -97,7 +190,7 @@ export async function PATCH(
 
               const existingShift = await prisma.shift.findFirst({
                 where: {
-                  companyId: session.user.companyId!,
+                  companyId: effectiveCompanyId,
                   employeeId: existingApplication.employeeId,
                   date: shiftDate,
                 },
@@ -122,7 +215,7 @@ export async function PATCH(
                 // 新規シフトを作成
                 await prisma.shift.create({
                   data: {
-                    companyId: session.user.companyId!,
+                    companyId: effectiveCompanyId,
                     employeeId: existingApplication.employeeId,
                     date: shiftDate,
                     isPublicHoliday: true,
@@ -150,7 +243,7 @@ export async function PATCH(
       const application = await prisma.application.update({
         where: {
           id: parseInt(params.id),
-          companyId: session.user.companyId!,
+          companyId: effectiveCompanyId,
         },
         data: updateData,
       })
@@ -158,9 +251,9 @@ export async function PATCH(
       return NextResponse.json({ success: true, application })
     }
 
-    // 申請内容の修正の場合（管理者のみ）
+    // 申請内容の修正の場合（管理者・スーパー管理者のみ）
     if (type || content || title !== undefined || reason !== undefined) {
-      if (session.user.role !== 'admin') {
+      if (!isAdmin && !isSuperAdmin) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
 
@@ -175,7 +268,7 @@ export async function PATCH(
         const employee = await prisma.employee.findUnique({
           where: { id: parseInt(employeeId) },
         })
-        if (!employee || employee.companyId !== session.user.companyId) {
+        if (!employee || employee.companyId !== effectiveCompanyId) {
           return NextResponse.json(
             { error: '指定された従業員が見つからないか、権限がありません' },
             { status: 403 }

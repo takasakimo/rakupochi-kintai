@@ -28,6 +28,7 @@ const APPLICATION_TYPES: Record<string, string> = {
   expense_advance: '立替金精算',
   expense_transportation: '交通費精算',
   shift_request: 'シフト希望',
+  employee_registration: '従業員登録申請',
 }
 
 export default function AdminApplicationsPage() {
@@ -42,6 +43,8 @@ export default function AdminApplicationsPage() {
   const [showEditApplicationModal, setShowEditApplicationModal] = useState(false)
   const [editingApplication, setEditingApplication] = useState<Application | null>(null)
   const [employees, setEmployees] = useState<any[]>([])
+  const [approvingApplicationId, setApprovingApplicationId] = useState<number | null>(null)
+  const [employeeNumberInput, setEmployeeNumberInput] = useState<string>('')
   
   // ソート状態
   const [sortBy, setSortBy] = useState<'name' | null>(null)
@@ -71,9 +74,15 @@ export default function AdminApplicationsPage() {
   }, [])
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user.role === 'admin') {
-      fetchApplications()
-      fetchEmployees()
+    if (status === 'authenticated') {
+      const isAdmin = session?.user.role === 'admin'
+      const isSuperAdmin = session?.user.role === 'super_admin' || 
+                          session?.user.email === 'superadmin@rakupochi.com'
+      
+      if (isAdmin || (isSuperAdmin && session?.user.selectedCompanyId)) {
+        fetchApplications()
+        fetchEmployees()
+      }
     }
   }, [status, session, filterStatus, searchFilters])
 
@@ -117,23 +126,57 @@ export default function AdminApplicationsPage() {
     }
   }
 
-  const handleApprove = async (id: number) => {
-    if (!confirm('この申請を承認しますか？')) return
-
-    try {
-      const response = await fetch(`/api/applications/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'approved' }),
-      })
-
-      const data = await response.json()
-      if (data.success) {
-        fetchApplications()
+  const handleApprove = async (id: number, applicationType?: string) => {
+    // 従業員登録申請の場合は従業員番号が必要
+    if (applicationType === 'employee_registration') {
+      const employeeNumber = prompt('従業員番号を入力してください:')
+      if (!employeeNumber) {
+        return
       }
-    } catch (err) {
-      console.error('Failed to approve application:', err)
-      alert('承認に失敗しました')
+      setEmployeeNumberInput(employeeNumber)
+      setApprovingApplicationId(id)
+      
+      try {
+        const response = await fetch(`/api/applications/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'approved', employeeNumber }),
+        })
+
+        const data = await response.json()
+        if (data.success) {
+          fetchApplications()
+          setApprovingApplicationId(null)
+          setEmployeeNumberInput('')
+        } else {
+          alert(data.error || '承認に失敗しました')
+          setApprovingApplicationId(null)
+          setEmployeeNumberInput('')
+        }
+      } catch (err) {
+        console.error('Failed to approve application:', err)
+        alert('承認に失敗しました')
+        setApprovingApplicationId(null)
+        setEmployeeNumberInput('')
+      }
+    } else {
+      if (!confirm('この申請を承認しますか？')) return
+
+      try {
+        const response = await fetch(`/api/applications/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'approved' }),
+        })
+
+        const data = await response.json()
+        if (data.success) {
+          fetchApplications()
+        }
+      } catch (err) {
+        console.error('Failed to approve application:', err)
+        alert('承認に失敗しました')
+      }
     }
   }
 
@@ -520,6 +563,52 @@ export default function AdminApplicationsPage() {
             </div>
           )
 
+        case 'employee_registration':
+          return (
+            <div className="space-y-2 text-sm text-gray-700">
+              <div>
+                <span className="font-medium">氏名:</span> {content.name || '-'}
+              </div>
+              <div>
+                <span className="font-medium">メールアドレス:</span> {content.email || '-'}
+              </div>
+              <div>
+                <span className="font-medium">電話番号:</span> {content.phone || '-'}
+              </div>
+              <div>
+                <span className="font-medium">住所:</span> {content.address || '-'}
+              </div>
+              {content.transportationRoutes && content.transportationRoutes.length > 0 && (
+                <div className="mt-3">
+                  <div className="font-medium mb-2">交通経路:</div>
+                  <div className="space-y-2">
+                    {content.transportationRoutes.map((route: any, index: number) => (
+                      <div key={index} className="p-2 bg-white rounded border">
+                        <div className="font-medium text-xs mb-1">経路 {index + 1}</div>
+                        <div>
+                          <span className="font-medium">出発地:</span> {route.from || '-'}
+                        </div>
+                        <div>
+                          <span className="font-medium">到着地:</span> {route.to || '-'}
+                        </div>
+                        {route.method && (
+                          <div>
+                            <span className="font-medium">交通手段:</span> {route.method}
+                          </div>
+                        )}
+                        {route.amount && (
+                          <div>
+                            <span className="font-medium">金額:</span> ¥{parseInt(route.amount).toLocaleString()}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+
         case 'shift_request':
           // 新しい形式（selectedDates + timeSlots）と旧形式（date + startTime + endTime）の両方に対応
           const hasSelectedDates = content.selectedDates && Array.isArray(content.selectedDates)
@@ -843,7 +932,18 @@ export default function AdminApplicationsPage() {
                           {APPLICATION_TYPES[app.type] || app.type}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900">
-                          {app.employee.name} ({app.employee.employeeNumber})
+                          {app.type === 'employee_registration' ? (
+                            (() => {
+                              try {
+                                const content = JSON.parse(app.content)
+                                return content.name || '申請者情報なし'
+                              } catch {
+                                return '申請者情報なし'
+                              }
+                            })()
+                          ) : (
+                            app.employee.name + (app.employee.employeeNumber ? ` (${app.employee.employeeNumber})` : '')
+                          )}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900">
                           {category || '-'}
@@ -885,10 +985,11 @@ export default function AdminApplicationsPage() {
                             {app.status === 'pending' && (
                               <>
                                 <button
-                                  onClick={() => handleApprove(app.id)}
-                                  className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600"
+                                  onClick={() => handleApprove(app.id, app.type)}
+                                  disabled={approvingApplicationId === app.id}
+                                  className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600 disabled:opacity-50"
                                 >
-                                  承認
+                                  {approvingApplicationId === app.id ? '処理中...' : '承認'}
                                 </button>
                                 <button
                                   onClick={() => handleReject(app.id)}
@@ -933,7 +1034,18 @@ export default function AdminApplicationsPage() {
                   <div>
                     <div className="text-sm font-semibold text-gray-900 mb-1">申請者</div>
                     <div className="text-sm text-gray-700">
-                      {selectedApplication.employee.name} ({selectedApplication.employee.employeeNumber})
+                      {selectedApplication.type === 'employee_registration' ? (
+                        (() => {
+                          try {
+                            const content = JSON.parse(selectedApplication.content)
+                            return content.name || '申請者情報なし'
+                          } catch {
+                            return '申請者情報なし'
+                          }
+                        })()
+                      ) : (
+                        selectedApplication.employee.name + (selectedApplication.employee.employeeNumber ? ` (${selectedApplication.employee.employeeNumber})` : '')
+                      )}
                     </div>
                   </div>
 
@@ -967,15 +1079,36 @@ export default function AdminApplicationsPage() {
 
                   {selectedApplication.status === 'pending' && (
                     <div className="flex gap-2 pt-4 border-t">
+                      {selectedApplication.type === 'employee_registration' && (
+                        <div className="mb-4">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            従業員番号 <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={employeeNumberInput}
+                            onChange={(e) => setEmployeeNumberInput(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                            placeholder="従業員番号を入力"
+                          />
+                        </div>
+                      )}
                       <button
                         onClick={() => {
-                          handleApprove(selectedApplication.id)
-                          setShowDetailModal(false)
-                          setSelectedApplication(null)
+                          if (selectedApplication.type === 'employee_registration' && !employeeNumberInput) {
+                            alert('従業員番号を入力してください')
+                            return
+                          }
+                          handleApprove(selectedApplication.id, selectedApplication.type)
+                          if (selectedApplication.type !== 'employee_registration') {
+                            setShowDetailModal(false)
+                            setSelectedApplication(null)
+                          }
                         }}
-                        className="px-6 py-2 bg-green-500 text-white rounded hover:bg-green-600 font-medium"
+                        disabled={approvingApplicationId === selectedApplication.id}
+                        className="px-6 py-2 bg-green-500 text-white rounded hover:bg-green-600 font-medium disabled:opacity-50"
                       >
-                        承認
+                        {approvingApplicationId === selectedApplication.id ? '処理中...' : '承認'}
                       </button>
                       <button
                         onClick={() => {
@@ -2719,4 +2852,5 @@ function EditApplicationModal({
     </div>
   )
 }
+
 

@@ -16,7 +16,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    console.log('[Applications] Company ID:', session.user.companyId, 'Role:', session.user.role)
+    // スーパー管理者または管理者の判定
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+    
+    // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+    const effectiveCompanyId = isSuperAdmin 
+      ? session.user.selectedCompanyId 
+      : session.user.companyId
+
+    if (!effectiveCompanyId) {
+      return NextResponse.json(
+        { error: isSuperAdmin ? '企業が選択されていません' : 'Company ID not found' },
+        { status: 400 }
+      )
+    }
+
+    console.log('[Applications] Company ID:', effectiveCompanyId, 'Role:', session.user.role)
 
     const searchParams = request.nextUrl.searchParams
     const type = searchParams.get('type')
@@ -28,11 +45,11 @@ export async function GET(request: NextRequest) {
     console.log('[Applications] Search params:', { type, status, startDate, endDate, category })
 
     const where: any = {
-      companyId: session.user.companyId,
+      companyId: effectiveCompanyId,
     }
 
-    // 従業員は自分の申請のみ閲覧可能
-    if (session.user.role !== 'admin') {
+    // 従業員は自分の申請のみ閲覧可能（管理者・スーパー管理者は全申請を閲覧可能）
+    if (!isAdmin && !isSuperAdmin) {
       where.employeeId = parseInt(session.user.id)
       console.log('[Applications] Employee ID filter:', where.employeeId)
     }
@@ -74,11 +91,42 @@ export async function GET(request: NextRequest) {
               employeeNumber: true,
               department: true,
             },
+            // 従業員登録申請の場合、employeeIdが0のためemployeeが存在しない可能性がある
           },
         },
         orderBy: {
           createdAt: 'desc',
         },
+      })
+      
+      // 従業員登録申請の場合、employeeIdが0のためemployeeがnullになる可能性がある
+      // その場合は、contentから申請者情報を取得してemployeeオブジェクトを構築
+      applications = applications.map((app) => {
+        if (app.type === 'employee_registration' && (!app.employee || app.employeeId === 0)) {
+          try {
+            const content = JSON.parse(app.content)
+            return {
+              ...app,
+              employee: {
+                id: 0,
+                name: content.name || '申請者情報なし',
+                employeeNumber: '',
+                department: null,
+              },
+            }
+          } catch {
+            return {
+              ...app,
+              employee: {
+                id: 0,
+                name: '申請者情報なし',
+                employeeNumber: '',
+                department: null,
+              },
+            }
+          }
+        }
+        return app
       })
       console.log('[Applications] Found applications:', applications.length)
     } catch (error: any) {
@@ -158,14 +206,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 管理者は従業員IDを指定可能、従業員は自分のIDのみ
+    // スーパー管理者または管理者の判定
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+    
+    // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+    const effectiveCompanyId = isSuperAdmin 
+      ? session.user.selectedCompanyId 
+      : session.user.companyId
+
+    if (!effectiveCompanyId) {
+      return NextResponse.json(
+        { error: isSuperAdmin ? '企業が選択されていません' : 'Company ID not found' },
+        { status: 400 }
+      )
+    }
+
+    // 管理者・スーパー管理者は従業員IDを指定可能、従業員は自分のIDのみ
     let targetEmployeeId = parseInt(session.user.id)
-    if (session.user.role === 'admin' && employeeId) {
+    if ((isAdmin || isSuperAdmin) && employeeId) {
       // 管理者が指定した従業員が自社のものであることを確認
       const employee = await prisma.employee.findUnique({
         where: { id: parseInt(employeeId) },
       })
-      if (!employee || employee.companyId !== session.user.companyId) {
+      if (!employee || employee.companyId !== effectiveCompanyId) {
         return NextResponse.json(
           { error: '指定された従業員が見つからないか、権限がありません' },
           { status: 403 }
@@ -176,7 +241,7 @@ export async function POST(request: NextRequest) {
 
     const application = await prisma.application.create({
       data: {
-        companyId: session.user.companyId!,
+        companyId: effectiveCompanyId,
         employeeId: targetEmployeeId,
         type,
         title: title || null,
