@@ -81,18 +81,30 @@ export default function ShiftRegisterPage() {
   const workHourOptions = ['2', '3', '4', '5', '6', '7', '8'] // 2時間から8時間まで
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user.role === 'admin') {
-      fetchEmployees()
+    if (status === 'authenticated') {
+      const isAdmin = session?.user.role === 'admin'
+      const isSuperAdmin = session?.user.role === 'super_admin' || 
+                          session?.user.email === 'superadmin@rakupochi.com'
+      
+      if (isAdmin || (isSuperAdmin && session?.user.selectedCompanyId)) {
+        fetchEmployees()
+      }
     }
   }, [status, session])
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user.role === 'admin') {
-      if (selectedEmployeeId) {
-        fetchShifts()
-      } else {
-        setShiftRows([])
-        setLoading(false)
+    if (status === 'authenticated') {
+      const isAdmin = session?.user.role === 'admin'
+      const isSuperAdmin = session?.user.role === 'super_admin' || 
+                          session?.user.email === 'superadmin@rakupochi.com'
+      
+      if (isAdmin || (isSuperAdmin && session?.user.selectedCompanyId)) {
+        if (selectedEmployeeId) {
+          fetchShifts()
+        } else {
+          setShiftRows([])
+          setLoading(false)
+        }
       }
     }
   }, [status, session, selectedEmployeeId, selectedMonth])

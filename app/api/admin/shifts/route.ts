@@ -15,9 +15,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'admin') {
-      console.log('[Shifts] Forbidden: not admin')
+    // スーパー管理者または管理者のみアクセス可能
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+
+    if (!isSuperAdmin && !isAdmin) {
+      console.log('[Shifts] Forbidden: not admin or super admin')
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+    const effectiveCompanyId = isSuperAdmin 
+      ? session.user.selectedCompanyId 
+      : session.user.companyId
+
+    if (!effectiveCompanyId) {
+      return NextResponse.json(
+        { error: isSuperAdmin ? '企業が選択されていません' : 'Company ID not found' },
+        { status: 400 }
+      )
     }
 
     const searchParams = request.nextUrl.searchParams
@@ -27,10 +44,10 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('start_date')
     const endDate = searchParams.get('end_date')
 
-    console.log('[Shifts] Query params:', { employeeId, startDate, endDate, companyId: session.user.companyId!})
+    console.log('[Shifts] Query params:', { employeeId, startDate, endDate, companyId: effectiveCompanyId})
 
     const where: any = {
-      companyId: session.user.companyId!
+      companyId: effectiveCompanyId
     }
 
     if (employeeId) {
@@ -156,9 +173,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'admin') {
-      console.log('[Shifts] Forbidden: not admin')
+    // スーパー管理者または管理者のみアクセス可能
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+
+    if (!isSuperAdmin && !isAdmin) {
+      console.log('[Shifts] Forbidden: not admin or super admin')
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+    const effectiveCompanyId = isSuperAdmin 
+      ? session.user.selectedCompanyId 
+      : session.user.companyId
+
+    if (!effectiveCompanyId) {
+      return NextResponse.json(
+        { error: isSuperAdmin ? '企業が選択されていません' : 'Company ID not found' },
+        { status: 400 }
+      )
     }
 
     const body = await request.json()
@@ -208,7 +242,7 @@ export async function POST(request: NextRequest) {
           
           const existingShift = await prisma.shift.findFirst({
             where: {
-              companyId: session.user.companyId!,
+              companyId: effectiveCompanyId,
               employeeId: shift.employeeId,
               date: shiftDate,
             },
@@ -263,7 +297,7 @@ export async function POST(request: NextRequest) {
             
             return prisma.shift.create({
               data: {
-                companyId: session.user.companyId!,
+                companyId: effectiveCompanyId,
                 employeeId: shift.employeeId,
                 date: createDate,
                 ...shiftData,

@@ -32,8 +32,14 @@ export default function LocationsPage() {
   const [geocodingLoading, setGeocodingLoading] = useState(false)
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user.role === 'admin') {
-      fetchLocations()
+    if (status === 'authenticated') {
+      const isAdmin = session?.user.role === 'admin'
+      const isSuperAdmin = session?.user.role === 'super_admin' || 
+                          session?.user.email === 'superadmin@rakupochi.com'
+      
+      if (isAdmin || (isSuperAdmin && session?.user.selectedCompanyId)) {
+        fetchLocations()
+      }
     }
   }, [status, session])
 

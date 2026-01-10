@@ -13,8 +13,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'admin') {
+    // スーパー管理者または管理者のみアクセス可能
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+
+    if (!isSuperAdmin && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // スーパー管理者の場合は企業が選択されているか確認
+    if (isSuperAdmin && !session.user.selectedCompanyId) {
+      return NextResponse.json(
+        { error: '企業が選択されていません' },
+        { status: 400 }
+      )
     }
 
     const body = await request.json()

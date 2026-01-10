@@ -14,8 +14,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'admin') {
+    // スーパー管理者または管理者のみアクセス可能
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+
+    if (!isSuperAdmin && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+    const effectiveCompanyId = isSuperAdmin 
+      ? session.user.selectedCompanyId 
+      : session.user.companyId
+
+    if (!effectiveCompanyId) {
+      return NextResponse.json(
+        { error: isSuperAdmin ? '企業が選択されていません' : 'Company ID not found' },
+        { status: 400 }
+      )
     }
 
     const body = await request.json()
@@ -39,7 +56,7 @@ export async function POST(request: NextRequest) {
       where: { id: parseInt(employeeId) },
     })
 
-    if (!employee || employee.companyId !== session.user.companyId!) {
+    if (!employee || employee.companyId !== effectiveCompanyId) {
       return NextResponse.json(
         { error: 'Employee not found or unauthorized' },
         { status: 404 }
@@ -51,7 +68,7 @@ export async function POST(request: NextRequest) {
     if ((type === 'clock_in' || type === 'clock_out') && location) {
       if (location.latitude && location.longitude) {
         locationData = await findNearestLocation(
-          session.user.companyId,
+          effectiveCompanyId,
           location as LocationData
         )
       } else {
@@ -88,14 +105,14 @@ export async function POST(request: NextRequest) {
     const attendance = await prisma.attendance.upsert({
       where: {
         companyId_employeeId_date: {
-          companyId: session.user.companyId!,
+          companyId: effectiveCompanyId,
           employeeId: parseInt(employeeId),
           date: new Date(date),
         },
       },
       update: updateData,
       create: {
-        companyId: session.user.companyId!,
+        companyId: effectiveCompanyId,
         employeeId: parseInt(employeeId),
         date: new Date(date),
         ...updateData,

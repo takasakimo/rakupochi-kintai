@@ -29,9 +29,15 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user.role === 'admin') {
-      fetchDashboardData()
-      fetchAnnouncements()
+    if (status === 'authenticated') {
+      const isAdmin = session?.user.role === 'admin'
+      const isSuperAdmin = session?.user.role === 'super_admin' || 
+                          session?.user.email === 'superadmin@rakupochi.com'
+      
+      if (isAdmin || (isSuperAdmin && session?.user.selectedCompanyId)) {
+        fetchDashboardData()
+        fetchAnnouncements()
+      }
     }
   }, [status, session])
 

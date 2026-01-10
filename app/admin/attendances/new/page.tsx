@@ -30,8 +30,14 @@ export default function NewAttendancePage() {
   })
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user.role === 'admin') {
-      fetchEmployees()
+    if (status === 'authenticated') {
+      const isAdmin = session?.user.role === 'admin'
+      const isSuperAdmin = session?.user.role === 'super_admin' || 
+                          session?.user.email === 'superadmin@rakupochi.com'
+      
+      if (isAdmin || (isSuperAdmin && session?.user.selectedCompanyId)) {
+        fetchEmployees()
+      }
     } else if (status === 'unauthenticated') {
       router.push('/auth/signin')
     }

@@ -20,7 +20,7 @@ interface Company {
 }
 
 export default function SuperAdminCompaniesPage() {
-  const { data: session, status } = useSession()
+  const { data: session, status, update } = useSession()
   const router = useRouter()
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
@@ -149,6 +149,24 @@ export default function SuperAdminCompaniesPage() {
     } catch (err) {
       console.error('Failed to delete company:', err)
       alert('企業の削除に失敗しました')
+    }
+  }
+
+  const handleEnterAdminPanel = async (companyId: number) => {
+    try {
+      // セッションを更新してselectedCompanyIdを設定
+      await update({
+        selectedCompanyId: companyId,
+      })
+
+      // セッションが更新されるまで少し待機
+      await new Promise(resolve => setTimeout(resolve, 300))
+
+      // 完全なページリロードでリダイレクト（セッション更新を確実に反映）
+      window.location.href = '/admin/dashboard'
+    } catch (err) {
+      console.error('Failed to enter admin panel:', err)
+      alert('管理者画面へのアクセスに失敗しました')
     }
   }
 
@@ -480,6 +498,12 @@ export default function SuperAdminCompaniesPage() {
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex gap-2">
+                              <button
+                                onClick={() => handleEnterAdminPanel(company.id)}
+                                className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600"
+                              >
+                                管理者画面に入る
+                              </button>
                               <button
                                 onClick={() => setEditingCompany(company)}
                                 className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"

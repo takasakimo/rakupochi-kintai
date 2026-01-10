@@ -83,7 +83,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
     session.user.email === 'superadmin@rakupochi.com'
 
   let menuItems: MenuItem[]
-  if (isSuperAdmin) {
+  // スーパー管理者がテナントの管理者画面に入っている場合（selectedCompanyIdが設定されている場合）
+  // は通常の管理者メニューを表示
+  if (isSuperAdmin && session.user.selectedCompanyId) {
+    menuItems = adminMenuItems
+  } else if (isSuperAdmin) {
     menuItems = superAdminMenuItems
   } else if (isAdmin) {
     menuItems = adminMenuItems

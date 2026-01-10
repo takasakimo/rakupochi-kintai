@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-export default function EmployeeRegisterApplicationPage() {
+function RegisterApplicationForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const companyCode = searchParams.get('company')
@@ -319,6 +319,18 @@ export default function EmployeeRegisterApplicationPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function EmployeeRegisterApplicationPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-900">読み込み中...</div>
+      </div>
+    }>
+      <RegisterApplicationForm />
+    </Suspense>
   )
 }
 

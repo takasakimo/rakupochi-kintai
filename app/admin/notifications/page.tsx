@@ -35,9 +35,15 @@ export default function AdminNotificationsPage() {
   const [employees, setEmployees] = useState<any[]>([])
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user.role === 'admin') {
-      fetchEmployees()
-      fetchNotifications()
+    if (status === 'authenticated') {
+      const isAdmin = session?.user.role === 'admin'
+      const isSuperAdmin = session?.user.role === 'super_admin' || 
+                          session?.user.email === 'superadmin@rakupochi.com'
+      
+      if (isAdmin || (isSuperAdmin && session?.user.selectedCompanyId)) {
+        fetchEmployees()
+        fetchNotifications()
+      }
     }
   }, [status, session, filter, selectedEmployeeId])
 

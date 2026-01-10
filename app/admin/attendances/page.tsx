@@ -72,7 +72,15 @@ export default function AdminAttendancesPage() {
   const [selectedDirectDestination, setSelectedDirectDestination] = useState<string>('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [viewMode, setViewMode] = useState<'shifts' | 'attendances'>('shifts') // デフォルトはシフト表示
+  // URLパラメータからviewModeを取得
+  const [viewMode, setViewMode] = useState<'shifts' | 'attendances'>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const mode = params.get('viewMode')
+      return (mode === 'attendances' || mode === 'shifts') ? mode : 'shifts'
+    }
+    return 'shifts'
+  })
   const [showMapModal, setShowMapModal] = useState(false)
   const [mapLocation, setMapLocation] = useState<{ latitude: number; longitude: number; locationName?: string } | null>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
@@ -80,26 +88,49 @@ export default function AdminAttendancesPage() {
   const markerInstanceRef = useRef<any>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
 
+  // URLパラメータからviewModeを読み取る
   useEffect(() => {
-    if (status === 'authenticated' && session?.user.role === 'admin') {
-      fetchEmployees()
-      fetchLocations()
-      fetchDepartments()
-      fetchDirectDestinations()
-      if (viewMode === 'shifts') {
-        fetchShiftsAndAttendances()
-      } else {
-        fetchAttendances()
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const mode = params.get('viewMode')
+      if (mode === 'attendances' || mode === 'shifts') {
+        setViewMode(mode)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      const isAdmin = session?.user.role === 'admin'
+      const isSuperAdmin = session?.user.role === 'super_admin' || 
+                          session?.user.email === 'superadmin@rakupochi.com'
+      
+      if (isAdmin || (isSuperAdmin && session?.user.selectedCompanyId)) {
+        fetchEmployees()
+        fetchLocations()
+        fetchDepartments()
+        fetchDirectDestinations()
+        if (viewMode === 'shifts') {
+          fetchShiftsAndAttendances()
+        } else {
+          fetchAttendances()
+        }
       }
     }
   }, [status, session, viewMode])
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user.role === 'admin') {
-      if (viewMode === 'shifts') {
-        fetchShiftsAndAttendances()
-      } else {
-        fetchAttendances()
+    if (status === 'authenticated') {
+      const isAdmin = session?.user.role === 'admin'
+      const isSuperAdmin = session?.user.role === 'super_admin' || 
+                          session?.user.email === 'superadmin@rakupochi.com'
+      
+      if (isAdmin || (isSuperAdmin && session?.user.selectedCompanyId)) {
+        if (viewMode === 'shifts') {
+          fetchShiftsAndAttendances()
+        } else {
+          fetchAttendances()
+        }
       }
     }
   }, [selectedEmployeeId, selectedLocationId, selectedDepartment, selectedDirectDestination, startDate, endDate, viewMode])
@@ -716,7 +747,13 @@ export default function AdminAttendancesPage() {
             <h2 className="text-lg font-semibold text-gray-900">検索条件</h2>
             <div className="flex gap-2">
               <button
-                onClick={() => setViewMode('shifts')}
+                onClick={() => {
+                  setViewMode('shifts')
+                  // URLパラメータを更新
+                  const url = new URL(window.location.href)
+                  url.searchParams.set('viewMode', 'shifts')
+                  window.history.pushState({}, '', url.toString())
+                }}
                 className={`px-4 py-2 rounded-md font-medium transition ${
                   viewMode === 'shifts'
                     ? 'bg-blue-500 text-white'
@@ -726,7 +763,13 @@ export default function AdminAttendancesPage() {
                 シフト表示
               </button>
               <button
-                onClick={() => setViewMode('attendances')}
+                onClick={() => {
+                  setViewMode('attendances')
+                  // URLパラメータを更新
+                  const url = new URL(window.location.href)
+                  url.searchParams.set('viewMode', 'attendances')
+                  window.history.pushState({}, '', url.toString())
+                }}
                 className={`px-4 py-2 rounded-md font-medium transition ${
                   viewMode === 'attendances'
                     ? 'bg-blue-500 text-white'
@@ -966,7 +1009,7 @@ export default function AdminAttendancesPage() {
                             {attendance ? (
                               <div className="flex gap-2">
                                 <Link
-                                  href={`/admin/attendances/${attendance.id}/edit`}
+                                  href={`/admin/attendances/${attendance.id}/edit?viewMode=${viewMode}`}
                                   className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 inline-block text-center"
                                 >
                                   編集

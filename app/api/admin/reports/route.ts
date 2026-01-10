@@ -16,12 +16,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'admin') {
-      console.log('[Reports] Forbidden: not admin role')
+    // スーパー管理者または管理者のみアクセス可能
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+
+    if (!isSuperAdmin && !isAdmin) {
+      console.log('[Reports] Forbidden: not admin or super admin role')
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    console.log('[Reports] Company ID:', session.user.companyId)
+    // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+    const effectiveCompanyId = isSuperAdmin 
+      ? session.user.selectedCompanyId 
+      : session.user.companyId
+
+    if (!effectiveCompanyId) {
+      return NextResponse.json(
+        { error: isSuperAdmin ? '企業が選択されていません' : 'Company ID not found' },
+        { status: 400 }
+      )
+    }
+
+    console.log('[Reports] Company ID:', effectiveCompanyId)
 
     const searchParams = request.nextUrl.searchParams
     const employeeId = searchParams.get('employee_id')
@@ -51,7 +68,7 @@ export async function GET(request: NextRequest) {
     }
 
     const where: any = {
-      companyId: session.user.companyId!,
+      companyId: effectiveCompanyId,
       date: {
         gte: start,
         lte: end,
@@ -120,7 +137,7 @@ export async function GET(request: NextRequest) {
     let companySettings = null
     try {
       companySettings = await prisma.companySetting.findUnique({
-        where: { companyId: session.user.companyId! },
+        where: { companyId: effectiveCompanyId },
       })
       console.log('Company settings found:', companySettings ? 'yes' : 'no')
     } catch (error: any) {
@@ -136,7 +153,7 @@ export async function GET(request: NextRequest) {
               "standardBreakMinutes", "overtimeThreshold40", "overtimeThreshold60",
               "consecutiveWorkAlert", "leaveExpiryAlertDays", "createdAt", "updatedAt"
             FROM company_settings
-            WHERE "companyId" = ${session.user.companyId!}
+            WHERE "companyId" = ${effectiveCompanyId}
             LIMIT 1
           ` as any
           if (result && Array.isArray(result) && result.length > 0) {

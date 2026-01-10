@@ -2639,7 +2639,7 @@ export default function EmployeesPage() {
                     </p>
                     <div className="flex justify-center mb-4 p-4 bg-gray-50 rounded-lg">
                       <QRCodeSVG
-                        value={`${typeof window !== 'undefined' ? window.location.origin : ''}/employee/register-application?company=${companyCode}`}
+                        value={`${typeof window !== 'undefined' ? window.location.origin : ''}/register-application?company=${companyCode}`}
                         size={256}
                         level="H"
                       />
@@ -2651,7 +2651,7 @@ export default function EmployeesPage() {
                       <input
                         type="text"
                         readOnly
-                        value={`${typeof window !== 'undefined' ? window.location.origin : ''}/employee/register-application?company=${companyCode}`}
+                        value={`${typeof window !== 'undefined' ? window.location.origin : ''}/register-application?company=${companyCode}`}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-900 text-sm"
                         onClick={(e) => (e.target as HTMLInputElement).select()}
                       />

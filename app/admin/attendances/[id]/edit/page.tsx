@@ -28,6 +28,7 @@ export default function EditAttendancePage() {
   const router = useRouter()
   const params = useParams()
   const attendanceId = params?.id as string
+  const [viewMode, setViewMode] = useState<'shifts' | 'attendances'>('shifts')
 
   const [attendance, setAttendance] = useState<Attendance | null>(null)
   const [loading, setLoading] = useState(true)
@@ -51,8 +52,21 @@ export default function EditAttendancePage() {
   })
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user.role === 'admin' && attendanceId) {
-      fetchAttendance()
+    // URLパラメータからviewModeを取得
+    const searchParams = new URLSearchParams(window.location.search)
+    const mode = searchParams.get('viewMode')
+    if (mode === 'attendances' || mode === 'shifts') {
+      setViewMode(mode)
+    }
+
+    if (status === 'authenticated' && attendanceId) {
+      const isAdmin = session?.user.role === 'admin'
+      const isSuperAdmin = session?.user.role === 'super_admin' || 
+                          session?.user.email === 'superadmin@rakupochi.com'
+      
+      if (isAdmin || (isSuperAdmin && session?.user.selectedCompanyId)) {
+        fetchAttendance()
+      }
     } else if (status === 'unauthenticated') {
       router.push('/auth/signin')
     }
@@ -159,7 +173,11 @@ export default function EditAttendancePage() {
       const data = await response.json()
       if (data.success) {
         alert('打刻を更新しました')
-        router.push('/admin/attendances')
+        // viewModeに応じてリダイレクト先を変更
+        const redirectUrl = viewMode === 'attendances' 
+          ? '/admin/attendances?viewMode=attendances'
+          : '/admin/attendances'
+        router.push(redirectUrl)
       } else {
         alert(data.error || '打刻の更新に失敗しました')
       }
@@ -183,7 +201,12 @@ export default function EditAttendancePage() {
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
           <button
-            onClick={() => router.push('/admin/attendances')}
+            onClick={() => {
+              const redirectUrl = viewMode === 'attendances' 
+                ? '/admin/attendances?viewMode=attendances'
+                : '/admin/attendances'
+              router.push(redirectUrl)
+            }}
             className="text-blue-600 hover:text-blue-800 mb-4 flex items-center gap-2"
           >
             ← 打刻管理に戻る
@@ -325,7 +348,12 @@ export default function EditAttendancePage() {
               </button>
               <button
                 type="button"
-                onClick={() => router.push('/admin/attendances')}
+                onClick={() => {
+                  const redirectUrl = viewMode === 'attendances' 
+                    ? '/admin/attendances?viewMode=attendances'
+                    : '/admin/attendances'
+                  router.push(redirectUrl)
+                }}
                 className="px-4 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-medium"
               >
                 キャンセル

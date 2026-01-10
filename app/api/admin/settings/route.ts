@@ -13,19 +13,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'admin') {
+    // スーパー管理者または管理者のみアクセス可能
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+
+    if (!isSuperAdmin && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+    const effectiveCompanyId = isSuperAdmin 
+      ? session.user.selectedCompanyId 
+      : session.user.companyId
+
+    if (!effectiveCompanyId) {
+      return NextResponse.json(
+        { error: isSuperAdmin ? '企業が選択されていません' : 'Company ID not found' },
+        { status: 400 }
+      )
+    }
+
     const settings = await prisma.companySetting.findUnique({
-        where: { companyId: session.user.companyId! },
+        where: { companyId: effectiveCompanyId },
     })
 
     if (!settings) {
       // 設定が存在しない場合はデフォルト値で作成
       const defaultSettings = await prisma.companySetting.create({
         data: {
-          companyId: session.user.companyId!,
+          companyId: effectiveCompanyId,
           payday: 25,
           overtimeThreshold40: 40,
           overtimeThreshold60: 60,
@@ -56,8 +73,25 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'admin') {
+    // スーパー管理者または管理者のみアクセス可能
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+
+    if (!isSuperAdmin && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+    const effectiveCompanyId = isSuperAdmin 
+      ? session.user.selectedCompanyId 
+      : session.user.companyId
+
+    if (!effectiveCompanyId) {
+      return NextResponse.json(
+        { error: isSuperAdmin ? '企業が選択されていません' : 'Company ID not found' },
+        { status: 400 }
+      )
     }
 
     const body = await request.json()
@@ -71,7 +105,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const settings = await prisma.companySetting.upsert({
-        where: { companyId: session.user.companyId! },
+        where: { companyId: effectiveCompanyId },
       update: {
         ...(body.payday !== undefined && { payday: body.payday }),
         ...(body.workStartTime !== undefined && {
@@ -104,7 +138,7 @@ export async function PATCH(request: NextRequest) {
         }),
       },
       create: {
-        companyId: session.user.companyId!,
+        companyId: effectiveCompanyId,
         payday: body.payday || 25,
         workStartTime: body.workStartTime
           ? new Date(`2000-01-01T${body.workStartTime}`)
