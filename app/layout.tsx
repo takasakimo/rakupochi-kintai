@@ -7,7 +7,27 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'らくポチ勤怠',
-  description: '中小企業向けWebベース勤怠管理システム',
+  description: '勤怠管理と経費管理を一元化。中小企業向けWebベースの統合管理システム',
+  openGraph: {
+    title: 'らくポチ勤怠',
+    description: '勤怠管理と経費管理を一元化。中小企業向けWebベースの統合管理システム',
+    url: 'https://rakupochi-kintai.com',
+    siteName: 'らくポチ勤怠',
+    locale: 'ja_JP',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'らくポチ勤怠',
+    description: '勤怠管理と経費管理を一元化。中小企業向けWebベースの統合管理システム',
+  },
+  icons: {
+    icon: [
+      { url: '/icon.png', type: 'image/png' },
+      { url: '/favicon.ico', type: 'image/x-icon' },
+    ],
+    apple: '/icon.png',
+  },
 }
 
 export default function RootLayout({
