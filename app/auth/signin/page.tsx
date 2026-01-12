@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { signIn, useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function SignInPage() {
   const [email, setEmail] = useState('')
@@ -112,6 +113,15 @@ export default function SignInPage() {
             {loading ? 'ログイン中...' : 'ログイン'}
           </button>
         </form>
+
+        <div className="mt-6 text-center">
+          <Link
+            href="/auth/forgot-password"
+            className="text-sm text-blue-500 hover:text-blue-600"
+          >
+            パスワードを忘れた場合
+          </Link>
+        </div>
       </div>
     </div>
   )
