@@ -67,17 +67,23 @@ export async function POST(request: NextRequest) {
     })
 
     // メール送信
+    let resetUrl: string | undefined
     try {
-      await sendPasswordResetEmail(employee.email, employee.name, token)
+      const emailResult = await sendPasswordResetEmail(employee.email, employee.name, token)
+      resetUrl = emailResult.resetUrl
     } catch (emailError) {
       console.error('Failed to send email:', emailError)
-      // メール送信に失敗した場合でも、トークンは作成済みなので成功を返す
-      // （実際の運用では、メール送信失敗時はトークンを削除する方が良い）
+      // メール送信に失敗した場合でも、URLを生成して返す
+      resetUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/auth/reset-password?token=${token}`
     }
 
+    // メール送信が無効な場合や失敗した場合は、URLをレスポンスに含める
     return NextResponse.json({
       success: true,
-      message: 'メールアドレスが登録されている場合、パスワードリセットリンクを送信しました。',
+      message: resetUrl 
+        ? 'パスワードリセットリンクを生成しました。以下のリンクをクリックしてください。'
+        : 'メールアドレスが登録されている場合、パスワードリセットリンクを送信しました。',
+      resetUrl, // 開発・テスト用にURLを含める
     })
   } catch (error: any) {
     console.error('Forgot password error:', error)

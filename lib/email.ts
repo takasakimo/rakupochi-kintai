@@ -1,22 +1,39 @@
 import nodemailer from 'nodemailer'
 
-// メール送信設定
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
-})
+// メール送信が有効かどうか（環境変数で制御）
+const EMAIL_ENABLED = process.env.EMAIL_ENABLED === 'true'
+
+// メール送信設定（メール送信が有効な場合のみ）
+let transporter: nodemailer.Transporter | null = null
+
+if (EMAIL_ENABLED) {
+  try {
+    transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASSWORD,
+      },
+    })
+  } catch (error) {
+    console.warn('Failed to initialize email transporter:', error)
+  }
+}
 
 export async function sendPasswordResetEmail(
   email: string,
   name: string,
   resetToken: string
-) {
+): Promise<{ success: boolean; resetUrl?: string }> {
   const resetUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/auth/reset-password?token=${resetToken}`
+
+  // メール送信が無効な場合は、URLを返すだけ（開発・テスト用）
+  if (!EMAIL_ENABLED || !transporter) {
+    console.log('📧 メール送信が無効です。パスワードリセットURL:', resetUrl)
+    return { success: true, resetUrl }
+  }
 
   const mailOptions = {
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
@@ -116,7 +133,9 @@ ${resetUrl}
     return { success: true }
   } catch (error) {
     console.error('Email send error:', error)
-    throw error
+    // メール送信に失敗した場合でも、URLを返す（開発用）
+    console.log('📧 メール送信に失敗しました。パスワードリセットURL:', resetUrl)
+    return { success: false, resetUrl }
   }
 }
 

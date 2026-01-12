@@ -10,6 +10,7 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [resetUrl, setResetUrl] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -33,6 +34,9 @@ export default function ForgotPasswordPage() {
 
       if (response.ok && data.success) {
         setSuccess(true)
+        if (data.resetUrl) {
+          setResetUrl(data.resetUrl)
+        }
       } else {
         setError(data.error || 'リクエストの送信に失敗しました')
       }
@@ -63,12 +67,35 @@ export default function ForgotPasswordPage() {
               </svg>
             </div>
           </div>
-          <h1 className="text-2xl font-bold mb-4 text-gray-900">メールを送信しました</h1>
-          <p className="text-gray-700 mb-6">
-            メールアドレスが登録されている場合、パスワードリセットリンクを送信しました。
-            <br />
-            メールボックスを確認し、リンクをクリックしてパスワードをリセットしてください。
-          </p>
+          <h1 className="text-2xl font-bold mb-4 text-gray-900">
+            {resetUrl ? 'パスワードリセットリンクを生成しました' : 'メールを送信しました'}
+          </h1>
+          {resetUrl ? (
+            <>
+              <p className="text-gray-700 mb-4">
+                以下のリンクをクリックして、パスワードをリセットしてください。
+              </p>
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <a
+                  href={resetUrl}
+                  className="text-blue-600 hover:text-blue-800 underline break-all text-sm"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {resetUrl}
+                </a>
+              </div>
+              <p className="text-sm text-gray-600 mb-6">
+                ※ このリンクは24時間有効です。メール送信が無効な場合は、このリンクを直接使用してください。
+              </p>
+            </>
+          ) : (
+            <p className="text-gray-700 mb-6">
+              メールアドレスが登録されている場合、パスワードリセットリンクを送信しました。
+              <br />
+              メールボックスを確認し、リンクをクリックしてパスワードをリセットしてください。
+            </p>
+          )}
           <Link
             href="/auth/signin"
             className="text-blue-500 hover:text-blue-600 font-medium"
