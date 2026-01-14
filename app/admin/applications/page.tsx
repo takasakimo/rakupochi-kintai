@@ -685,7 +685,7 @@ export default function AdminApplicationsPage() {
     } catch (error) {
       return (
         <div className="text-sm text-red-600">
-          申請内容の解析に失敗しました: {contentString}
+          申請内容の解析に失敗しました
         </div>
       )
     }
