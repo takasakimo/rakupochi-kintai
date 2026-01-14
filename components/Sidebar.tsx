@@ -95,6 +95,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
     menuItems = employeeMenuItems
   }
 
+  // スーパー管理者の場合、店舗切り替えメニューを先頭に追加
+  if (isSuperAdmin) {
+    const storeSwitchItem: MenuItem = {
+      href: '/super-admin/select-company',
+      label: '店舗切り替え',
+      icon: ''
+    }
+    menuItems = [storeSwitchItem, ...menuItems]
+  }
+
   const handleLogout = async () => {
     if (confirm('ログアウトしますか？')) {
       try {
