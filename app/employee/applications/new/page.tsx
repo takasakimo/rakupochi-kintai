@@ -21,6 +21,7 @@ export default function NewApplicationPage() {
   const [selectedType, setSelectedType] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [admins, setAdmins] = useState<any[]>([])
 
   // フォームデータ
   const [formData, setFormData] = useState<any>({
@@ -45,9 +46,11 @@ export default function NewApplicationPage() {
     leaveSelectedDates: [] as string[], // 複数日選択用
     // 立替金精算用
     reimbursementDate: '',
-    reimbursementCategory: '',
+    reimbursementStoreName: '', // 店名（旧カテゴリ）
     reimbursementAmount: '',
-    reimbursementDescription: '',
+    reimbursementReason: '', // 理由（旧詳細）
+    reimbursementApproverId: '', // 承認者ID
+    reimbursementNotes: '', // 備考
     reimbursementFiles: [] as Array<{ name: string; data: string; type: string }>, // ファイル配列
     // 交通費精算用
     transportationDate: '',
@@ -64,7 +67,23 @@ export default function NewApplicationPage() {
     if (status === 'unauthenticated') {
       router.push('/auth/signin')
     }
-  }, [status, router])
+    if (status === 'authenticated' && selectedType === 'expense_advance') {
+      fetchAdmins()
+    }
+  }, [status, router, selectedType])
+
+  // 管理者リストを取得（承認者選択用）
+  const fetchAdmins = async () => {
+    try {
+      const response = await fetch('/api/employee/admins')
+      if (response.ok) {
+        const data = await response.json()
+        setAdmins(data.admins || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch admins:', err)
+    }
+  }
 
   // ファイルアップロード処理
   const handleFileUpload = (
@@ -225,19 +244,20 @@ export default function NewApplicationPage() {
           break
 
         case 'expense_advance':
-          if (!formData.reimbursementDate || !formData.reimbursementCategory || !formData.reimbursementAmount) {
-            setError('日付、カテゴリ、金額を入力してください')
+          if (!formData.reimbursementDate || !formData.reimbursementStoreName || !formData.reimbursementAmount) {
+            setError('日付、店名、金額を入力してください')
             setLoading(false)
             return
           }
           content = {
             date: formData.reimbursementDate,
-            category: formData.reimbursementCategory,
+            storeName: formData.reimbursementStoreName,
             amount: parseFloat(formData.reimbursementAmount),
-            description: formData.reimbursementDescription || '',
+            reason: formData.reimbursementReason || '',
+            notes: formData.reimbursementNotes || '',
             files: formData.reimbursementFiles || [],
           }
-          reason = formData.reimbursementDescription || '立替金精算'
+          reason = formData.reimbursementReason || '立替金精算'
           break
 
         case 'expense_transportation':
@@ -312,6 +332,7 @@ export default function NewApplicationPage() {
           title: formData.title || null,
           content,
           reason,
+          approverId: selectedType === 'expense_advance' ? formData.reimbursementApproverId || null : null,
         }),
       })
 
@@ -668,23 +689,18 @@ export default function NewApplicationPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    カテゴリ <span className="text-red-500">*</span>
+                    店名 <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    value={formData.reimbursementCategory}
+                  <input
+                    type="text"
+                    value={formData.reimbursementStoreName}
                     onChange={(e) =>
-                      setFormData({ ...formData, reimbursementCategory: e.target.value })
+                      setFormData({ ...formData, reimbursementStoreName: e.target.value })
                     }
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                  >
-                    <option value="">選択してください</option>
-                    <option value="meal">食事代</option>
-                    <option value="accommodation">宿泊費</option>
-                    <option value="supplies">備品・消耗品</option>
-                    <option value="entertainment">交際費</option>
-                    <option value="other">その他</option>
-                  </select>
+                    placeholder="店名を入力してください"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -704,15 +720,44 @@ export default function NewApplicationPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">詳細</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">理由</label>
                   <textarea
-                    value={formData.reimbursementDescription}
+                    value={formData.reimbursementReason}
                     onChange={(e) =>
-                      setFormData({ ...formData, reimbursementDescription: e.target.value })
+                      setFormData({ ...formData, reimbursementReason: e.target.value })
                     }
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    placeholder="立替金の詳細を記入してください（例: 会議費、備品購入など）"
+                    placeholder="立替金の理由を記入してください"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">承認者</label>
+                  <select
+                    value={formData.reimbursementApproverId}
+                    onChange={(e) =>
+                      setFormData({ ...formData, reimbursementApproverId: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  >
+                    <option value="">選択してください</option>
+                    {admins.map((admin) => (
+                      <option key={admin.id} value={admin.id}>
+                        {admin.name} ({admin.employeeNumber})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">備考</label>
+                  <textarea
+                    value={formData.reimbursementNotes}
+                    onChange={(e) =>
+                      setFormData({ ...formData, reimbursementNotes: e.target.value })
+                    }
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    placeholder="備考を記入してください"
                   />
                 </div>
                 <div>
@@ -1241,4 +1286,3 @@ function LeaveDateCalendar({
     </div>
   )
 }
-

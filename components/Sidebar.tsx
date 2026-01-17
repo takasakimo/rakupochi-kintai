@@ -160,7 +160,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
         
         {/* ロゴ・タイトル */}
         <div className="p-6 border-b border-gray-700">
-          <h1 className="text-xl font-bold">らくポチ勤怠</h1>
+          <h1 className="text-xl font-bold">らくっぽ勤怠</h1>
           <p className="text-sm text-gray-400 mt-1">勤怠管理システム</p>
         </div>
 

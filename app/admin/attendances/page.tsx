@@ -702,7 +702,45 @@ export default function AdminAttendancesPage() {
     try {
       const response = await fetch(`/api/admin/attendances/${id}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       })
+
+      if (!response.ok) {
+        let errorMessage = '打刻の削除に失敗しました'
+        const contentType = response.headers.get('content-type')
+        
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            const errorData = await response.json()
+            errorMessage = errorData.error || errorData.message || errorMessage
+          } catch (parseError) {
+            console.error('Failed to parse error response:', parseError)
+          }
+        } else {
+          const errorText = await response.text()
+          console.error('Error response text:', errorText)
+          
+          if (response.status === 405) {
+            errorMessage = '削除機能が利用できません。サーバーを更新してください。'
+          } else if (response.status === 404) {
+            errorMessage = '打刻データが見つかりませんでした。'
+          } else if (response.status === 403) {
+            errorMessage = '削除する権限がありません。'
+          } else if (response.status === 401) {
+            errorMessage = '認証が必要です。再度ログインしてください。'
+          }
+        }
+        
+        console.error('Delete failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          message: errorMessage,
+        })
+        alert(`エラー: ${errorMessage} (ステータス: ${response.status})`)
+        return
+      }
 
       const data = await response.json()
       if (data.success) {
@@ -717,7 +755,8 @@ export default function AdminAttendancesPage() {
       }
     } catch (err) {
       console.error('Failed to delete attendance:', err)
-      alert('打刻の削除に失敗しました')
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      alert(`打刻の削除に失敗しました: ${errorMessage}`)
     }
   }
 

@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -179,3 +181,79 @@ export async function PATCH(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// 打刻データの削除
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // スーパー管理者または管理者のみアクセス可能
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+
+    if (!isSuperAdmin && !isAdmin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+    const effectiveCompanyId = isSuperAdmin 
+      ? session.user.selectedCompanyId 
+      : session.user.companyId
+
+    if (!effectiveCompanyId) {
+      return NextResponse.json(
+        { error: isSuperAdmin ? '企業が選択されていません' : 'Company ID not found' },
+        { status: 400 }
+      )
+    }
+
+    const attendanceId = parseInt(params.id)
+    if (isNaN(attendanceId)) {
+      return NextResponse.json({ error: 'Invalid attendance ID' }, { status: 400 })
+    }
+
+    // 打刻データが存在し、同じ会社のものか確認
+    const existingAttendance = await prisma.attendance.findFirst({
+      where: {
+        id: attendanceId,
+        companyId: effectiveCompanyId,
+      },
+    })
+
+    if (!existingAttendance) {
+      return NextResponse.json({ error: 'Attendance not found' }, { status: 404 })
+    }
+
+    // 論理削除（isDeletedフラグをtrueにする）
+    await prisma.attendance.update({
+      where: { id: attendanceId },
+      data: { isDeleted: true },
+    })
+
+    return NextResponse.json({ 
+      success: true,
+      message: '打刻を削除しました',
+    })
+  } catch (error) {
+    console.error('Failed to delete attendance:', error)
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    })
+    return NextResponse.json(
+      { 
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
+  }
+}
+

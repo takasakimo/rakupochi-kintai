@@ -35,26 +35,62 @@ export async function POST(request: NextRequest) {
       location as LocationData
     )
 
-    const attendance = await prisma.attendance.upsert({
+    const attendanceDate = new Date(date)
+    
+    // 削除されていない既存のレコードを確認
+    const existingAttendance = await prisma.attendance.findFirst({
       where: {
-        companyId_employeeId_date: {
-          companyId: session.user.companyId!,
-          employeeId: parseInt(session.user.id),
-          date: new Date(date),
-        },
-      },
-      update: {
-        clockOut: new Date(`2000-01-01T${time}`),
-        clockOutLocation: locationData as any,
-      },
-      create: {
         companyId: session.user.companyId!,
         employeeId: parseInt(session.user.id),
-        date: new Date(date),
-        clockOut: new Date(`2000-01-01T${time}`),
-        clockOutLocation: locationData as any,
+        date: attendanceDate,
+        isDeleted: { not: true },
       },
     })
+
+    let attendance
+    if (existingAttendance) {
+      // 既存のレコードを更新
+      attendance = await prisma.attendance.update({
+        where: { id: existingAttendance.id },
+        data: {
+          clockOut: new Date(`2000-01-01T${time}`),
+          clockOutLocation: locationData as any,
+        },
+      })
+    } else {
+      // 削除されたレコードがある場合は復元、なければ新規作成
+      const deletedAttendance = await prisma.attendance.findFirst({
+        where: {
+          companyId: session.user.companyId!,
+          employeeId: parseInt(session.user.id),
+          date: attendanceDate,
+          isDeleted: true,
+        },
+      })
+
+      if (deletedAttendance) {
+        // 削除されたレコードを復元して更新（出勤データは保持）
+        attendance = await prisma.attendance.update({
+          where: { id: deletedAttendance.id },
+          data: {
+            isDeleted: false,
+            clockOut: new Date(`2000-01-01T${time}`),
+            clockOutLocation: locationData as any,
+          },
+        })
+      } else {
+        // 新規作成
+        attendance = await prisma.attendance.create({
+          data: {
+            companyId: session.user.companyId!,
+            employeeId: parseInt(session.user.id),
+            date: attendanceDate,
+            clockOut: new Date(`2000-01-01T${time}`),
+            clockOutLocation: locationData as any,
+          },
+        })
+      }
+    }
 
     return NextResponse.json({
       success: true,

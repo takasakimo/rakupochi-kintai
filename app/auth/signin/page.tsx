@@ -66,7 +66,7 @@ export default function SignInPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">らくポチ勤怠</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">らくっぽ勤怠</h1>
           <p className="text-gray-600">勤怠管理システム</p>
         </div>
 

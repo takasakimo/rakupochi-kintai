@@ -133,7 +133,7 @@ export default function EmployeeRegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="max-w-2xl w-full bg-white rounded-lg shadow-md p-8">
         <h1 className="text-3xl font-bold text-center mb-2 text-gray-900">
-          らくポチ勤怠
+          らくっぽ勤怠
         </h1>
         <p className="text-center text-gray-600 mb-6">スタッフ新規登録</p>
 

@@ -12,3 +12,4 @@ FROM pg_constraint
 WHERE conrelid = 'employees'::regclass
 ORDER BY conname;
 
+

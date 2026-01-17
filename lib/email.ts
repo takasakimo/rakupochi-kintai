@@ -38,7 +38,7 @@ export async function sendPasswordResetEmail(
   const mailOptions = {
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: email,
-    subject: '【らくポチ勤怠】パスワードリセットのご案内',
+    subject: '【らくっぽ勤怠】パスワードリセットのご案内',
     html: `
       <!DOCTYPE html>
       <html>
@@ -88,7 +88,7 @@ export async function sendPasswordResetEmail(
         <body>
           <div class="container">
             <div class="header">
-              <h1>らくポチ勤怠</h1>
+              <h1>らくっぽ勤怠</h1>
             </div>
             <div class="content">
               <p>${name} 様</p>
@@ -101,7 +101,7 @@ export async function sendPasswordResetEmail(
               <p>もしこのリクエストをしていない場合は、このメールを無視してください。</p>
               <div class="footer">
                 <p>このメールは自動送信されています。返信はできません。</p>
-                <p>© らくポチ勤怠</p>
+                <p>© らくっぽ勤怠</p>
               </div>
             </div>
           </div>
@@ -109,7 +109,7 @@ export async function sendPasswordResetEmail(
       </html>
     `,
     text: `
-らくポチ勤怠
+らくっぽ勤怠
 
 ${name} 様
 
@@ -124,7 +124,7 @@ ${resetUrl}
 もしこのリクエストをしていない場合は、このメールを無視してください。
 
 このメールは自動送信されています。返信はできません。
-© らくポチ勤怠
+© らくっぽ勤怠
     `,
   }
 

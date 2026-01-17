@@ -60,7 +60,7 @@ DATABASE_URL=postgresql://user:password@host:port/database?schema=public
 NEXTAUTH_URL=https://your-domain.vercel.app
 NEXTAUTH_SECRET=your-secret-key-here
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-google-maps-api-key (オプション)
-NEXT_PUBLIC_APP_NAME=らくポチ勤怠
+NEXT_PUBLIC_APP_NAME=らくっぽ勤怠
 ```
 
 **NEXTAUTH_SECRETの生成方法：**

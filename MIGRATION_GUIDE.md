@@ -71,3 +71,4 @@ AND conname LIKE '%employeeNumber%';
 - `employees_companyId_employeeNumber_key` が存在する
 - `employees_employeeNumber_key` が存在しない
 
+

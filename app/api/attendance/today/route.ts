@@ -28,13 +28,13 @@ export async function GET(request: NextRequest) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    const attendance = await prisma.attendance.findUnique({
+    // 削除されていない打刻データを取得
+    const attendance = await prisma.attendance.findFirst({
       where: {
-        companyId_employeeId_date: {
-          companyId: session.user.companyId!,
-          employeeId,
-          date: today,
-        },
+        companyId: session.user.companyId!,
+        employeeId,
+        date: today,
+        isDeleted: { not: true },
       },
     })
 

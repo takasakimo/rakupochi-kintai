@@ -22,3 +22,4 @@ npx prisma migrate deploy
 echo ""
 echo "完了しました！"
 
+

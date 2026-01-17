@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { type, title, content, reason, employeeId } = body
+    const { type, title, content, reason, employeeId, approverId } = body
 
     if (!type || !content) {
       return NextResponse.json(
@@ -239,6 +239,21 @@ export async function POST(request: NextRequest) {
       targetEmployeeId = parseInt(employeeId)
     }
 
+    // approverIdが指定されている場合、その従業員が自社の管理者であることを確認
+    let validatedApproverId = null
+    if (approverId) {
+      const approver = await prisma.employee.findFirst({
+        where: {
+          id: parseInt(approverId),
+          companyId: effectiveCompanyId,
+          role: { in: ['admin', 'super_admin'] },
+        },
+      })
+      if (approver) {
+        validatedApproverId = parseInt(approverId)
+      }
+    }
+
     const application = await prisma.application.create({
       data: {
         companyId: effectiveCompanyId,
@@ -247,6 +262,7 @@ export async function POST(request: NextRequest) {
         title: title || null,
         content: JSON.stringify(content),
         reason: reason || null,
+        approverId: validatedApproverId,
         status: 'pending',
       },
     })

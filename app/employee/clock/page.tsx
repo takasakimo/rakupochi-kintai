@@ -21,6 +21,7 @@ export default function ClockPage() {
   const [currentTime, setCurrentTime] = useState(new Date())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [warning, setWarning] = useState<string | null>(null)
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -113,6 +114,7 @@ export default function ClockPage() {
     if (loading) return
     setLoading(true)
     setError(null)
+    setWarning(null)
 
     try {
       // GPS位置情報を取得
@@ -134,6 +136,34 @@ export default function ClockPage() {
         accuracy: position.coords.accuracy,
       }
 
+      // 位置情報を事前に検証
+      const validateResponse = await fetch('/api/attendance/validate-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location }),
+      })
+
+      const validateData = await validateResponse.json()
+      if (!validateData.success) {
+        setError('位置情報の検証に失敗しました')
+        setLoading(false)
+        return
+      }
+
+      // 位置情報が範囲外の場合は警告を表示して確認
+      if (validateData.location && validateData.location.isWithinRange === false) {
+        const distance = validateData.location.distance || 0
+        const locationName = validateData.location.locationName || '登録された店舗・事業所'
+        const warningMessage = `警告: 登録された店舗・事業所から${distance}メートル離れた場所で打刻しようとしています。\n最寄りの店舗・事業所: ${locationName}\n\nこのまま打刻を続行しますか？`
+        
+        if (!window.confirm(warningMessage)) {
+          setLoading(false)
+          return
+        }
+        setWarning(`警告: 登録された店舗・事業所から${distance}メートル離れた場所で打刻しました。最寄りの店舗・事業所: ${locationName}`)
+      }
+
+      // 打刻を実行
       const response = await fetch('/api/attendance/clock-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -165,6 +195,7 @@ export default function ClockPage() {
     if (loading) return
     setLoading(true)
     setError(null)
+    setWarning(null)
 
     try {
       // GPS位置情報を取得
@@ -186,6 +217,34 @@ export default function ClockPage() {
         accuracy: position.coords.accuracy,
       }
 
+      // 位置情報を事前に検証
+      const validateResponse = await fetch('/api/attendance/validate-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location }),
+      })
+
+      const validateData = await validateResponse.json()
+      if (!validateData.success) {
+        setError('位置情報の検証に失敗しました')
+        setLoading(false)
+        return
+      }
+
+      // 位置情報が範囲外の場合は警告を表示して確認
+      if (validateData.location && validateData.location.isWithinRange === false) {
+        const distance = validateData.location.distance || 0
+        const locationName = validateData.location.locationName || '登録された店舗・事業所'
+        const warningMessage = `警告: 登録された店舗・事業所から${distance}メートル離れた場所で打刻しようとしています。\n最寄りの店舗・事業所: ${locationName}\n\nこのまま打刻を続行しますか？`
+        
+        if (!window.confirm(warningMessage)) {
+          setLoading(false)
+          return
+        }
+        setWarning(`警告: 登録された店舗・事業所から${distance}メートル離れた場所で打刻しました。最寄りの店舗・事業所: ${locationName}`)
+      }
+
+      // 打刻を実行
       const response = await fetch('/api/attendance/clock-out', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -246,7 +305,7 @@ export default function ClockPage() {
   return (
     <div className="p-4">
       <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
-        <h1 className="text-2xl font-bold text-center mb-4 text-gray-900">らくポチ勤怠</h1>
+        <h1 className="text-2xl font-bold text-center mb-4 text-gray-900">らくっぽ勤怠</h1>
         <div className="text-center mb-6">
           <div className="text-lg font-semibold text-gray-900">
             {currentTime.toLocaleDateString('ja-JP', {
@@ -268,6 +327,12 @@ export default function ClockPage() {
         {error && (
           <div className="mb-4 p-3 bg-red-50 text-red-700 rounded text-sm">
             {error}
+          </div>
+        )}
+
+        {warning && (
+          <div className="mb-4 p-3 bg-yellow-50 text-yellow-800 border border-yellow-300 rounded text-sm">
+            ⚠️ {warning}
           </div>
         )}
 

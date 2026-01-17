@@ -8,3 +8,4 @@ WHERE conrelid = 'employees'::regclass
 AND (conname LIKE '%employeeNumber%' OR conname LIKE '%companyId%')
 ORDER BY conname;
 
+
