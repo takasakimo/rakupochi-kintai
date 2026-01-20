@@ -153,14 +153,13 @@ export default function ClockPage() {
       // 位置情報が範囲外の場合は警告を表示して確認
       if (validateData.location && validateData.location.isWithinRange === false) {
         const distance = validateData.location.distance || 0
-        const locationName = validateData.location.locationName || '登録された店舗・事業所'
-        const warningMessage = `警告: 登録された店舗・事業所から${distance}メートル離れた場所で打刻しようとしています。\n最寄りの店舗・事業所: ${locationName}\n\nこのまま打刻を続行しますか？`
+        const warningMessage = `警告: 登録された店舗・事業所から${distance}メートル離れた場所で打刻しようとしています。\n\nこのまま打刻を続行しますか？`
         
         if (!window.confirm(warningMessage)) {
           setLoading(false)
           return
         }
-        setWarning(`警告: 登録された店舗・事業所から${distance}メートル離れた場所で打刻しました。最寄りの店舗・事業所: ${locationName}`)
+        setWarning(`警告: 登録された店舗・事業所から${distance}メートル離れた場所で打刻しました。`)
       }
 
       // 打刻を実行
@@ -234,14 +233,13 @@ export default function ClockPage() {
       // 位置情報が範囲外の場合は警告を表示して確認
       if (validateData.location && validateData.location.isWithinRange === false) {
         const distance = validateData.location.distance || 0
-        const locationName = validateData.location.locationName || '登録された店舗・事業所'
-        const warningMessage = `警告: 登録された店舗・事業所から${distance}メートル離れた場所で打刻しようとしています。\n最寄りの店舗・事業所: ${locationName}\n\nこのまま打刻を続行しますか？`
+        const warningMessage = `警告: 登録された店舗・事業所から${distance}メートル離れた場所で打刻しようとしています。\n\nこのまま打刻を続行しますか？`
         
         if (!window.confirm(warningMessage)) {
           setLoading(false)
           return
         }
-        setWarning(`警告: 登録された店舗・事業所から${distance}メートル離れた場所で打刻しました。最寄りの店舗・事業所: ${locationName}`)
+        setWarning(`警告: 登録された店舗・事業所から${distance}メートル離れた場所で打刻しました。`)
       }
 
       // 打刻を実行
