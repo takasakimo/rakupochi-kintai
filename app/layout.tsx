@@ -22,13 +22,9 @@ export const metadata: Metadata = {
     description: '勤怠管理と経費管理を一元化。中小企業向けWebベースの統合管理システム',
   },
   icons: {
-    icon: [
-      { url: '/icon.png', type: 'image/png', sizes: '512x512' },
-      { url: '/favicon.ico', type: 'image/x-icon', sizes: '32x32' },
-    ],
-    apple: [
-      { url: '/icon.png', sizes: '512x512', type: 'image/png' },
-    ],
+    icon: '/icon.png',
+    apple: '/icon.png',
+    shortcut: '/favicon.ico',
   },
 }
 
