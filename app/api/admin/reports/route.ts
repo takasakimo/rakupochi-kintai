@@ -94,6 +94,7 @@ export async function GET(request: NextRequest) {
               employeeNumber: true,
               department: true,
               position: true,
+              workLocation: true, // 店舗名を追加
             },
           },
         },
@@ -235,14 +236,10 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      // 店舗名を取得（clockInLocationまたはclockOutLocationから）
-      const locationName = (attendance.clockInLocation as any)?.locationName || 
-                          (attendance.clockOutLocation as any)?.locationName || null
-      
-      // 従業員ごとの店舗名を記録（最初に見つかった店舗名を使用）
-      // 複数の店舗がある場合は、最初に見つかったものを使用
-      if (locationName && !employeeReports[empId].locationName) {
-        employeeReports[empId].locationName = locationName
+      // 従業員のworkLocation（店舗名）を優先して使用
+      // 従業員テーブルにworkLocationが設定されている場合はそれを使用
+      if (attendance.employee.workLocation && !employeeReports[empId].locationName) {
+        employeeReports[empId].locationName = attendance.employee.workLocation
       }
 
       const report = employeeReports[empId]
