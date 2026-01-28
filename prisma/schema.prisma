@@ -29,6 +29,7 @@ model Company {
   attendances Attendance[]
   settings    CompanySetting?
   announcements Announcement[]
+  attendanceModificationLogs AttendanceModificationLog[]
 
   @@map("companies")
 }
@@ -66,6 +67,7 @@ model Employee {
   shifts      Shift[]
   notifications Notification[]
   passwordResetTokens PasswordResetToken[]
+  attendanceModificationLogs AttendanceModificationLog[] @relation("Modifier")
 
   @@unique([companyId, employeeNumber]) // 企業ごとに社員番号をユニークに
   @@map("employees")
@@ -116,6 +118,7 @@ model Attendance {
 
   company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employee          Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  modificationLogs  AttendanceModificationLog[]
 
   @@unique([companyId, employeeId, date])
   @@map("attendances")
@@ -239,4 +242,36 @@ model PasswordResetToken {
   employee  Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("password_reset_tokens")
+}
+
+// 打刻修正履歴テーブル
+model AttendanceModificationLog {
+  id                Int       @id @default(autoincrement())
+  attendanceId      Int
+  companyId         Int
+  employeeId        Int
+  modifiedBy        Int       // 修正を行った管理者のID
+  action            String    // "update" または "delete"
+  
+  // 変更前の値（JSON形式で保存）
+  oldValues         Json?     // {wakeUpTime, departureTime, clockIn, clockOut, breakMinutes, clockInLocation, clockOutLocation}
+  
+  // 変更後の値（JSON形式で保存、deleteの場合はnull）
+  newValues         Json?     // {wakeUpTime, departureTime, clockIn, clockOut, breakMinutes, clockInLocation, clockOutLocation}
+  
+  // 変更されたフィールドのリスト
+  changedFields     String[]  // ["wakeUpTime", "clockIn", ...]
+  
+  reason            String?   // 修正理由
+  createdAt         DateTime  @default(now())
+
+  attendance        Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  company           Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  modifier          Employee   @relation("Modifier", fields: [modifiedBy], references: [id], onDelete: Cascade)
+
+  @@index([attendanceId])
+  @@index([companyId])
+  @@index([employeeId])
+  @@index([createdAt])
+  @@map("attendance_modification_logs")
 }

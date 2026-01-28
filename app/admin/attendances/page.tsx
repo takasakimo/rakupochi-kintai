@@ -55,6 +55,21 @@ interface ShiftWithAttendance {
   attendance: Attendance | null
 }
 
+interface ModificationLog {
+  id: number
+  action: string
+  oldValues: any
+  newValues: any
+  changedFields: string[]
+  createdAt: string
+  modifier: {
+    id: number
+    name: string
+    employeeNumber: string
+    email: string
+  }
+}
+
 export default function AdminAttendancesPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -87,6 +102,10 @@ export default function AdminAttendancesPage() {
   const mapInstanceRef = useRef<any>(null)
   const markerInstanceRef = useRef<any>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [selectedAttendanceId, setSelectedAttendanceId] = useState<number | null>(null)
+  const [modificationLogs, setModificationLogs] = useState<ModificationLog[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
 
   // URLパラメータからviewModeを読み取る
   useEffect(() => {
@@ -695,6 +714,58 @@ export default function AdminAttendancesPage() {
     setEndDate('')
   }
 
+  const handleShowHistory = async (attendanceId: number) => {
+    setSelectedAttendanceId(attendanceId)
+    setShowHistoryModal(true)
+    setLoadingHistory(true)
+    try {
+      const response = await fetch(`/api/admin/attendances/${attendanceId}/history`)
+      if (!response.ok) {
+        console.error('Failed to fetch modification logs:', response.status)
+        setModificationLogs([])
+        return
+      }
+      const data = await response.json()
+      setModificationLogs(data.logs || [])
+    } catch (err) {
+      console.error('Failed to fetch modification logs:', err)
+      setModificationLogs([])
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
+
+  const formatFieldName = (field: string) => {
+    const fieldNames: { [key: string]: string } = {
+      wakeUpTime: '起床時刻',
+      departureTime: '出発時刻',
+      clockIn: '出勤時刻',
+      clockOut: '退勤時刻',
+      breakMinutes: '休憩時間',
+      clockInLocation: '出勤位置情報',
+      clockOutLocation: '退勤位置情報',
+      isDeleted: '削除',
+    }
+    return fieldNames[field] || field
+  }
+
+  const formatValue = (value: any, field: string) => {
+    if (value === null || value === undefined) return '-'
+    if (field.includes('Location')) {
+      if (typeof value === 'object') {
+        return value.locationName || value.address || '位置情報あり'
+      }
+      return String(value)
+    }
+    if (field === 'breakMinutes') {
+      return `${value}分`
+    }
+    if (field.includes('Time')) {
+      return String(value)
+    }
+    return String(value)
+  }
+
 
   const handleDelete = async (id: number) => {
     if (!confirm('この打刻を削除しますか？')) return
@@ -1059,6 +1130,12 @@ export default function AdminAttendancesPage() {
                                 >
                                   削除
                                 </button>
+                                <button
+                                  onClick={() => handleShowHistory(attendance.id)}
+                                  className="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
+                                >
+                                  履歴
+                                </button>
                               </div>
                             ) : (
                               <button
@@ -1202,6 +1279,12 @@ export default function AdminAttendancesPage() {
                             >
                               削除
                             </button>
+                            <button
+                              onClick={() => handleShowHistory(attendance.id)}
+                              className="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
+                            >
+                              履歴
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1213,6 +1296,115 @@ export default function AdminAttendancesPage() {
           </div>
         )}
       </div>
+
+      {/* 修正履歴モーダル */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-900">修正履歴</h2>
+              <button
+                onClick={() => {
+                  setShowHistoryModal(false)
+                  setSelectedAttendanceId(null)
+                  setModificationLogs([])
+                }}
+                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {loadingHistory ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-600">読み込み中...</p>
+                </div>
+              ) : modificationLogs.length === 0 ? (
+                <div className="text-center py-8 text-gray-600">
+                  修正履歴がありません
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {modificationLogs.map((log) => (
+                    <div key={log.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <div className="font-semibold text-gray-900">
+                            {log.action === 'update' ? '修正' : '削除'}
+                          </div>
+                          <div className="text-sm text-gray-600 mt-1">
+                            {new Date(log.createdAt).toLocaleString('ja-JP', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </div>
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          修正者: {log.modifier.name} ({log.modifier.employeeNumber})
+                        </div>
+                      </div>
+                      {log.action === 'update' && log.changedFields.length > 0 && (
+                        <div className="space-y-2">
+                          {log.changedFields.map((field) => (
+                            <div key={field} className="bg-gray-50 rounded p-3">
+                              <div className="font-medium text-gray-900 mb-1">
+                                {formatFieldName(field)}
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div>
+                                  <span className="text-gray-600">変更前: </span>
+                                  <span className="text-red-600 font-medium">
+                                    {formatValue(log.oldValues?.[field], field)}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">変更後: </span>
+                                  <span className="text-green-600 font-medium">
+                                    {formatValue(log.newValues?.[field], field)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {log.action === 'delete' && (
+                        <div className="bg-red-50 rounded p-3">
+                          <div className="text-red-800 font-medium">削除されました</div>
+                          <div className="text-sm text-gray-600 mt-2">
+                            削除前の値:
+                          </div>
+                          <div className="text-sm text-gray-700 mt-1 space-y-1">
+                            {log.oldValues?.wakeUpTime && (
+                              <div>起床時刻: {log.oldValues.wakeUpTime}</div>
+                            )}
+                            {log.oldValues?.departureTime && (
+                              <div>出発時刻: {log.oldValues.departureTime}</div>
+                            )}
+                            {log.oldValues?.clockIn && (
+                              <div>出勤時刻: {log.oldValues.clockIn}</div>
+                            )}
+                            {log.oldValues?.clockOut && (
+                              <div>退勤時刻: {log.oldValues.clockOut}</div>
+                            )}
+                            {log.oldValues?.breakMinutes !== undefined && (
+                              <div>休憩時間: {log.oldValues.breakMinutes}分</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* マップ モーダル（OpenStreetMap + Leaflet.js） */}
       {showMapModal && (

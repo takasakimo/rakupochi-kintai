@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
-    "create-super-admin": "tsx scripts/create-super-admin.ts"
+    "create-super-admin": "tsx scripts/create-super-admin.ts",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:dev": "prisma migrate dev"
   },
   "dependencies": {
     "@prisma/client": "^5.7.1",
