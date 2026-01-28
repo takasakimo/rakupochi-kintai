@@ -47,7 +47,20 @@ export default function AdminReportsPage() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [period, setPeriod] = useState<{ start: string; end: string } | null>(null)
+  
+  // URLクエリパラメータから従業員IDを取得
   const [selectedEmployeeForTimesheet, setSelectedEmployeeForTimesheet] = useState<number | null>(null)
+  
+  useEffect(() => {
+    // URLクエリパラメータを確認
+    const params = new URLSearchParams(window.location.search)
+    const employeeIdParam = params.get('employee_id')
+    if (employeeIdParam) {
+      setSelectedEmployeeForTimesheet(parseInt(employeeIdParam))
+    } else {
+      setSelectedEmployeeForTimesheet(null)
+    }
+  }, [])
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -531,6 +544,7 @@ export default function AdminReportsPage() {
         )}
 
         {/* レポート一覧（画面表示用） */}
+        {!selectedEmployeeForTimesheet && (
         <div className="bg-white rounded-lg shadow-md overflow-hidden no-print">
           {reports.length === 0 ? (
             <div className="p-6 text-center text-gray-700">
@@ -581,9 +595,12 @@ export default function AdminReportsPage() {
                       </td>
                       <td className="px-4 py-3 text-sm font-medium">
                         <button
-                          onClick={() => setSelectedEmployeeForTimesheet(
-                            selectedEmployeeForTimesheet === report.employee.id ? null : report.employee.id
-                          )}
+                          onClick={() => {
+                            // URLクエリパラメータを更新してページ遷移
+                            const params = new URLSearchParams(window.location.search)
+                            params.set('employee_id', report.employee.id.toString())
+                            router.push(`/admin/reports?${params.toString()}`)
+                          }}
                           className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
                         >
                           {report.employee.name}
@@ -644,6 +661,7 @@ export default function AdminReportsPage() {
             </div>
           )}
         </div>
+        )}
 
         {/* 個人タイムシート表示（画面表示用） */}
         {selectedEmployeeForTimesheet && reports.length > 0 && (
@@ -799,7 +817,12 @@ export default function AdminReportsPage() {
                         <span className="ml-4">{month}</span>
                       </div>
                       <button
-                        onClick={() => setSelectedEmployeeForTimesheet(null)}
+                        onClick={() => {
+                          // URLクエリパラメータをクリアして一覧に戻る
+                          const params = new URLSearchParams(window.location.search)
+                          params.delete('employee_id')
+                          router.push(`/admin/reports?${params.toString()}`)
+                        }}
                         className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
                       >
                         ← 一覧に戻る
