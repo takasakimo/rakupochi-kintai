@@ -1526,7 +1526,7 @@ export default function AdminAttendancesPage() {
                           <td className="px-4 py-3 text-sm text-gray-900">
                             {log.action === 'update' && log.changedFields.length > 0 ? (
                               <div className="space-y-1">
-                                {log.changedFields.slice(0, 3).map((field) => (
+                                {log.changedFields.slice(0, 3).map((field: string) => (
                                   <div key={field} className="text-xs">
                                     <span className="text-gray-600">{formatFieldName(field)}:</span>{' '}
                                     <span className="text-red-600">
