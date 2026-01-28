@@ -5,6 +5,12 @@
     "app/api/**/*.ts": {
       "maxDuration": 30
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/generate-alerts",
+      "schedule": "0 9,18 * * *"
+    }
+  ]
 }
 
