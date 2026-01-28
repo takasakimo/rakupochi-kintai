@@ -33,6 +33,8 @@ export default function AdminNotificationsPage() {
   const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all')
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
   const [employees, setEmployees] = useState<any[]>([])
+  const [showAlertModal, setShowAlertModal] = useState(false)
+  const [selectedAlertTypes, setSelectedAlertTypes] = useState<string[]>([])
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -81,16 +83,29 @@ export default function AdminNotificationsPage() {
   }
 
   const handleGenerateAlerts = async () => {
-    if (!confirm('アラートを生成しますか？')) return
+    if (selectedAlertTypes.length === 0) {
+      alert('アラートタイプを選択してください')
+      return
+    }
+
+    if (!confirm('選択したアラートを生成しますか？')) return
 
     try {
       const response = await fetch('/api/admin/alerts/generate', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          alertTypes: selectedAlertTypes,
+        }),
       })
 
       const data = await response.json()
       if (data.success) {
         alert(`${data.generatedCount}件のアラートを生成しました`)
+        setShowAlertModal(false)
+        setSelectedAlertTypes([])
         fetchNotifications()
       } else {
         alert('アラートの生成に失敗しました')
@@ -99,6 +114,14 @@ export default function AdminNotificationsPage() {
       console.error('Failed to generate alerts:', err)
       alert('アラートの生成に失敗しました')
     }
+  }
+
+  const toggleAlertType = (alertType: string) => {
+    setSelectedAlertTypes((prev) =>
+      prev.includes(alertType)
+        ? prev.filter((type) => type !== alertType)
+        : [...prev, alertType]
+    )
   }
 
   const handleMarkAsRead = async (id: number) => {
@@ -157,12 +180,75 @@ export default function AdminNotificationsPage() {
         <h1 className="text-2xl font-bold mb-6 text-gray-900">通知管理</h1>
         <div className="flex justify-end mb-6">
           <button
-            onClick={handleGenerateAlerts}
+            onClick={() => setShowAlertModal(true)}
             className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 font-medium"
           >
             アラート生成
           </button>
         </div>
+
+        {/* アラート生成モーダル */}
+        {showAlertModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+              <h2 className="text-xl font-bold mb-4 text-gray-900">アラート生成</h2>
+              <p className="text-sm text-gray-600 mb-4">
+                生成するアラートタイプを選択してください
+              </p>
+              
+              <div className="space-y-3 mb-6">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedAlertTypes.includes('overtime_40')}
+                    onChange={() => toggleAlertType('overtime_40')}
+                    className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                  />
+                  <span className="text-gray-900">残業時間アラート（40時間超）</span>
+                </label>
+                
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedAlertTypes.includes('overtime_60')}
+                    onChange={() => toggleAlertType('overtime_60')}
+                    className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                  />
+                  <span className="text-gray-900">残業時間アラート（60時間超）</span>
+                </label>
+                
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedAlertTypes.includes('consecutive_work')}
+                    onChange={() => toggleAlertType('consecutive_work')}
+                    className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                  />
+                  <span className="text-gray-900">連続勤務アラート</span>
+                </label>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowAlertModal(false)
+                    setSelectedAlertTypes([])
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-medium"
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={handleGenerateAlerts}
+                  disabled={selectedAlertTypes.length === 0}
+                  className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  生成
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* フィルター */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">

@@ -22,6 +22,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    // リクエストボディからアラートタイプを取得
+    let alertTypes: string[] = []
+    try {
+      const body = await request.json()
+      if (body.alertTypes && Array.isArray(body.alertTypes)) {
+        alertTypes = body.alertTypes
+      }
+    } catch (e) {
+      // リクエストボディが空の場合は全てのアラートタイプを生成（後方互換性）
+    }
+
+    // アラートタイプが指定されていない場合は全て生成
+    const shouldGenerateOvertime40 = alertTypes.length === 0 || alertTypes.includes('overtime_40')
+    const shouldGenerateOvertime60 = alertTypes.length === 0 || alertTypes.includes('overtime_60')
+    const shouldGenerateConsecutiveWork = alertTypes.length === 0 || alertTypes.includes('consecutive_work')
+
     // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
     const effectiveCompanyId = isSuperAdmin 
       ? session.user.selectedCompanyId 
@@ -96,8 +112,8 @@ export async function POST(request: NextRequest) {
       const overtimeMinutes = Math.max(0, totalWorkMinutes - standardMinutes)
       const overtimeHours = overtimeMinutes / 60
 
-      // 60時間超残業アラート
-      if (overtimeHours > companySettings.overtimeThreshold60) {
+      // 1. 残業時間アラート（60時間超）
+      if (shouldGenerateOvertime60 && overtimeHours > companySettings.overtimeThreshold60) {
         const existingAlert = await prisma.notification.findFirst({
           where: {
             employeeId: employee.id,
@@ -121,8 +137,8 @@ export async function POST(request: NextRequest) {
           generatedAlerts.push(alert)
         }
       }
-      // 40時間超残業アラート
-      else if (overtimeHours > companySettings.overtimeThreshold40) {
+      // 残業時間アラート（40時間超）
+      else if (shouldGenerateOvertime40 && overtimeHours > companySettings.overtimeThreshold40) {
         const existingAlert = await prisma.notification.findFirst({
           where: {
             employeeId: employee.id,
@@ -148,43 +164,45 @@ export async function POST(request: NextRequest) {
       }
 
       // 2. 連続勤務アラート
-      let consecutiveDays = 0
-      let currentDate = new Date(endOfMonth)
-      for (let i = 0; i < 14; i++) {
-        const dateStr = currentDate.toISOString().split('T')[0]
-        const attendance = employeeAttendances.find(
-          (a) => a.date.toISOString().split('T')[0] === dateStr
-        )
-        if (attendance && attendance.clockIn && attendance.clockOut) {
-          consecutiveDays++
-        } else {
-          break
+      if (shouldGenerateConsecutiveWork) {
+        let consecutiveDays = 0
+        let currentDate = new Date(endOfMonth)
+        for (let i = 0; i < 14; i++) {
+          const dateStr = currentDate.toISOString().split('T')[0]
+          const attendance = employeeAttendances.find(
+            (a) => a.date.toISOString().split('T')[0] === dateStr
+          )
+          if (attendance && attendance.clockIn && attendance.clockOut) {
+            consecutiveDays++
+          } else {
+            break
+          }
+          currentDate.setDate(currentDate.getDate() - 1)
         }
-        currentDate.setDate(currentDate.getDate() - 1)
-      }
 
-      if (consecutiveDays >= companySettings.consecutiveWorkAlert) {
-        const existingAlert = await prisma.notification.findFirst({
-          where: {
-            employeeId: employee.id,
-            type: 'consecutive_work',
-            isRead: false,
-            createdAt: {
-              gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), // 過去7日以内
-            },
-          },
-        })
-
-        if (!existingAlert) {
-          const alert = await prisma.notification.create({
-            data: {
+        if (consecutiveDays >= companySettings.consecutiveWorkAlert) {
+          const existingAlert = await prisma.notification.findFirst({
+            where: {
               employeeId: employee.id,
               type: 'consecutive_work',
-              title: '連続勤務アラート',
-              message: `${consecutiveDays}日連続で勤務しています。適切な休息を取るようにしてください。`,
+              isRead: false,
+              createdAt: {
+                gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), // 過去7日以内
+              },
             },
           })
-          generatedAlerts.push(alert)
+
+          if (!existingAlert) {
+            const alert = await prisma.notification.create({
+              data: {
+                employeeId: employee.id,
+                type: 'consecutive_work',
+                title: '連続勤務アラート',
+                message: `${consecutiveDays}日連続で勤務しています。適切な休息を取るようにしてください。`,
+              },
+            })
+            generatedAlerts.push(alert)
+          }
         }
       }
     }
