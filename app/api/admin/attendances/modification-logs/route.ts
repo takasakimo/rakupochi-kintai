@@ -40,27 +40,44 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('start_date')
     const endDate = searchParams.get('end_date')
 
+    // まずattendanceのIDを取得（日付範囲でフィルタ）
+    let attendanceIds: number[] | undefined = undefined
+    if (startDate || endDate || employeeId) {
+      const attendanceWhere: any = {
+        companyId: effectiveCompanyId,
+      }
+      if (employeeId) {
+        attendanceWhere.employeeId = employeeId
+      }
+      if (startDate || endDate) {
+        attendanceWhere.date = {}
+        if (startDate) {
+          attendanceWhere.date.gte = new Date(startDate)
+        }
+        if (endDate) {
+          const end = new Date(endDate)
+          end.setHours(23, 59, 59, 999)
+          attendanceWhere.date.lte = end
+        }
+      }
+      const attendances = await prisma.attendance.findMany({
+        where: attendanceWhere,
+        select: { id: true },
+      })
+      attendanceIds = attendances.map(a => a.id)
+      if (attendanceIds.length === 0) {
+        return NextResponse.json({ logs: [] })
+      }
+    }
+
     const where: any = {
       companyId: effectiveCompanyId,
     }
 
-    if (employeeId) {
+    if (attendanceIds) {
+      where.attendanceId = { in: attendanceIds }
+    } else if (employeeId) {
       where.employeeId = employeeId
-    }
-
-    // 日付範囲でフィルタリング（attendanceのdateでフィルタ）
-    if (startDate || endDate) {
-      where.attendance = {
-        date: {} as any,
-      }
-      if (startDate) {
-        where.attendance.date.gte = new Date(startDate)
-      }
-      if (endDate) {
-        const end = new Date(endDate)
-        end.setHours(23, 59, 59, 999)
-        where.attendance.date.lte = end
-      }
     }
 
     // 修正履歴を取得
