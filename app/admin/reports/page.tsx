@@ -47,18 +47,33 @@ export default function AdminReportsPage() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [period, setPeriod] = useState<{ start: string; end: string } | null>(null)
-  
-  // URLクエリパラメータから従業員IDを取得
   const [selectedEmployeeForTimesheet, setSelectedEmployeeForTimesheet] = useState<number | null>(null)
   
+  // URLクエリパラメータから従業員IDを取得（URL変更を監視）
   useEffect(() => {
-    // URLクエリパラメータを確認
-    const params = new URLSearchParams(window.location.search)
-    const employeeIdParam = params.get('employee_id')
-    if (employeeIdParam) {
-      setSelectedEmployeeForTimesheet(parseInt(employeeIdParam))
-    } else {
-      setSelectedEmployeeForTimesheet(null)
+    const updateFromURL = () => {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search)
+        const employeeIdParam = params.get('employee_id')
+        if (employeeIdParam) {
+          setSelectedEmployeeForTimesheet(parseInt(employeeIdParam))
+        } else {
+          setSelectedEmployeeForTimesheet(null)
+        }
+      }
+    }
+    
+    updateFromURL()
+    
+    // URL変更を監視（ブラウザの戻る/進むボタン対応）
+    window.addEventListener('popstate', updateFromURL)
+    
+    // 定期的にURLをチェック（router.push後の変更を検知）
+    const interval = setInterval(updateFromURL, 100)
+    
+    return () => {
+      window.removeEventListener('popstate', updateFromURL)
+      clearInterval(interval)
     }
   }, [])
 
@@ -599,7 +614,14 @@ export default function AdminReportsPage() {
                             // URLクエリパラメータを更新してページ遷移
                             const params = new URLSearchParams(window.location.search)
                             params.set('employee_id', report.employee.id.toString())
-                            router.push(`/admin/reports?${params.toString()}`)
+                            const newUrl = `/admin/reports?${params.toString()}`
+                            router.push(newUrl)
+                            // 状態を即座に更新
+                            setSelectedEmployeeForTimesheet(report.employee.id)
+                            // スクロールをトップに移動
+                            setTimeout(() => {
+                              window.scrollTo({ top: 0, behavior: 'smooth' })
+                            }, 100)
                           }}
                           className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
                         >
@@ -821,7 +843,16 @@ export default function AdminReportsPage() {
                           // URLクエリパラメータをクリアして一覧に戻る
                           const params = new URLSearchParams(window.location.search)
                           params.delete('employee_id')
-                          router.push(`/admin/reports?${params.toString()}`)
+                          const newUrl = params.toString() 
+                            ? `/admin/reports?${params.toString()}`
+                            : '/admin/reports'
+                          router.push(newUrl)
+                          // 状態を即座に更新
+                          setSelectedEmployeeForTimesheet(null)
+                          // スクロールをトップに移動
+                          setTimeout(() => {
+                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                          }, 100)
                         }}
                         className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
                       >
