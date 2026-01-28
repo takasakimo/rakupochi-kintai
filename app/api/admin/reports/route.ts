@@ -130,6 +130,7 @@ export async function GET(request: NextRequest) {
         totalOvertimeMinutes: number
         totalBreakMinutes: number
         attendances: any[]
+        locationName: string | null // 最も多く使用された店舗名
       }
     > = {}
 
@@ -230,7 +231,18 @@ export async function GET(request: NextRequest) {
           totalOvertimeMinutes: 0,
           totalBreakMinutes: 0,
           attendances: [],
+          locationName: null,
         }
+      }
+      
+      // 店舗名を取得（clockInLocationまたはclockOutLocationから）
+      const locationName = (attendance.clockInLocation as any)?.locationName || 
+                          (attendance.clockOutLocation as any)?.locationName || null
+      
+      // 従業員ごとの店舗名を記録（最初に見つかった店舗名を使用）
+      // 複数の店舗がある場合は、最初に見つかったものを使用
+      if (locationName && !employeeReports[empId].locationName) {
+        employeeReports[empId].locationName = locationName
       }
 
       const report = employeeReports[empId]
@@ -344,7 +356,10 @@ export async function GET(request: NextRequest) {
 
     // 配列形式に変換
     const reports = Object.values(employeeReports).map((report) => ({
-      employee: report.employee,
+      employee: {
+        ...report.employee,
+        locationName: report.locationName, // 店舗名を追加
+      },
       totalWorkDays: report.totalWorkDays,
       totalWorkHours: Math.floor(report.totalWorkMinutes / 60),
       totalWorkMinutes: report.totalWorkMinutes % 60,

@@ -13,6 +13,7 @@ interface Report {
     employeeNumber: string
     department: string | null
     position: string | null
+    locationName: string | null // 店舗名
   }
   totalWorkDays: number
   totalWorkHours: number
@@ -205,8 +206,10 @@ export default function AdminReportsPage() {
         : `${new Date().getFullYear()}年 ${new Date().getMonth() + 1}月`
 
       // タイトルとヘッダー情報
+      // 店舗があれば店舗、なければ部署を表示
+      const displayLocation = report.employee.locationName || report.employee.department || '-'
       doc.setFontSize(10)
-      doc.text(`${report.employee.department || '-'}`, 14, 15)
+      doc.text(displayLocation, 14, 15)
       doc.text(`氏名: ${report.employee.name}`, 150, 22)
       doc.text(month, 14, 28)
 
@@ -586,7 +589,7 @@ export default function AdminReportsPage() {
                         </button>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
-                        {report.employee.department || '-'}
+                        {report.employee.locationName || report.employee.department || '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
                         {report.employee.position || '-'}
@@ -790,7 +793,7 @@ export default function AdminReportsPage() {
                   <div key={report.employee.id} className="p-6">
                     <div className="mb-4">
                       <div className="text-lg text-gray-700 mb-2">
-                        <span>{report.employee.department || '-'}</span>
+                        <span>{report.employee.locationName || report.employee.department || '-'}</span>
                         <span className="ml-4">氏名: {report.employee.name}</span>
                         <span className="ml-4">{month}</span>
                       </div>
@@ -1016,7 +1019,7 @@ export default function AdminReportsPage() {
                   <div className="timesheet-header">
                     <div className="timesheet-info">
                       <div>
-                        <span>{report.employee.department || '-'}</span>
+                        <span>{report.employee.locationName || report.employee.department || '-'}</span>
                       </div>
                       <div>
                         <span>氏名: {report.employee.name}</span>
