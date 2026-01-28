@@ -7,11 +7,23 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     // Vercel Cronからのリクエストか確認
+    // Vercel Cron Jobsは自動的に認証ヘッダーを付与しますが、
+    // セキュリティのために環境変数での認証も可能にしています
     const authHeader = request.headers.get('authorization')
+    const vercelSignature = request.headers.get('x-vercel-signature')
     const cronSecret = process.env.CRON_SECRET
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Vercel Cronからのリクエストか、または正しい認証トークンがあるか確認
+    const isVercelCron = vercelSignature !== null
+    const hasValidAuth = cronSecret && authHeader === `Bearer ${cronSecret}`
+
+    if (!isVercelCron && !hasValidAuth) {
+      // 開発環境では認証をスキップ（オプション）
+      if (process.env.NODE_ENV === 'development' && !cronSecret) {
+        console.warn('Running in development mode without authentication')
+      } else {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
     }
 
     // 全企業を取得
