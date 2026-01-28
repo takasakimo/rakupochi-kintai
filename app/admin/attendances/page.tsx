@@ -106,6 +106,9 @@ export default function AdminAttendancesPage() {
   const [selectedAttendanceId, setSelectedAttendanceId] = useState<number | null>(null)
   const [modificationLogs, setModificationLogs] = useState<ModificationLog[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
+  const [showAllHistoryModal, setShowAllHistoryModal] = useState(false)
+  const [allModificationLogs, setAllModificationLogs] = useState<any[]>([])
+  const [loadingAllHistory, setLoadingAllHistory] = useState(false)
 
   // URLパラメータからviewModeを読み取る
   useEffect(() => {
@@ -766,6 +769,37 @@ export default function AdminAttendancesPage() {
     return String(value)
   }
 
+  const handleShowAllHistory = async () => {
+    setShowAllHistoryModal(true)
+    setLoadingAllHistory(true)
+    try {
+      const params = new URLSearchParams()
+      if (selectedEmployeeId) {
+        params.append('employee_id', selectedEmployeeId)
+      }
+      if (startDate) {
+        params.append('start_date', startDate)
+      }
+      if (endDate) {
+        params.append('end_date', endDate)
+      }
+
+      const response = await fetch(`/api/admin/attendances/modification-logs?${params.toString()}`)
+      if (!response.ok) {
+        console.error('Failed to fetch all modification logs:', response.status)
+        setAllModificationLogs([])
+        return
+      }
+      const data = await response.json()
+      setAllModificationLogs(data.logs || [])
+    } catch (err) {
+      console.error('Failed to fetch all modification logs:', err)
+      setAllModificationLogs([])
+    } finally {
+      setLoadingAllHistory(false)
+    }
+  }
+
 
   const handleDelete = async (id: number) => {
     if (!confirm('この打刻を削除しますか？')) return
@@ -887,6 +921,12 @@ export default function AdminAttendancesPage() {
                 }`}
               >
                 打刻履歴表示
+              </button>
+              <button
+                onClick={handleShowAllHistory}
+                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 font-medium transition"
+              >
+                修正履歴
               </button>
             </div>
           </div>
@@ -1399,6 +1439,135 @@ export default function AdminAttendancesPage() {
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 修正履歴一覧モーダル */}
+      {showAllHistoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl mx-4 max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-900">修正履歴一覧</h2>
+              <button
+                onClick={() => {
+                  setShowAllHistoryModal(false)
+                  setAllModificationLogs([])
+                }}
+                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {loadingAllHistory ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-600">読み込み中...</p>
+                </div>
+              ) : allModificationLogs.length === 0 ? (
+                <div className="text-center py-8 text-gray-600">
+                  修正履歴がありません
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">日付</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">従業員</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">操作</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">変更内容</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">修正者</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">時刻</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {allModificationLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {log.attendance?.date
+                              ? new Date(log.attendance.date).toLocaleDateString('ja-JP', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                })
+                              : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {log.attendance?.employee ? (
+                              <div>
+                                <div className="font-medium">{log.attendance.employee.name}</div>
+                                <div className="text-xs text-gray-600">
+                                  {log.attendance.employee.employeeNumber}
+                                  {log.attendance.employee.department && (
+                                    <> / {log.attendance.employee.department}</>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              '-'
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-medium ${
+                                log.action === 'update'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}
+                            >
+                              {log.action === 'update' ? '修正' : '削除'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {log.action === 'update' && log.changedFields.length > 0 ? (
+                              <div className="space-y-1">
+                                {log.changedFields.slice(0, 3).map((field) => (
+                                  <div key={field} className="text-xs">
+                                    <span className="text-gray-600">{formatFieldName(field)}:</span>{' '}
+                                    <span className="text-red-600">
+                                      {formatValue(log.oldValues?.[field], field)}
+                                    </span>{' '}
+                                    →{' '}
+                                    <span className="text-green-600">
+                                      {formatValue(log.newValues?.[field], field)}
+                                    </span>
+                                  </div>
+                                ))}
+                                {log.changedFields.length > 3 && (
+                                  <div className="text-xs text-gray-500">
+                                    +{log.changedFields.length - 3}件
+                                  </div>
+                                )}
+                              </div>
+                            ) : log.action === 'delete' ? (
+                              <span className="text-red-600 text-xs">削除されました</span>
+                            ) : (
+                              '-'
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            <div>
+                              <div className="font-medium">{log.modifier.name}</div>
+                              <div className="text-xs text-gray-600">{log.modifier.employeeNumber}</div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {new Date(log.createdAt).toLocaleString('ja-JP', {
+                              month: 'numeric',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
