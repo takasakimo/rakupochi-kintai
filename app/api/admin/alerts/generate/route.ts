@@ -147,38 +147,73 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 2. 未打刻アラート（今日の打刻がない場合）
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const todayAttendance = employeeAttendances.find(
-        (a) => new Date(a.date).getTime() === today.getTime()
-      )
+      // 2. 未打刻アラート（シフトが設定されているのに開始時刻を過ぎても打刻がない場合）
+      const todayYear = now.getFullYear()
+      const todayMonth = now.getMonth()
+      const todayDay = now.getDate()
+      const todayStartUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 0, 0, 0, 0))
+      const todayEndUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 23, 59, 59, 999))
+      
+      // 今日のシフトを取得
+      const todayShift = await prisma.shift.findFirst({
+        where: {
+          companyId: effectiveCompanyId,
+          employeeId: employee.id,
+          date: {
+            gte: todayStartUTC,
+            lte: todayEndUTC,
+          },
+          isPublicHoliday: false, // 公休は除外
+        },
+      })
 
-      if (!todayAttendance || !todayAttendance.clockIn) {
-        // 平日の場合のみ（簡易的に月曜日から金曜日をチェック）
-        const dayOfWeek = now.getDay()
-        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-          const existingAlert = await prisma.notification.findFirst({
-            where: {
-              employeeId: employee.id,
-              type: 'attendance_missing',
-              isRead: false,
-              createdAt: {
-                gte: today,
-              },
-            },
-          })
+      // シフトが存在し、開始時刻が設定されている場合
+      if (todayShift && todayShift.startTime) {
+        const todayAttendance = employeeAttendances.find(
+          (a) => {
+            const attendanceDate = new Date(a.date)
+            return attendanceDate.getTime() >= todayStartUTC.getTime() &&
+                   attendanceDate.getTime() <= todayEndUTC.getTime()
+          }
+        )
 
-          if (!existingAlert) {
-            const alert = await prisma.notification.create({
-              data: {
+        // 打刻がない場合
+        if (!todayAttendance || !todayAttendance.clockIn) {
+          // シフトの開始時刻を取得（Time型はUTC時間として扱われる）
+          const shiftStartTime = new Date(todayShift.startTime)
+          // UTC時間からローカル時間に変換
+          const shiftStartHours = shiftStartTime.getUTCHours()
+          const shiftStartMinutes = shiftStartTime.getUTCMinutes()
+          const shiftStartTotalMinutes = shiftStartHours * 60 + shiftStartMinutes
+          
+          // 現在時刻を分単位で取得（ローカル時間）
+          const currentMinutes = now.getHours() * 60 + now.getMinutes()
+          
+          // シフト開始時刻を過ぎている場合（15分の余裕を持たせる）
+          if (currentMinutes >= shiftStartTotalMinutes + 15) {
+            const existingAlert = await prisma.notification.findFirst({
+              where: {
                 employeeId: employee.id,
                 type: 'attendance_missing',
-                title: '打刻忘れアラート',
-                message: '本日の出勤打刻が記録されていません。',
+                isRead: false,
+                createdAt: {
+                  gte: todayStartUTC,
+                },
               },
             })
-            generatedAlerts.push(alert)
+
+            if (!existingAlert) {
+              const shiftStartTimeStr = `${String(shiftStartHours).padStart(2, '0')}:${String(shiftStartMinutes).padStart(2, '0')}`
+              const alert = await prisma.notification.create({
+                data: {
+                  employeeId: employee.id,
+                  type: 'attendance_missing',
+                  title: '打刻忘れアラート',
+                  message: `本日のシフト開始時刻（${shiftStartTimeStr}）を過ぎていますが、出勤打刻が記録されていません。`,
+                },
+              })
+              generatedAlerts.push(alert)
+            }
           }
         }
       }
