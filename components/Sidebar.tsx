@@ -30,6 +30,7 @@ const superAdminMenuItems: MenuItem[] = [
 
 const employeeMenuItems: MenuItem[] = [
   { href: '/employee/clock', label: '打刻', icon: '' },
+  { href: '/employee/sales-visit', label: '営業先入退店', icon: '' },
   { href: '/employee/mypage', label: 'マイページ', icon: '' },
   { href: '/employee/history', label: '打刻履歴', icon: '' },
   { href: '/employee/applications', label: '申請一覧', icon: '' },

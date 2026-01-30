@@ -30,6 +30,7 @@ model Company {
   settings    CompanySetting?
   announcements Announcement[]
   attendanceModificationLogs AttendanceModificationLog[]
+  salesVisits SalesVisit[]
 
   @@map("companies")
 }
@@ -68,6 +69,7 @@ model Employee {
   notifications Notification[]
   passwordResetTokens PasswordResetToken[]
   attendanceModificationLogs AttendanceModificationLog[] @relation("Modifier")
+  salesVisits SalesVisit[]
 
   @@unique([companyId, employeeNumber]) // 企業ごとに社員番号をユニークに
   @@map("employees")
@@ -274,4 +276,29 @@ model AttendanceModificationLog {
   @@index([employeeId])
   @@index([createdAt])
   @@map("attendance_modification_logs")
+}
+
+// 営業先訪問テーブル
+model SalesVisit {
+  id            Int       @id @default(autoincrement())
+  companyId     Int
+  employeeId    Int
+  date          DateTime  @db.Date // 訪問日
+  companyName   String    // 営業先の会社名
+  purpose       String    // 目的: "商談", "見積", "アフターサービス", "その他"
+  entryTime     DateTime? @db.Time // 入店時刻
+  exitTime      DateTime? @db.Time // 退店時刻
+  entryLocation Json?     // 入店時の位置情報 {latitude, longitude, accuracy}
+  exitLocation  Json?     // 退店時の位置情報 {latitude, longitude, accuracy}
+  meetingNotes  String?   @db.Text // 商談内容メモ（最大1000文字）
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee      Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([employeeId])
+  @@index([date])
+  @@map("sales_visits")
 }
