@@ -106,19 +106,31 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
+    // 時刻の処理（空文字列や無効な値の場合はnull）
+    const parseTime = (time: string | null | undefined): Date | null => {
+      if (!time || time.trim() === '') {
+        return null
+      }
+      try {
+        const date = new Date(`2000-01-01T${time}`)
+        if (isNaN(date.getTime())) {
+          return null
+        }
+        return date
+      } catch {
+        return null
+      }
+    }
+
     const settings = await prisma.companySetting.upsert({
         where: { companyId: effectiveCompanyId },
       update: {
         ...(body.payday !== undefined && { payday: body.payday }),
         ...(body.workStartTime !== undefined && {
-          workStartTime: body.workStartTime
-            ? new Date(`2000-01-01T${body.workStartTime}`)
-            : null,
+          workStartTime: parseTime(body.workStartTime),
         }),
         ...(body.workEndTime !== undefined && {
-          workEndTime: body.workEndTime
-            ? new Date(`2000-01-01T${body.workEndTime}`)
-            : null,
+          workEndTime: parseTime(body.workEndTime),
         }),
         ...(body.standardBreakMinutes !== undefined && {
           standardBreakMinutes: body.standardBreakMinutes,
@@ -148,12 +160,8 @@ export async function PATCH(request: NextRequest) {
       create: {
         companyId: effectiveCompanyId,
         payday: body.payday || 25,
-        workStartTime: body.workStartTime
-          ? new Date(`2000-01-01T${body.workStartTime}`)
-          : null,
-        workEndTime: body.workEndTime
-          ? new Date(`2000-01-01T${body.workEndTime}`)
-          : null,
+        workStartTime: parseTime(body.workStartTime),
+        workEndTime: parseTime(body.workEndTime),
         standardBreakMinutes: body.standardBreakMinutes || 60,
         overtimeThreshold40: body.overtimeThreshold40 || 40,
         overtimeThreshold60: body.overtimeThreshold60 || 60,
