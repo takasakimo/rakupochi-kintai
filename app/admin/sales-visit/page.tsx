@@ -15,8 +15,8 @@ interface SalesVisit {
   id: number
   companyName: string
   purpose: string
-  entryTime: string | null
-  exitTime: string | null
+  entryTime: string | Date | null
+  exitTime: string | Date | null
   entryLocation?: any
   exitLocation?: any
   meetingNotes: string | null
@@ -267,14 +267,45 @@ export default function AdminSalesVisitPage() {
     }
   }
 
-  const formatTime = (time: string | null) => {
+  const formatTime = (time: string | Date | null) => {
     if (!time) return '未記録'
-    if (typeof time === 'string') {
-      if (time.includes(':')) {
-        return time.slice(0, 5)
+    
+    // Dateオブジェクトの場合
+    if (time instanceof Date) {
+      // 無効なDateの場合は未記録を返す
+      if (isNaN(time.getTime())) {
+        return '未記録'
       }
+      // HH:mm形式で返す
+      const hours = String(time.getHours()).padStart(2, '0')
+      const minutes = String(time.getMinutes()).padStart(2, '0')
+      return `${hours}:${minutes}`
+    }
+    
+    // 文字列の場合
+    if (typeof time === 'string') {
+      // ISO形式の文字列の場合（例: "1970-01-01T13:20:00.000Z"）
+      if (time.includes('T') || time.includes('Z')) {
+        try {
+          const date = new Date(time)
+          if (!isNaN(date.getTime())) {
+            const hours = String(date.getHours()).padStart(2, '0')
+            const minutes = String(date.getMinutes()).padStart(2, '0')
+            return `${hours}:${minutes}`
+          }
+        } catch {
+          // パースに失敗した場合は下の処理に進む
+        }
+      }
+      
+      // HH:mm:ss形式またはHH:mm形式の場合
+      if (time.includes(':')) {
+        return time.slice(0, 5) // HH:mmのみ返す
+      }
+      
       return time
     }
+    
     return '未記録'
   }
 
