@@ -208,6 +208,8 @@ model CompanySetting {
   consecutiveWorkAlert Int     @default(6) // 連続勤務アラート（日数）
   leaveExpiryAlertDays Int     @default(30) // 有給失効前通知（日数）
   allowPreOvertime     Boolean @default(false) // 前残業を認めるかどうか
+  enableSalesVisit      Boolean @default(true) // 営業先入退店機能を有効にするかどうか
+  enableWakeUpDeparture Boolean @default(true) // 起床・出発報告機能を有効にするかどうか
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 

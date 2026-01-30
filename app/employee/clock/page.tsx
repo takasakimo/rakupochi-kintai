@@ -22,10 +22,12 @@ export default function ClockPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
+  const [enableWakeUpDeparture, setEnableWakeUpDeparture] = useState(true)
 
   useEffect(() => {
     if (status === 'authenticated') {
       fetchTodayAttendance()
+      fetchSettings()
     }
 
     // 現在時刻を1秒ごとに更新
@@ -43,6 +45,18 @@ export default function ClockPage() {
       setAttendance(data.attendance)
     } catch (err) {
       console.error('Failed to fetch attendance:', err)
+    }
+  }
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch('/api/settings/display')
+      const data = await response.json()
+      if (data.enableWakeUpDeparture !== undefined) {
+        setEnableWakeUpDeparture(data.enableWakeUpDeparture)
+      }
+    } catch (err) {
+      console.error('Failed to fetch settings:', err)
     }
   }
 
@@ -334,39 +348,43 @@ export default function ClockPage() {
           </div>
         )}
 
-        {/* 打刻ボタン（横2つずつ、2列×2行） */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          {/* 起床ボタン */}
-          <button
-            onClick={handleWakeUp}
-            disabled={loading || !!attendance?.wakeUpTime}
-            className={`py-4 px-3 rounded-lg font-semibold transition ${
-              attendance?.wakeUpTime
-                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                : 'bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed'
-            }`}
-          >
-            <div className="text-sm font-bold">起床</div>
-            {attendance?.wakeUpTime && (
-              <div className="text-xs mt-1">✓ {formatTime(attendance.wakeUpTime)}</div>
-            )}
-          </button>
+        {/* 打刻ボタン */}
+        <div className={`grid gap-3 mb-6 ${enableWakeUpDeparture ? 'grid-cols-2' : 'grid-cols-2'}`}>
+          {enableWakeUpDeparture && (
+            <>
+              {/* 起床ボタン */}
+              <button
+                onClick={handleWakeUp}
+                disabled={loading || !!attendance?.wakeUpTime}
+                className={`py-4 px-3 rounded-lg font-semibold transition ${
+                  attendance?.wakeUpTime
+                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed'
+                }`}
+              >
+                <div className="text-sm font-bold">起床</div>
+                {attendance?.wakeUpTime && (
+                  <div className="text-xs mt-1">✓ {formatTime(attendance.wakeUpTime)}</div>
+                )}
+              </button>
 
-          {/* 出発ボタン */}
-          <button
-            onClick={handleDeparture}
-            disabled={loading || !!attendance?.departureTime}
-            className={`py-4 px-3 rounded-lg font-semibold transition ${
-              attendance?.departureTime
-                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                : 'bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed'
-            }`}
-          >
-            <div className="text-sm font-bold">出発</div>
-            {attendance?.departureTime && (
-              <div className="text-xs mt-1">✓ {formatTime(attendance.departureTime)}</div>
-            )}
-          </button>
+              {/* 出発ボタン */}
+              <button
+                onClick={handleDeparture}
+                disabled={loading || !!attendance?.departureTime}
+                className={`py-4 px-3 rounded-lg font-semibold transition ${
+                  attendance?.departureTime
+                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    : 'bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed'
+                }`}
+              >
+                <div className="text-sm font-bold">出発</div>
+                {attendance?.departureTime && (
+                  <div className="text-xs mt-1">✓ {formatTime(attendance.departureTime)}</div>
+                )}
+              </button>
+            </>
+          )}
 
           {/* 出勤ボタン */}
           <button
@@ -411,27 +429,31 @@ export default function ClockPage() {
 
         {/* 打刻状況の表示 */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-            <span className="text-lg text-gray-900">起床</span>
-            <span className="font-semibold">
-              {attendance?.wakeUpTime ? (
-                <span className="text-green-600">✓ {formatTime(attendance.wakeUpTime)}</span>
-              ) : (
-                <span className="text-gray-500">未打刻</span>
-              )}
-            </span>
-          </div>
+          {enableWakeUpDeparture && (
+            <>
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                <span className="text-lg text-gray-900">起床</span>
+                <span className="font-semibold">
+                  {attendance?.wakeUpTime ? (
+                    <span className="text-green-600">✓ {formatTime(attendance.wakeUpTime)}</span>
+                  ) : (
+                    <span className="text-gray-500">未打刻</span>
+                  )}
+                </span>
+              </div>
 
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-            <span className="text-lg text-gray-900">出発</span>
-            <span className="font-semibold">
-              {attendance?.departureTime ? (
-                <span className="text-green-600">✓ {formatTime(attendance.departureTime)}</span>
-              ) : (
-                <span className="text-gray-500">未打刻</span>
-              )}
-            </span>
-          </div>
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                <span className="text-lg text-gray-900">出発</span>
+                <span className="font-semibold">
+                  {attendance?.departureTime ? (
+                    <span className="text-green-600">✓ {formatTime(attendance.departureTime)}</span>
+                  ) : (
+                    <span className="text-gray-500">未打刻</span>
+                  )}
+                </span>
+              </div>
+            </>
+          )}
 
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
             <div>

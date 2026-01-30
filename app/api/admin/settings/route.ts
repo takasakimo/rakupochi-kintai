@@ -50,6 +50,8 @@ export async function GET(request: NextRequest) {
           leaveExpiryAlertDays: 30,
           standardBreakMinutes: 60,
           allowPreOvertime: false,
+          enableSalesVisit: true,
+          enableWakeUpDeparture: true,
         },
       })
       return NextResponse.json({ settings: defaultSettings })
@@ -136,6 +138,12 @@ export async function PATCH(request: NextRequest) {
         ...(body.allowPreOvertime !== undefined && {
           allowPreOvertime: body.allowPreOvertime,
         }),
+        ...(body.enableSalesVisit !== undefined && {
+          enableSalesVisit: body.enableSalesVisit,
+        }),
+        ...(body.enableWakeUpDeparture !== undefined && {
+          enableWakeUpDeparture: body.enableWakeUpDeparture,
+        }),
       },
       create: {
         companyId: effectiveCompanyId,
@@ -152,6 +160,8 @@ export async function PATCH(request: NextRequest) {
         consecutiveWorkAlert: body.consecutiveWorkAlert || 6,
         leaveExpiryAlertDays: body.leaveExpiryAlertDays || 30,
         allowPreOvertime: body.allowPreOvertime ?? false,
+        enableSalesVisit: body.enableSalesVisit ?? true,
+        enableWakeUpDeparture: body.enableWakeUpDeparture ?? true,
       },
     })
 

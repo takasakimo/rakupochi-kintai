@@ -16,6 +16,7 @@ const adminMenuItems: MenuItem[] = [
   { href: '/employee/clock', label: '打刻', icon: '' },
   { href: '/admin/employees', label: '従業員管理', icon: '' },
   { href: '/admin/attendances', label: '打刻管理', icon: '' },
+  { href: '/admin/sales-visit', label: '営業先入退店管理', icon: '' },
   { href: '/admin/applications', label: '申請管理', icon: '' },
   { href: '/admin/shifts/manage', label: 'シフト管理', icon: '' },
   { href: '/admin/announcements', label: 'お知らせ管理', icon: '' },
@@ -58,6 +59,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
   const router = useRouter()
   const pathname = usePathname()
   const [company, setCompany] = useState<Company | null>(null)
+  const [settings, setSettings] = useState<{ enableSalesVisit?: boolean } | null>(null)
 
   useEffect(() => {
     if (session?.user?.companyId) {
@@ -71,6 +73,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
         .catch((err) => {
           console.error('Failed to fetch company:', err)
         })
+      
+      // 設定を取得（従業員の場合のみ）
+      if (session.user.role === 'employee') {
+        fetch('/api/settings/display')
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.enableSalesVisit !== undefined) {
+              setSettings({ enableSalesVisit: data.enableSalesVisit })
+            }
+          })
+          .catch((err) => {
+            console.error('Failed to fetch settings:', err)
+          })
+      }
     }
   }, [session])
 
@@ -94,6 +110,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
     menuItems = adminMenuItems
   } else {
     menuItems = employeeMenuItems
+    // 営業先入退店機能が無効の場合はメニューから除外
+    if (settings && settings.enableSalesVisit === false) {
+      menuItems = menuItems.filter(item => item.href !== '/employee/sales-visit')
+    }
   }
 
   // スーパー管理者の場合、店舗切り替えメニューを先頭に追加
