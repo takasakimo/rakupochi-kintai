@@ -51,10 +51,13 @@ export async function GET(request: NextRequest) {
       success: true,
       visits: formattedVisits,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get today sales visits error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: error?.message || 'Unknown error',
+      },
       { status: 500 }
     )
   }

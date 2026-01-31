@@ -36,13 +36,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!location || !location.latitude || !location.longitude) {
-      return NextResponse.json(
-        { error: 'Location is required for exit' },
-        { status: 400 }
-      )
-    }
-
     // 訪問レコードが存在し、入店済みで退店未済みか確認
     const existingVisit = await prisma.salesVisit.findFirst({
       where: {
@@ -63,12 +56,14 @@ export async function POST(request: NextRequest) {
 
     const exitTime = new Date(`2000-01-01T${time}`)
 
-    // 位置情報を保存
-    const locationData = {
-      latitude: location.latitude,
-      longitude: location.longitude,
-      accuracy: location.accuracy || null,
-    }
+    // 位置情報を保存（オプション：パソコンなどで位置情報が取得できない場合も許可）
+    const locationData = location && location.latitude && location.longitude
+      ? {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          accuracy: location.accuracy || null,
+        }
+      : null
 
     // 退店情報を更新
     const salesVisit = await prisma.salesVisit.update({

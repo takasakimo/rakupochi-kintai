@@ -44,22 +44,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!location || !location.latitude || !location.longitude) {
-      return NextResponse.json(
-        { error: 'Location is required for entry' },
-        { status: 400 }
-      )
-    }
-
     const visitDate = new Date(date)
     const entryTime = new Date(`2000-01-01T${time}`)
 
-    // 位置情報を保存
-    const locationData = {
-      latitude: location.latitude,
-      longitude: location.longitude,
-      accuracy: location.accuracy || null,
-    }
+    // 位置情報を保存（オプション：パソコンなどで位置情報が取得できない場合も許可）
+    const locationData = location && location.latitude && location.longitude
+      ? {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          accuracy: location.accuracy || null,
+        }
+      : null
 
     // 営業先訪問レコードを作成
     // 注意: 同一日に同一営業先への複数回の入店が可能です（退店後に再度入店可能）

@@ -180,23 +180,34 @@ export default function AdminSalesVisitPage() {
     setWarning(null)
 
     try {
-      // GPS位置情報を取得
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          resolve,
-          reject,
-          {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0,
-          }
-        )
-      })
+      // GPS位置情報を取得（オプション：パソコンなどで取得できない場合も許可）
+      let location = null
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            resolve,
+            reject,
+            {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0,
+            }
+          )
+        })
 
-      const location = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy,
+        location = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        }
+      } catch (err: any) {
+        // 位置情報の取得に失敗しても続行（パソコンなどで位置情報が取得できない場合）
+        console.warn('位置情報の取得に失敗しましたが、続行します:', err)
+        if (err.code === 1) {
+          setWarning('位置情報の取得が拒否されました。位置情報なしで記録します。')
+        } else {
+          setWarning('位置情報の取得に失敗しました。位置情報なしで記録します。')
+        }
       }
 
       // 入店を実行
@@ -220,15 +231,13 @@ export default function AdminSalesVisitPage() {
         setMyCompanyName('')
         setMyContactPersonName('')
         setMyPurpose('商談')
+        setWarning(null) // 成功したら警告をクリア
       } else {
         setError(data.error || '入店の記録に失敗しました')
       }
     } catch (err: any) {
-      if (err.code === 1) {
-        setError('位置情報の取得が拒否されました。ブラウザの設定を確認してください。')
-      } else {
-        setError('位置情報の取得に失敗しました')
-      }
+      setError('入店の記録に失敗しました')
+      console.error('Entry error:', err)
     } finally {
       setLoading(false)
     }
@@ -241,23 +250,29 @@ export default function AdminSalesVisitPage() {
     setWarning(null)
 
     try {
-      // GPS位置情報を取得
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          resolve,
-          reject,
-          {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0,
-          }
-        )
-      })
+      // GPS位置情報を取得（オプション：パソコンなどで取得できない場合も許可）
+      let location = null
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            resolve,
+            reject,
+            {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0,
+            }
+          )
+        })
 
-      const location = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy,
+        location = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        }
+      } catch (err: any) {
+        // 位置情報の取得に失敗しても続行（パソコンなどで位置情報が取得できない場合）
+        console.warn('位置情報の取得に失敗しましたが、続行します:', err)
       }
 
       const notes = meetingNotes[visitId] || ''
@@ -284,11 +299,8 @@ export default function AdminSalesVisitPage() {
         setError(data.error || '退店の記録に失敗しました')
       }
     } catch (err: any) {
-      if (err.code === 1) {
-        setError('位置情報の取得が拒否されました。ブラウザの設定を確認してください。')
-      } else {
-        setError('位置情報の取得に失敗しました')
-      }
+      setError('退店の記録に失敗しました')
+      console.error('Exit error:', err)
     } finally {
       setLoading(false)
     }
