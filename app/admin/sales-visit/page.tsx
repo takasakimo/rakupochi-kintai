@@ -197,6 +197,32 @@ export default function AdminSalesVisitPage() {
     }
   }
 
+  const handleDelete = async (visitId: number) => {
+    if (!confirm('この訪問記録を削除しますか？この操作は取り消せません。')) {
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`/api/admin/sales-visit/${visitId}`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        await fetchVisits()
+      } else {
+        setError(data.error || '削除に失敗しました')
+      }
+    } catch (err: any) {
+      setError('削除に失敗しました')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleExit = async (visitId: number) => {
     if (loading) return
     
@@ -585,78 +611,87 @@ export default function AdminSalesVisitPage() {
                     </div>
                   )}
 
-                  {!visit.exitTime && (
-                    <div className="mt-3">
-                      {showExitForm === visit.id ? (
-                        <div className="space-y-2">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700">
-                                退店時刻 <span className="text-red-500">*</span>
-                              </label>
-                              <input
-                                type="time"
-                                value={exitTime}
-                                onChange={(e) => setExitTime(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  <div className="mt-3 flex gap-2">
+                    {!visit.exitTime && (
+                      <>
+                        {showExitForm === visit.id ? (
+                          <div className="space-y-2 flex-1">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700">
+                                  退店時刻 <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="time"
+                                  value={exitTime}
+                                  onChange={(e) => setExitTime(e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  disabled={loading}
+                                />
+                              </div>
+                            </div>
+                            <label className="block text-sm font-medium text-gray-700">
+                              商談内容メモ（最大1000文字）
+                            </label>
+                            <textarea
+                              value={meetingNotes[visit.id] || ''}
+                              onChange={(e) => {
+                                const value = e.target.value
+                                if (value.length <= 1000) {
+                                  setMeetingNotes({ ...meetingNotes, [visit.id]: value })
+                                }
+                              }}
+                              placeholder="商談内容を記録してください（任意）"
+                              rows={4}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              disabled={loading}
+                            />
+                            <div className="text-xs text-gray-500 text-right">
+                              {(meetingNotes[visit.id] || '').length} / 1000文字
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleExit(visit.id)}
+                                disabled={loading || !exitTime}
+                                className="px-6 py-2 rounded-lg font-semibold bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                退店を記録
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setShowExitForm(null)
+                                  setExitTime('')
+                                  setMeetingNotes({ ...meetingNotes, [visit.id]: '' })
+                                }}
                                 disabled={loading}
-                              />
+                                className="px-4 py-2 rounded-lg font-semibold bg-gray-300 text-gray-700 hover:bg-gray-400 disabled:opacity-50"
+                              >
+                                キャンセル
+                              </button>
                             </div>
                           </div>
-                          <label className="block text-sm font-medium text-gray-700">
-                            商談内容メモ（最大1000文字）
-                          </label>
-                          <textarea
-                            value={meetingNotes[visit.id] || ''}
-                            onChange={(e) => {
-                              const value = e.target.value
-                              if (value.length <= 1000) {
-                                setMeetingNotes({ ...meetingNotes, [visit.id]: value })
-                              }
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setShowExitForm(visit.id)
+                              setExitTime(currentTime.toTimeString().slice(0, 5))
                             }}
-                            placeholder="商談内容を記録してください（任意）"
-                            rows={4}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             disabled={loading}
-                          />
-                          <div className="text-xs text-gray-500 text-right">
-                            {(meetingNotes[visit.id] || '').length} / 1000文字
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleExit(visit.id)}
-                              disabled={loading || !exitTime}
-                              className="px-6 py-2 rounded-lg font-semibold bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              退店を記録
-                            </button>
-                            <button
-                              onClick={() => {
-                                setShowExitForm(null)
-                                setExitTime('')
-                                setMeetingNotes({ ...meetingNotes, [visit.id]: '' })
-                              }}
-                              disabled={loading}
-                              className="px-4 py-2 rounded-lg font-semibold bg-gray-300 text-gray-700 hover:bg-gray-400 disabled:opacity-50"
-                            >
-                              キャンセル
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setShowExitForm(visit.id)
-                            setExitTime(currentTime.toTimeString().slice(0, 5))
-                          }}
-                          disabled={loading}
-                          className="px-6 py-2 rounded-lg font-semibold bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          退店を記録
-                        </button>
-                      )}
-                    </div>
-                  )}
+                            className="px-6 py-2 rounded-lg font-semibold bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            退店を記録
+                          </button>
+                        )}
+                      </>
+                    )}
+                    <button
+                      onClick={() => handleDelete(visit.id)}
+                      disabled={loading}
+                      className="px-4 py-2 rounded-lg font-semibold bg-gray-500 text-white hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      削除
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
