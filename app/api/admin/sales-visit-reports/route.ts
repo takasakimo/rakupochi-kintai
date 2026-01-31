@@ -113,12 +113,38 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // 全期間の訪問回数を取得（累計用）
+    const allTimeVisitCounts: Record<number, number> = {}
+    try {
+      const allTimeWhere: any = {
+        companyId: effectiveCompanyId,
+        entryTime: { not: null }, // 入店時刻があるもののみ
+      }
+      if (employeeId) {
+        allTimeWhere.employeeId = employeeId
+      }
+
+      const allTimeVisits = await prisma.salesVisit.findMany({
+        where: allTimeWhere,
+        select: {
+          employeeId: true,
+        },
+      })
+
+      allTimeVisits.forEach((visit) => {
+        allTimeVisitCounts[visit.employeeId] = (allTimeVisitCounts[visit.employeeId] || 0) + 1
+      })
+    } catch (error: any) {
+      console.error('[Sales Visit Reports] Error fetching all-time visit counts:', error)
+      // エラーが発生しても期間内のデータは返す
+    }
+
     // 従業員ごとに集計
     const employeeReports: Record<
       number,
       {
         employee: any
-        totalVisits: number
+        totalVisits: number // 全期間累計
         totalVisitMinutes: number
         visits: any[]
       }
@@ -133,7 +159,7 @@ export async function GET(request: NextRequest) {
       if (!employeeReports[empId]) {
         employeeReports[empId] = {
           employee: visit.employee,
-          totalVisits: 0,
+          totalVisits: allTimeVisitCounts[empId] || 0, // 全期間累計を設定
           totalVisitMinutes: 0,
           visits: [],
         }
@@ -175,13 +201,13 @@ export async function GET(request: NextRequest) {
         visitMinutes = Math.floor(diffMs / (1000 * 60))
       }
 
-      report.totalVisits++
       report.totalVisitMinutes += visitMinutes
 
       report.visits.push({
         id: visit.id,
         date: visit.date.toISOString().split('T')[0],
         companyName: visit.companyName,
+        contactPersonName: visit.contactPersonName,
         purpose: visit.purpose,
         entryTime: entryTimeStr,
         exitTime: exitTimeStr,
@@ -189,10 +215,36 @@ export async function GET(request: NextRequest) {
       })
     })
 
+    // 期間内に訪問記録がない従業員も全期間累計を表示するために追加
+    // 期間内に訪問記録がない従業員の情報を取得
+    if (employeeId) {
+      // 特定の従業員が指定されている場合、その従業員の全期間累計を取得
+      if (!employeeReports[employeeId] && allTimeVisitCounts[employeeId]) {
+        const employee = await prisma.employee.findUnique({
+          where: { id: employeeId },
+          select: {
+            id: true,
+            name: true,
+            employeeNumber: true,
+            department: true,
+            position: true,
+          },
+        })
+        if (employee) {
+          employeeReports[employeeId] = {
+            employee,
+            totalVisits: allTimeVisitCounts[employeeId],
+            totalVisitMinutes: 0,
+            visits: [],
+          }
+        }
+      }
+    }
+
     // 配列形式に変換
     const reports = Object.values(employeeReports).map((report) => ({
       employee: report.employee,
-      totalVisits: report.totalVisits,
+      totalVisits: report.totalVisits, // 全期間累計
       totalVisitHours: Math.floor(report.totalVisitMinutes / 60),
       totalVisitMinutes: report.totalVisitMinutes % 60,
       visits: report.visits,

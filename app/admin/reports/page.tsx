@@ -514,7 +514,7 @@ export default function AdminReportsPage() {
         '役職',
         '訪問先',
         '担当者',
-        '訪問回数',
+        '訪問回数（累計）',
         '総滞在時間',
       ]
 
@@ -888,7 +888,7 @@ export default function AdminReportsPage() {
                         訪問理由
                       </th>
                       <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
-                        訪問回数
+                        訪問回数（累計）
                       </th>
                       <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
                         総滞在時間
