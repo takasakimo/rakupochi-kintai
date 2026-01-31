@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 
@@ -34,6 +34,14 @@ export default function SalesVisitPage() {
   // 退店フォームの状態
   const [showExitForm, setShowExitForm] = useState<number | null>(null)
   const [meetingNotes, setMeetingNotes] = useState<{ [key: number]: string }>({})
+  
+  // マップモーダルの状態
+  const [showMapModal, setShowMapModal] = useState(false)
+  const [mapLocation, setMapLocation] = useState<{ latitude: number; longitude: number; locationName?: string } | null>(null)
+  const [mapLoaded, setMapLoaded] = useState(false)
+  const mapInstanceRef = useRef<any>(null)
+  const markerInstanceRef = useRef<any>(null)
+  const mapContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -247,6 +255,191 @@ export default function SalesVisitPage() {
     return labels[purpose] || purpose
   }
 
+  const getLocationInfo = (location: any) => {
+    if (!location) return null
+    if (location.address) {
+      return location.address
+    }
+    if (location.locationName) {
+      return location.locationName
+    }
+    return '位置情報取得済み'
+  }
+
+  const handleShowMap = (location: any, type: 'entry' | 'exit') => {
+    if (!location || !location.latitude || !location.longitude) {
+      alert('位置情報がありません')
+      return
+    }
+    setMapLocation({
+      latitude: location.latitude,
+      longitude: location.longitude,
+      locationName: location.locationName || (type === 'entry' ? '入店位置' : '退店位置'),
+    })
+    setShowMapModal(true)
+  }
+
+  useEffect(() => {
+    if (showMapModal && mapLocation && mapContainerRef.current && typeof window !== 'undefined') {
+      setMapLoaded(false)
+      
+      // Leaflet.jsのスクリプトとCSSを動的に読み込む
+      const loadLeaflet = (): Promise<void> => {
+        return new Promise((resolve, reject) => {
+          // 既に読み込まれている場合は即座に解決
+          if ((window as any).L) {
+            resolve()
+            return
+          }
+
+          // CSSが既に読み込まれているか確認
+          const existingCss = document.querySelector('link[href*="leaflet.css"]')
+          if (!existingCss) {
+            const link = document.createElement('link')
+            link.rel = 'stylesheet'
+            link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+            link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY='
+            link.crossOrigin = 'anonymous'
+            document.head.appendChild(link)
+          }
+
+          // スクリプトを読み込む
+          const existingScript = document.querySelector('script[src*="leaflet.js"]')
+          if (existingScript) {
+            // 既に読み込み中または読み込み済み
+            const checkInterval = setInterval(() => {
+              if ((window as any).L) {
+                clearInterval(checkInterval)
+                resolve()
+              }
+            }, 100)
+            setTimeout(() => {
+              clearInterval(checkInterval)
+              if (!(window as any).L) {
+                reject(new Error('Leaflet.js loading timeout'))
+              }
+            }, 5000)
+            return
+          }
+
+          const script = document.createElement('script')
+          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+          script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo='
+          script.crossOrigin = 'anonymous'
+          script.async = true
+          script.onload = () => {
+            if ((window as any).L) {
+              resolve()
+            } else {
+              reject(new Error('Leaflet.js loaded but L is not available'))
+            }
+          }
+          script.onerror = () => reject(new Error('Failed to load Leaflet.js'))
+          document.head.appendChild(script)
+        })
+      }
+
+      // マップコンテナが確実に存在するまで待つ
+      const initMap = async () => {
+        try {
+          await loadLeaflet()
+          
+          // もう一度コンテナの存在を確認
+          if (!mapContainerRef.current) {
+            console.error('Map container not found')
+            setMapLoaded(true)
+            return
+          }
+
+          const L = (window as any).L
+          if (!L) {
+            console.error('Leaflet.js is not available')
+            setMapLoaded(true)
+            return
+          }
+
+          // 既存のマップをクリア
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.remove()
+            mapInstanceRef.current = null
+          }
+          if (markerInstanceRef.current) {
+            markerInstanceRef.current = null
+          }
+
+          // マーカーアイコンのパスを修正
+          delete (L.Icon.Default.prototype as any)._getIconUrl
+          L.Icon.Default.mergeOptions({
+            iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+            iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+          })
+
+          // マップを初期化
+          const map = L.map(mapContainerRef.current, {
+            zoomControl: true,
+          }).setView(
+            [mapLocation.latitude, mapLocation.longitude],
+            15
+          )
+
+          // OpenStreetMapのタイルレイヤーを追加
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19,
+          }).addTo(map)
+
+          // マーカーを追加
+          const marker = L.marker([mapLocation.latitude, mapLocation.longitude])
+            .addTo(map)
+            .bindPopup(`
+              <div style="padding: 8px;">
+                <strong>${mapLocation.locationName || '入退店位置'}</strong><br>
+                緯度: ${mapLocation.latitude.toFixed(6)}<br>
+                経度: ${mapLocation.longitude.toFixed(6)}
+              </div>
+            `)
+            .openPopup()
+
+          mapInstanceRef.current = map
+          markerInstanceRef.current = marker
+          setMapLoaded(true)
+        } catch (error) {
+          console.error('Failed to initialize map:', error)
+          setMapLoaded(true) // エラーでもローディングを解除
+        }
+      }
+
+      // 少し遅延させてマップコンテナが確実に存在するようにする
+      const timer = setTimeout(() => {
+        initMap()
+      }, 300)
+
+      return () => {
+        clearTimeout(timer)
+        // クリーンアップ
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove()
+          mapInstanceRef.current = null
+        }
+        markerInstanceRef.current = null
+      }
+    }
+  }, [showMapModal, mapLocation])
+
+  useEffect(() => {
+    if (!showMapModal) {
+      // モーダルが閉じられたときにマップインスタンスをクリア
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+      }
+      markerInstanceRef.current = null
+      setMapLocation(null)
+      setMapLoaded(false)
+    }
+  }, [showMapModal])
+
   if (status === 'loading') {
     return <div className="p-8 text-center">読み込み中...</div>
   }
@@ -409,12 +602,32 @@ export default function SalesVisitPage() {
                       <span className="ml-2 font-semibold text-gray-900">
                         {formatTime(visit.entryTime)}
                       </span>
+                      {visit.entryLocation && (
+                        <div className="text-xs text-gray-600 mt-1">
+                          <button
+                            onClick={() => handleShowMap(visit.entryLocation, 'entry')}
+                            className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                          >
+                            {getLocationInfo(visit.entryLocation)}
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <span className="text-gray-600">退店時刻:</span>
                       <span className="ml-2 font-semibold text-gray-900">
                         {formatTime(visit.exitTime)}
                       </span>
+                      {visit.exitLocation && (
+                        <div className="text-xs text-gray-600 mt-1">
+                          <button
+                            onClick={() => handleShowMap(visit.exitLocation, 'exit')}
+                            className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                          >
+                            {getLocationInfo(visit.exitLocation)}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -487,6 +700,76 @@ export default function SalesVisitPage() {
           )}
         </div>
       </div>
+
+      {/* マップ モーダル（OpenStreetMap + Leaflet.js） */}
+      {showMapModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {mapLocation?.locationName || '入退店位置'}
+              </h2>
+              <button
+                onClick={() => setShowMapModal(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1 p-4">
+              {mapLocation ? (
+                <>
+                  <div className="relative">
+                    {!mapLoaded && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg z-10">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                          <p className="text-sm text-gray-600">マップを読み込み中...</p>
+                        </div>
+                      </div>
+                    )}
+                    <div 
+                      ref={mapContainerRef}
+                      id="map" 
+                      style={{ width: '100%', height: '500px', zIndex: 0 }} 
+                      className="rounded-lg border border-gray-300"
+                    ></div>
+                  </div>
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="text-sm text-gray-700 mb-2">
+                      <p className="font-medium">位置情報</p>
+                      <p>緯度: {mapLocation.latitude.toFixed(6)}</p>
+                      <p>経度: {mapLocation.longitude.toFixed(6)}</p>
+                    </div>
+                    <div className="mt-2 space-x-4">
+                      <a
+                        href={`https://www.google.com/maps?q=${mapLocation.latitude},${mapLocation.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 underline text-sm"
+                      >
+                        Google Mapsで開く
+                      </a>
+                      <a
+                        href={`https://www.openstreetmap.org/?mlat=${mapLocation.latitude}&mlon=${mapLocation.longitude}&zoom=15`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 underline text-sm"
+                      >
+                        OpenStreetMapで開く
+                      </a>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-[500px] bg-gray-100 rounded-lg">
+                  <p className="text-gray-600">位置情報がありません</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
