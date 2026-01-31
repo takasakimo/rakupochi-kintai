@@ -27,6 +27,20 @@ interface Report {
   attendances: any[]
 }
 
+interface SalesVisitReport {
+  employee: {
+    id: number
+    name: string
+    employeeNumber: string
+    department: string | null
+    position: string | null
+  }
+  totalVisits: number
+  totalVisitHours: number
+  totalVisitMinutes: number
+  visits: any[]
+}
+
 interface Employee {
   id: number
   name: string
@@ -37,7 +51,9 @@ interface Employee {
 export default function AdminReportsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const [reportType, setReportType] = useState<'attendance' | 'sales-visit'>('attendance')
   const [reports, setReports] = useState<Report[]>([])
+  const [salesVisitReports, setSalesVisitReports] = useState<SalesVisitReport[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
@@ -97,10 +113,14 @@ export default function AdminReportsPage() {
                           session?.user.email === 'superadmin@rakupochi.com'
       
       if (isAdmin || (isSuperAdmin && session?.user.selectedCompanyId)) {
-        fetchReports()
+        if (reportType === 'attendance') {
+          fetchReports()
+        } else {
+          fetchSalesVisitReports()
+        }
       }
     }
-  }, [selectedEmployeeId, selectedMonth, startDate, endDate])
+  }, [selectedEmployeeId, selectedMonth, startDate, endDate, reportType])
 
   const fetchEmployees = async () => {
     try {
@@ -136,6 +156,35 @@ export default function AdminReportsPage() {
       setPeriod(data.period || null)
     } catch (err) {
       console.error('Failed to fetch reports:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchSalesVisitReports = async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (selectedEmployeeId) {
+        params.append('employee_id', selectedEmployeeId)
+      }
+      if (selectedMonth && !startDate && !endDate) {
+        params.append('month', selectedMonth)
+      } else {
+        if (startDate) {
+          params.append('start_date', startDate)
+        }
+        if (endDate) {
+          params.append('end_date', endDate)
+        }
+      }
+
+      const response = await fetch(`/api/admin/sales-visit-reports?${params.toString()}`)
+      const data = await response.json()
+      setSalesVisitReports(data.reports || [])
+      setPeriod(data.period || null)
+    } catch (err) {
+      console.error('Failed to fetch sales visit reports:', err)
     } finally {
       setLoading(false)
     }
@@ -389,51 +438,91 @@ export default function AdminReportsPage() {
   }
 
   const exportToCSV = () => {
-    if (reports.length === 0) {
-      alert('エクスポートするデータがありません')
-      return
+    if (reportType === 'attendance') {
+      if (reports.length === 0) {
+        alert('エクスポートするデータがありません')
+        return
+      }
+
+      const headers = [
+        '社員番号',
+        '氏名',
+        '部署',
+        '役職',
+        '出勤日数',
+        '総勤務時間',
+        '残業時間',
+        '休憩時間',
+        '40時間超残業',
+        '60時間超残業',
+      ]
+
+      const rows = reports.map((report) => [
+        report.employee.employeeNumber,
+        report.employee.name,
+        report.employee.department || '',
+        report.employee.position || '',
+        report.totalWorkDays.toString(),
+        formatTime(report.totalWorkHours, report.totalWorkMinutes),
+        formatTime(report.totalOvertimeHours, report.totalOvertimeMinutes),
+        `${report.totalBreakMinutes}分`,
+        `${report.overtime40Hours}時間`,
+        `${report.overtime60Hours}時間`,
+      ])
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
+      ].join('\n')
+
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `勤怠レポート_${period?.start || 'report'}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } else {
+      if (salesVisitReports.length === 0) {
+        alert('エクスポートするデータがありません')
+        return
+      }
+
+      const headers = [
+        '社員番号',
+        '氏名',
+        '部署',
+        '役職',
+        '訪問回数',
+        '総滞在時間',
+      ]
+
+      const rows = salesVisitReports.map((report) => [
+        report.employee.employeeNumber,
+        report.employee.name,
+        report.employee.department || '',
+        report.employee.position || '',
+        report.totalVisits.toString(),
+        formatTime(report.totalVisitHours, report.totalVisitMinutes),
+      ])
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
+      ].join('\n')
+
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `入退店記録レポート_${period?.start || 'report'}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
     }
-
-    const headers = [
-      '社員番号',
-      '氏名',
-      '部署',
-      '役職',
-      '出勤日数',
-      '総勤務時間',
-      '残業時間',
-      '休憩時間',
-      '40時間超残業',
-      '60時間超残業',
-    ]
-
-    const rows = reports.map((report) => [
-      report.employee.employeeNumber,
-      report.employee.name,
-      report.employee.department || '',
-      report.employee.position || '',
-      report.totalWorkDays.toString(),
-      formatTime(report.totalWorkHours, report.totalWorkMinutes),
-      formatTime(report.totalOvertimeHours, report.totalOvertimeMinutes),
-      `${report.totalBreakMinutes}分`,
-      `${report.overtime40Hours}時間`,
-      `${report.overtime60Hours}時間`,
-    ])
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
-    ].join('\n')
-
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `勤怠レポート_${period?.start || 'report'}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
   }
 
 
@@ -451,8 +540,41 @@ export default function AdminReportsPage() {
   return (
     <div className="p-4">
       <div className="max-w-7xl mx-auto">
+        {/* タブ */}
+        <div className="mb-6 no-print">
+          <div className="flex border-b border-gray-200">
+            <button
+              onClick={() => {
+                setReportType('attendance')
+                setSelectedEmployeeForTimesheet(null)
+              }}
+              className={`px-6 py-3 font-medium text-sm ${
+                reportType === 'attendance'
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              打刻レポート
+            </button>
+            <button
+              onClick={() => {
+                setReportType('sales-visit')
+                setSelectedEmployeeForTimesheet(null)
+              }}
+              className={`px-6 py-3 font-medium text-sm ${
+                reportType === 'sales-visit'
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              入退店記録レポート
+            </button>
+          </div>
+        </div>
+
         <div className="flex justify-end gap-2 mb-6 no-print">
-          {reports.length > 0 && (
+          {((reportType === 'attendance' && reports.length > 0) || 
+            (reportType === 'sales-visit' && salesVisitReports.length > 0)) && (
             <>
               <button
                 onClick={exportToCSV}
@@ -561,49 +683,50 @@ export default function AdminReportsPage() {
         {/* レポート一覧（画面表示用） */}
         {!selectedEmployeeForTimesheet && (
         <div className="bg-white rounded-lg shadow-md overflow-hidden no-print">
-          {reports.length === 0 ? (
-            <div className="p-6 text-center text-gray-700">
-              レポートデータがありません
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
-                      社員番号
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
-                      氏名
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
-                      部署
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
-                      役職
-                    </th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
-                      出勤日数
-                    </th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
-                      総勤務時間
-                    </th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
-                      残業時間
-                    </th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
-                      休憩時間
-                    </th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
-                      40時間超
-                    </th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
-                      60時間超
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {reports.map((report) => (
+          {reportType === 'attendance' ? (
+            reports.length === 0 ? (
+              <div className="p-6 text-center text-gray-700">
+                レポートデータがありません
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        社員番号
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        氏名
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        部署
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        役職
+                      </th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                        出勤日数
+                      </th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                        総勤務時間
+                      </th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                        残業時間
+                      </th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                        休憩時間
+                      </th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                        40時間超
+                      </th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                        60時間超
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {reports.map((report) => (
                     <tr key={report.employee.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-900">
                         {report.employee.employeeNumber}
@@ -681,6 +804,64 @@ export default function AdminReportsPage() {
                 </tbody>
               </table>
             </div>
+          )
+          ) : (
+            salesVisitReports.length === 0 ? (
+              <div className="p-6 text-center text-gray-700">
+                レポートデータがありません
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        社員番号
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        氏名
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        部署
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        役職
+                      </th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                        訪問回数
+                      </th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                        総滞在時間
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {salesVisitReports.map((report) => (
+                      <tr key={report.employee.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {report.employee.employeeNumber}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                          {report.employee.name}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {report.employee.department || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {report.employee.position || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-900">
+                          {report.totalVisits}回
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-900">
+                          {formatTime(report.totalVisitHours, report.totalVisitMinutes)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
           )}
         </div>
         )}
