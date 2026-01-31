@@ -296,15 +296,12 @@ export default function AdminSalesVisitPage() {
   const formatTime = (time: string | Date | null) => {
     if (!time) return '未記録'
     
-    // Date型の場合は時刻部分を抽出
-    if (time instanceof Date) {
-      const hours = time.getHours().toString().padStart(2, '0')
-      const minutes = time.getMinutes().toString().padStart(2, '0')
-      return `${hours}:${minutes}`
-    }
-    
-    // 文字列の場合
+    // 文字列の場合（APIから返される形式: "HH:MM:SS"）
     if (typeof time === 'string') {
+      // HH:MM:SS形式またはHH:mm形式の場合（時刻のみの文字列）
+      if (time.includes(':')) {
+        return time.slice(0, 5) // HH:mmのみ返す
+      }
       // ISO形式の日時文字列の場合
       if (time.includes('T') || time.includes(' ')) {
         const date = new Date(time)
@@ -314,10 +311,13 @@ export default function AdminSalesVisitPage() {
           return `${hours}:${minutes}`
         }
       }
-      // HH:MM:SS形式またはHH:mm形式の場合（時刻のみの文字列）
-      if (time.includes(':')) {
-        return time.slice(0, 5) // HH:mmのみ返す
-      }
+    }
+    
+    // Date型の場合は時刻部分を抽出
+    if (time instanceof Date) {
+      const hours = time.getHours().toString().padStart(2, '0')
+      const minutes = time.getMinutes().toString().padStart(2, '0')
+      return `${hours}:${minutes}`
     }
     
     return '未記録'

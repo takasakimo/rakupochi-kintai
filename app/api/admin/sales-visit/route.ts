@@ -74,9 +74,29 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    // 時刻データを文字列形式に変換（通常の打刻と同じロジック）
+    const formattedVisits = visits.map((visit) => {
+      const formatTime = (time: Date | null): string | null => {
+        if (!time) return null
+        if (time instanceof Date) {
+          const hours = String(time.getUTCHours()).padStart(2, '0')
+          const minutes = String(time.getUTCMinutes()).padStart(2, '0')
+          const seconds = String(time.getUTCSeconds()).padStart(2, '0')
+          return `${hours}:${minutes}:${seconds}`
+        }
+        return null
+      }
+
+      return {
+        ...visit,
+        entryTime: formatTime(visit.entryTime),
+        exitTime: formatTime(visit.exitTime),
+      }
+    })
+
     return NextResponse.json({
       success: true,
-      visits,
+      visits: formattedVisits,
     })
   } catch (error) {
     console.error('Get admin sales visits error:', error)
