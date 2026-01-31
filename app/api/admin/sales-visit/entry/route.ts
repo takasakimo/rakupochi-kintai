@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { employeeId, time, date, companyName, purpose, location } = body
+    const { employeeId, time, date, companyName, contactPersonName, purpose, location } = body
 
     if (!employeeId || !time || !date) {
       return NextResponse.json(
@@ -91,12 +91,14 @@ export async function POST(request: NextRequest) {
       : null
 
     // 営業先訪問レコードを作成
+    // 注意: 同一日に同一営業先への複数回の入店が可能です（退店後に再度入店可能）
     const salesVisit = await prisma.salesVisit.create({
       data: {
         companyId: effectiveCompanyId,
         employeeId: parseInt(employeeId),
         date: visitDate,
         companyName: companyName.trim(),
+        contactPersonName: contactPersonName?.trim() || null,
         purpose,
         entryTime,
         entryLocation: locationData as any,
