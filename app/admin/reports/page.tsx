@@ -512,18 +512,50 @@ export default function AdminReportsPage() {
         '氏名',
         '部署',
         '役職',
+        '訪問先',
+        '担当者',
         '訪問回数',
         '総滞在時間',
       ]
 
-      const rows = salesVisitReports.map((report) => [
-        report.employee.employeeNumber,
-        report.employee.name,
-        report.employee.department || '',
-        report.employee.position || '',
-        report.totalVisits.toString(),
-        formatTime(report.totalVisitHours, report.totalVisitMinutes),
-      ])
+      const rows = salesVisitReports.map((report) => {
+        // 訪問先と担当者を集計（最も多いものを表示）
+        const visitCompanies = report.visits.map((v: any) => v.companyName)
+        const visitContactPersons = report.visits
+          .map((v: any) => v.contactPersonName)
+          .filter((name: string | null) => name && name.trim() !== '')
+        
+        // 最も多い訪問先
+        const companyCounts: Record<string, number> = {}
+        visitCompanies.forEach((company: string) => {
+          companyCounts[company] = (companyCounts[company] || 0) + 1
+        })
+        const mostVisitedCompany = Object.keys(companyCounts).reduce((a, b) => 
+          companyCounts[a] > companyCounts[b] ? a : b, visitCompanies[0] || '-'
+        )
+        
+        // 最も多い担当者
+        const contactPersonCounts: Record<string, number> = {}
+        visitContactPersons.forEach((person: string) => {
+          contactPersonCounts[person] = (contactPersonCounts[person] || 0) + 1
+        })
+        const mostCommonContactPerson = visitContactPersons.length > 0
+          ? Object.keys(contactPersonCounts).reduce((a, b) => 
+              contactPersonCounts[a] > contactPersonCounts[b] ? a : b, visitContactPersons[0] || '-'
+            )
+          : '-'
+        
+        return [
+          report.employee.employeeNumber,
+          report.employee.name,
+          report.employee.department || '',
+          report.employee.position || '',
+          mostVisitedCompany,
+          mostCommonContactPerson,
+          report.totalVisits.toString(),
+          formatTime(report.totalVisitHours, report.totalVisitMinutes),
+        ]
+      })
 
       const csvContent = [
         headers.join(','),
@@ -850,6 +882,9 @@ export default function AdminReportsPage() {
                         訪問先
                       </th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        担当者
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
                         訪問理由
                       </th>
                       <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
@@ -862,8 +897,11 @@ export default function AdminReportsPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {salesVisitReports.map((report) => {
-                      // 訪問先と訪問理由を集計（最も多いものを表示）
+                      // 訪問先、担当者、訪問理由を集計（最も多いものを表示）
                       const visitCompanies = report.visits.map((v: any) => v.companyName)
+                      const visitContactPersons = report.visits
+                        .map((v: any) => v.contactPersonName)
+                        .filter((name: string | null) => name && name.trim() !== '')
                       const visitPurposes = report.visits.map((v: any) => v.purpose)
                       
                       // 最も多い訪問先
@@ -874,6 +912,17 @@ export default function AdminReportsPage() {
                       const mostVisitedCompany = Object.keys(companyCounts).reduce((a, b) => 
                         companyCounts[a] > companyCounts[b] ? a : b, visitCompanies[0] || '-'
                       )
+                      
+                      // 最も多い担当者
+                      const contactPersonCounts: Record<string, number> = {}
+                      visitContactPersons.forEach((person: string) => {
+                        contactPersonCounts[person] = (contactPersonCounts[person] || 0) + 1
+                      })
+                      const mostCommonContactPerson = visitContactPersons.length > 0
+                        ? Object.keys(contactPersonCounts).reduce((a, b) => 
+                            contactPersonCounts[a] > contactPersonCounts[b] ? a : b, visitContactPersons[0] || '-'
+                          )
+                        : '-'
                       
                       // 最も多い訪問理由
                       const purposeCounts: Record<string, number> = {}
@@ -919,6 +968,14 @@ export default function AdminReportsPage() {
                             {visitCompanies.length > 1 && (
                               <span className="text-xs text-gray-500 ml-1">
                                 (他{visitCompanies.length - 1}件)
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {mostCommonContactPerson}
+                            {visitContactPersons.length > 1 && (
+                              <span className="text-xs text-gray-500 ml-1">
+                                (他{visitContactPersons.length - 1}件)
                               </span>
                             )}
                           </td>
@@ -997,6 +1054,7 @@ export default function AdminReportsPage() {
                           <tr className="bg-gray-100">
                             <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">日付</th>
                             <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">訪問先</th>
+                            <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">担当者</th>
                             <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">訪問理由</th>
                             <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">入店時刻</th>
                             <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">退店時刻</th>
@@ -1044,6 +1102,9 @@ export default function AdminReportsPage() {
                                   </td>
                                   <td className="border border-gray-300 px-3 py-2 text-sm text-gray-900">
                                     {visit.companyName}
+                                  </td>
+                                  <td className="border border-gray-300 px-3 py-2 text-sm text-gray-900">
+                                    {visit.contactPersonName || '-'}
                                   </td>
                                   <td className="border border-gray-300 px-3 py-2 text-sm text-center text-gray-900">
                                     {getPurposeLabel(visit.purpose)}
