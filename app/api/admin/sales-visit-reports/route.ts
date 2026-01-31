@@ -179,9 +179,13 @@ export async function GET(request: NextRequest) {
       report.totalVisitMinutes += visitMinutes
 
       report.visits.push({
-        ...visit,
+        id: visit.id,
+        date: visit.date.toISOString().split('T')[0],
+        companyName: visit.companyName,
+        purpose: visit.purpose,
         entryTime: entryTimeStr,
         exitTime: exitTimeStr,
+        meetingNotes: visit.meetingNotes,
       })
     })
 

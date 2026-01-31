@@ -65,6 +65,7 @@ export default function AdminReportsPage() {
   const [endDate, setEndDate] = useState('')
   const [period, setPeriod] = useState<{ start: string; end: string } | null>(null)
   const [selectedEmployeeForTimesheet, setSelectedEmployeeForTimesheet] = useState<number | null>(null)
+  const [selectedSalesVisitEmployee, setSelectedSalesVisitEmployee] = useState<number | null>(null)
   
   // URLクエリパラメータから従業員IDを取得（URL変更を監視）
   useEffect(() => {
@@ -845,6 +846,12 @@ export default function AdminReportsPage() {
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
                         役職
                       </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        訪問先
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">
+                        訪問理由
+                      </th>
                       <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
                         訪問回数
                       </th>
@@ -854,34 +861,223 @@ export default function AdminReportsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {salesVisitReports.map((report) => (
-                      <tr key={report.employee.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {report.employee.employeeNumber}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                          {report.employee.name}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {report.employee.department || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {report.employee.position || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-900">
-                          {report.totalVisits}回
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-900">
-                          {formatTime(report.totalVisitHours, report.totalVisitMinutes)}
-                        </td>
-                      </tr>
-                    ))}
+                    {salesVisitReports.map((report) => {
+                      // 訪問先と訪問理由を集計（最も多いものを表示）
+                      const visitCompanies = report.visits.map((v: any) => v.companyName)
+                      const visitPurposes = report.visits.map((v: any) => v.purpose)
+                      
+                      // 最も多い訪問先
+                      const companyCounts: Record<string, number> = {}
+                      visitCompanies.forEach((company: string) => {
+                        companyCounts[company] = (companyCounts[company] || 0) + 1
+                      })
+                      const mostVisitedCompany = Object.keys(companyCounts).reduce((a, b) => 
+                        companyCounts[a] > companyCounts[b] ? a : b, visitCompanies[0] || '-'
+                      )
+                      
+                      // 最も多い訪問理由
+                      const purposeCounts: Record<string, number> = {}
+                      visitPurposes.forEach((purpose: string) => {
+                        purposeCounts[purpose] = (purposeCounts[purpose] || 0) + 1
+                      })
+                      const mostCommonPurpose = Object.keys(purposeCounts).reduce((a, b) => 
+                        purposeCounts[a] > purposeCounts[b] ? a : b, visitPurposes[0] || '-'
+                      )
+                      
+                      const getPurposeLabel = (purpose: string) => {
+                        const labels: { [key: string]: string } = {
+                          '商談': '商談',
+                          '見積': '見積',
+                          'アフターサービス': 'アフターサービス',
+                          'その他': 'その他',
+                        }
+                        return labels[purpose] || purpose
+                      }
+                      
+                      return (
+                        <tr 
+                          key={report.employee.id} 
+                          className="hover:bg-gray-50 cursor-pointer"
+                          onClick={() => setSelectedSalesVisitEmployee(
+                            selectedSalesVisitEmployee === report.employee.id ? null : report.employee.id
+                          )}
+                        >
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {report.employee.employeeNumber}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                            {report.employee.name}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {report.employee.department || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {report.employee.position || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {mostVisitedCompany}
+                            {visitCompanies.length > 1 && (
+                              <span className="text-xs text-gray-500 ml-1">
+                                (他{visitCompanies.length - 1}件)
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {getPurposeLabel(mostCommonPurpose)}
+                            {visitPurposes.length > 1 && (
+                              <span className="text-xs text-gray-500 ml-1">
+                                (他{visitPurposes.length - 1}件)
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-900">
+                            {report.totalVisits}回
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-900">
+                            {formatTime(report.totalVisitHours, report.totalVisitMinutes)}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
             )
           )}
         </div>
+        )}
+
+        {/* 営業先訪問詳細表示 */}
+        {selectedSalesVisitEmployee && salesVisitReports.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6 no-print">
+            {salesVisitReports
+              .filter((r) => r.employee.id === selectedSalesVisitEmployee)
+              .map((report) => {
+                const formatDate = (date: string) => {
+                  const d = new Date(date)
+                  return d.toLocaleDateString('ja-JP', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    weekday: 'short',
+                  })
+                }
+
+                const getPurposeLabel = (purpose: string) => {
+                  const labels: { [key: string]: string } = {
+                    '商談': '商談',
+                    '見積': '見積',
+                    'アフターサービス': 'アフターサービス',
+                    'その他': 'その他',
+                  }
+                  return labels[purpose] || purpose
+                }
+
+                return (
+                  <div key={report.employee.id} className="p-6">
+                    <div className="mb-4 flex justify-between items-center">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {report.employee.name} ({report.employee.employeeNumber}) の訪問詳細
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {report.employee.department || '-'} {report.employee.position ? `・ ${report.employee.position}` : ''}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setSelectedSalesVisitEmployee(null)}
+                        className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        × 閉じる
+                      </button>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse border border-gray-300">
+                        <thead>
+                          <tr className="bg-gray-100">
+                            <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">日付</th>
+                            <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">訪問先</th>
+                            <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">訪問理由</th>
+                            <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">入店時刻</th>
+                            <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">退店時刻</th>
+                            <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">滞在時間</th>
+                            <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">商談内容</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {report.visits
+                            .sort((a: any, b: any) => {
+                              const dateA = new Date(a.date).getTime()
+                              const dateB = new Date(b.date).getTime()
+                              if (dateA !== dateB) return dateB - dateA
+                              // 同じ日付の場合は時刻でソート
+                              const timeA = a.entryTime || '00:00:00'
+                              const timeB = b.entryTime || '00:00:00'
+                              return timeB.localeCompare(timeA)
+                            })
+                            .map((visit: any, idx: number) => {
+                              // 滞在時間を計算
+                              let stayDuration = '-'
+                              if (visit.entryTime && visit.exitTime) {
+                                const [entryHours, entryMinutes] = visit.entryTime.split(':').map(Number)
+                                const [exitHours, exitMinutes] = visit.exitTime.split(':').map(Number)
+                                
+                                const entryTime = new Date(`2000-01-01T${String(entryHours).padStart(2, '0')}:${String(entryMinutes).padStart(2, '0')}:00`)
+                                const exitTime = new Date(`2000-01-01T${String(exitHours).padStart(2, '0')}:${String(exitMinutes).padStart(2, '0')}:00`)
+                                
+                                let exitTimeAdjusted = exitTime
+                                if (exitTime.getTime() < entryTime.getTime()) {
+                                  exitTimeAdjusted = new Date(`2000-01-02T${String(exitHours).padStart(2, '0')}:${String(exitMinutes).padStart(2, '0')}:00`)
+                                }
+                                
+                                const diffMs = exitTimeAdjusted.getTime() - entryTime.getTime()
+                                const stayMinutes = Math.floor(diffMs / (1000 * 60))
+                                const hours = Math.floor(stayMinutes / 60)
+                                const minutes = stayMinutes % 60
+                                stayDuration = hours > 0 ? `${hours}時間${minutes}分` : `${minutes}分`
+                              }
+
+                              return (
+                                <tr key={idx} className="hover:bg-gray-50">
+                                  <td className="border border-gray-300 px-3 py-2 text-sm text-center text-gray-900">
+                                    {formatDate(visit.date)}
+                                  </td>
+                                  <td className="border border-gray-300 px-3 py-2 text-sm text-gray-900">
+                                    {visit.companyName}
+                                  </td>
+                                  <td className="border border-gray-300 px-3 py-2 text-sm text-center text-gray-900">
+                                    {getPurposeLabel(visit.purpose)}
+                                  </td>
+                                  <td className="border border-gray-300 px-3 py-2 text-sm text-center text-gray-900">
+                                    {visit.entryTime ? visit.entryTime.slice(0, 5) : '-'}
+                                  </td>
+                                  <td className="border border-gray-300 px-3 py-2 text-sm text-center text-gray-900">
+                                    {visit.exitTime ? visit.exitTime.slice(0, 5) : '-'}
+                                  </td>
+                                  <td className="border border-gray-300 px-3 py-2 text-sm text-center text-gray-900">
+                                    {stayDuration}
+                                  </td>
+                                  <td className="border border-gray-300 px-3 py-2 text-sm text-gray-900">
+                                    {visit.meetingNotes ? (
+                                      <div className="max-w-xs">
+                                        <div className="text-xs text-gray-600 whitespace-pre-wrap break-words">
+                                          {visit.meetingNotes}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      '-'
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )
+              })}
+          </div>
         )}
 
         {/* 個人タイムシート表示（画面表示用） */}
