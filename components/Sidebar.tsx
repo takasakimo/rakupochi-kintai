@@ -9,34 +9,53 @@ interface MenuItem {
   href: string
   label: string
   icon: string
+  section?: string // セクション名（オプション）
 }
 
+// 管理者メニュー（使いやすい順番に整理）
 const adminMenuItems: MenuItem[] = [
-  { href: '/admin/dashboard', label: 'ダッシュボード', icon: '' },
-  { href: '/employee/clock', label: '打刻', icon: '' },
-  { href: '/admin/employees', label: '従業員管理', icon: '' },
-  { href: '/admin/attendances', label: '打刻管理', icon: '' },
-  { href: '/admin/sales-visit', label: '営業先入退店管理', icon: '' },
-  { href: '/admin/applications', label: '申請管理', icon: '' },
-  { href: '/admin/shifts/manage', label: 'シフト管理', icon: '' },
-  { href: '/admin/announcements', label: 'お知らせ管理', icon: '' },
-  { href: '/admin/reports', label: 'レポート', icon: '' },
-  { href: '/admin/notifications', label: '通知管理', icon: '' },
-  { href: '/admin/settings', label: '設定', icon: '' },
+  // 概要・ダッシュボード
+  { href: '/admin/dashboard', label: 'ダッシュボード', icon: '', section: '概要' },
+  
+  // 打刻関連
+  { href: '/employee/clock', label: '打刻', icon: '', section: '打刻' },
+  { href: '/admin/attendances', label: '打刻管理', icon: '', section: '打刻' },
+  { href: '/admin/sales-visit', label: '営業先入退店管理', icon: '', section: '打刻' },
+  
+  // 従業員・シフト管理
+  { href: '/admin/employees', label: '従業員管理', icon: '', section: '管理' },
+  { href: '/admin/shifts/manage', label: 'シフト管理', icon: '', section: '管理' },
+  
+  // 申請・レポート
+  { href: '/admin/applications', label: '申請管理', icon: '', section: '申請・レポート' },
+  { href: '/admin/reports', label: 'レポート', icon: '', section: '申請・レポート' },
+  
+  // 情報・設定
+  { href: '/admin/announcements', label: 'お知らせ管理', icon: '', section: '情報・設定' },
+  { href: '/admin/notifications', label: '通知管理', icon: '', section: '情報・設定' },
+  { href: '/admin/settings', label: '設定', icon: '', section: '情報・設定' },
 ]
 
 const superAdminMenuItems: MenuItem[] = [
   { href: '/super-admin/companies', label: '企業管理', icon: '' },
 ]
 
+// 従業員メニュー（使いやすい順番に整理）
 const employeeMenuItems: MenuItem[] = [
-  { href: '/employee/clock', label: '打刻', icon: '' },
-  { href: '/employee/sales-visit', label: '営業先入退店', icon: '' },
-  { href: '/employee/mypage', label: 'マイページ', icon: '' },
-  { href: '/employee/history', label: '打刻履歴', icon: '' },
-  { href: '/employee/applications', label: '申請一覧', icon: '' },
-  { href: '/employee/shifts', label: 'シフト管理', icon: '' },
-  { href: '/employee/notifications', label: '通知', icon: '' },
+  // 打刻関連（最も頻繁に使う機能）
+  { href: '/employee/clock', label: '打刻', icon: '', section: '打刻' },
+  { href: '/employee/sales-visit', label: '営業先入退店', icon: '', section: '打刻' },
+  { href: '/employee/history', label: '打刻履歴', icon: '', section: '打刻' },
+  
+  // 個人情報
+  { href: '/employee/mypage', label: 'マイページ', icon: '', section: '個人情報' },
+  
+  // シフト・申請
+  { href: '/employee/shifts', label: 'シフト確認', icon: '', section: 'シフト・申請' },
+  { href: '/employee/applications', label: '申請一覧', icon: '', section: 'シフト・申請' },
+  
+  // 通知
+  { href: '/employee/notifications', label: '通知', icon: '', section: '通知' },
 ]
 
 interface Company {
@@ -121,7 +140,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
     const storeSwitchItem: MenuItem = {
       href: '/super-admin/select-company',
       label: '店舗切り替え',
-      icon: ''
+      icon: '',
+      section: 'システム'
     }
     menuItems = [storeSwitchItem, ...menuItems]
   }
@@ -187,25 +207,52 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
 
       {/* メニュー */}
       <nav className="flex-1 p-4 overflow-y-auto">
-        <ul className="space-y-2">
-          {menuItems.map((item) => {
-            const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  onClick={isHamburgerMode ? onClose : undefined}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-                    isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                  }`}
-                >
-                  <span className="font-medium">{item.label}</span>
-                </Link>
+        <ul className="space-y-4">
+          {(() => {
+            // セクションごとにグループ化
+            const sections: { [key: string]: MenuItem[] } = {}
+            let currentSection = ''
+            
+            menuItems.forEach((item) => {
+              const section = item.section || 'その他'
+              if (!sections[section]) {
+                sections[section] = []
+              }
+              sections[section].push(item)
+            })
+            
+            // セクションごとにレンダリング
+            return Object.entries(sections).map(([sectionName, items]) => (
+              <li key={sectionName}>
+                {/* セクション見出し（最初のセクション以外に表示） */}
+                {sectionName !== 'その他' && (
+                  <div className="text-xs text-gray-400 uppercase tracking-wider mb-2 px-2">
+                    {sectionName}
+                  </div>
+                )}
+                <ul className="space-y-1">
+                  {items.map((item) => {
+                    const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          onClick={isHamburgerMode ? onClose : undefined}
+                          className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${
+                            isActive
+                              ? 'bg-blue-600 text-white'
+                              : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                          }`}
+                        >
+                          <span className="font-medium text-sm">{item.label}</span>
+                        </Link>
+                      </li>
+                    )
+                  })}
+                </ul>
               </li>
-            )
-          })}
+            ))
+          })()}
         </ul>
       </nav>
 
