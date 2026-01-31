@@ -56,6 +56,7 @@ export default function AdminReportsPage() {
   const [salesVisitReports, setSalesVisitReports] = useState<SalesVisitReport[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(false)
+  const [enableSalesVisit, setEnableSalesVisit] = useState(true)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7)
@@ -101,10 +102,25 @@ export default function AdminReportsPage() {
       
       if (isAdmin || (isSuperAdmin && session?.user.selectedCompanyId)) {
         fetchEmployees()
+        fetchSettings()
         fetchReports()
       }
     }
   }, [status, session])
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch('/api/settings/display')
+      const data = await response.json()
+      setEnableSalesVisit(data.enableSalesVisit ?? true)
+      // 営業先入退店機能が無効の場合は、入退店記録レポートタブが選択されていたら打刻レポートに戻す
+      if (!data.enableSalesVisit && reportType === 'sales-visit') {
+        setReportType('attendance')
+      }
+    } catch (err) {
+      console.error('Failed to fetch settings:', err)
+    }
+  }
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -115,12 +131,12 @@ export default function AdminReportsPage() {
       if (isAdmin || (isSuperAdmin && session?.user.selectedCompanyId)) {
         if (reportType === 'attendance') {
           fetchReports()
-        } else {
+        } else if (enableSalesVisit) {
           fetchSalesVisitReports()
         }
       }
     }
-  }, [selectedEmployeeId, selectedMonth, startDate, endDate, reportType])
+  }, [selectedEmployeeId, selectedMonth, startDate, endDate, reportType, enableSalesVisit])
 
   const fetchEmployees = async () => {
     try {
@@ -541,36 +557,38 @@ export default function AdminReportsPage() {
     <div className="p-4">
       <div className="max-w-7xl mx-auto">
         {/* タブ */}
-        <div className="mb-6 no-print">
-          <div className="flex border-b border-gray-200">
-            <button
-              onClick={() => {
-                setReportType('attendance')
-                setSelectedEmployeeForTimesheet(null)
-              }}
-              className={`px-6 py-3 font-medium text-sm ${
-                reportType === 'attendance'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              打刻レポート
-            </button>
-            <button
-              onClick={() => {
-                setReportType('sales-visit')
-                setSelectedEmployeeForTimesheet(null)
-              }}
-              className={`px-6 py-3 font-medium text-sm ${
-                reportType === 'sales-visit'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              入退店記録レポート
-            </button>
+        {enableSalesVisit && (
+          <div className="mb-6 no-print">
+            <div className="flex border-b border-gray-200">
+              <button
+                onClick={() => {
+                  setReportType('attendance')
+                  setSelectedEmployeeForTimesheet(null)
+                }}
+                className={`px-6 py-3 font-medium text-sm ${
+                  reportType === 'attendance'
+                    ? 'border-b-2 border-blue-500 text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                打刻レポート
+              </button>
+              <button
+                onClick={() => {
+                  setReportType('sales-visit')
+                  setSelectedEmployeeForTimesheet(null)
+                }}
+                className={`px-6 py-3 font-medium text-sm ${
+                  reportType === 'sales-visit'
+                    ? 'border-b-2 border-blue-500 text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                入退店記録レポート
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex justify-end gap-2 mb-6 no-print">
           {((reportType === 'attendance' && reports.length > 0) || 
