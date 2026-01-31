@@ -194,47 +194,28 @@ export default function SalesVisitPage() {
   const formatTime = (time: string | Date | null) => {
     if (!time) return '未記録'
     
-    let date: Date | null = null
-    
-    // Dateオブジェクトの場合
+    // Date型の場合は時刻部分を抽出
     if (time instanceof Date) {
-      date = time
+      const hours = time.getHours().toString().padStart(2, '0')
+      const minutes = time.getMinutes().toString().padStart(2, '0')
+      return `${hours}:${minutes}`
     }
+    
     // 文字列の場合
-    else if (typeof time === 'string') {
-      // ISO形式の文字列の場合（例: "1970-01-01T13:20:00.000Z"）
-      if (time.includes('T') || time.includes('Z')) {
-        try {
-          date = new Date(time)
-        } catch {
-          // パースに失敗した場合は下の処理に進む
+    if (typeof time === 'string') {
+      // ISO形式の日時文字列の場合
+      if (time.includes('T') || time.includes(' ')) {
+        const date = new Date(time)
+        if (!isNaN(date.getTime())) {
+          const hours = date.getHours().toString().padStart(2, '0')
+          const minutes = date.getMinutes().toString().padStart(2, '0')
+          return `${hours}:${minutes}`
         }
       }
-      // HH:mm:ss形式またはHH:mm形式の場合（時刻のみの文字列）
-      else if (time.includes(':')) {
-        // 時刻のみの文字列はそのまま返す（既にローカル時刻として扱われている）
+      // HH:MM:SS形式またはHH:mm形式の場合（時刻のみの文字列）
+      if (time.includes(':')) {
         return time.slice(0, 5) // HH:mmのみ返す
       }
-      else {
-        return time
-      }
-    }
-    
-    // Dateオブジェクトを処理
-    if (date) {
-      // 無効なDateの場合は未記録を返す
-      if (isNaN(date.getTime())) {
-        return '未記録'
-      }
-      
-      // 日本時間（JST）に変換して表示
-      // UTC時刻をJSTに変換（UTC+9時間）
-      const jstDate = new Date(date.getTime() + (9 * 60 * 60 * 1000))
-      
-      // HH:mm形式で返す
-      const hours = String(jstDate.getUTCHours()).padStart(2, '0')
-      const minutes = String(jstDate.getUTCMinutes()).padStart(2, '0')
-      return `${hours}:${minutes}`
     }
     
     return '未記録'
