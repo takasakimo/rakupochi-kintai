@@ -14,6 +14,7 @@ interface Employee {
 interface SalesVisit {
   id: number
   companyName: string
+  contactPersonName: string | null
   purpose: string
   entryTime: string | Date | null
   exitTime: string | Date | null
@@ -49,6 +50,7 @@ export default function AdminSalesVisitPage() {
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0])
   const [entryTime, setEntryTime] = useState('')
   const [companyName, setCompanyName] = useState('')
+  const [contactPersonName, setContactPersonName] = useState('')
   const [purpose, setPurpose] = useState('商談')
   
   // 退店フォームの状態
@@ -173,6 +175,7 @@ export default function AdminSalesVisitPage() {
           time: entryTime,
           date: entryDate,
           companyName: companyName.trim(),
+          contactPersonName: contactPersonName.trim() || null,
           purpose,
           location,
         }),
@@ -485,6 +488,19 @@ export default function AdminSalesVisitPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  取引先担当者名
+                </label>
+                <input
+                  type="text"
+                  value={contactPersonName}
+                  onChange={(e) => setContactPersonName(e.target.value)}
+                  placeholder="例: 山田太郎"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   目的 <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -513,6 +529,7 @@ export default function AdminSalesVisitPage() {
                   setShowEntryForm(false)
                   setEntryEmployeeId('')
                   setCompanyName('')
+                  setContactPersonName('')
                   setPurpose('商談')
                   setEntryTime('')
                   setEntryDate(new Date().toISOString().split('T')[0])
@@ -549,6 +566,11 @@ export default function AdminSalesVisitPage() {
                       <div className="font-semibold text-lg text-gray-900">
                         {visit.companyName}
                       </div>
+                      {visit.contactPersonName && (
+                        <div className="text-sm text-gray-600 mt-1">
+                          担当者: {visit.contactPersonName}
+                        </div>
+                      )}
                       <div className="text-sm text-gray-600 mt-1">
                         {visit.employee.name} ({visit.employee.employeeNumber})
                         {visit.employee.department && ` - ${visit.employee.department}`}
