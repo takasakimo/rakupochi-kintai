@@ -378,8 +378,8 @@ export default function HistoryPage() {
       const breakMinutes = calculateBreakMinutes(attendance)
       const netWorkMinutes = Math.max(0, totalWorkMinutes - breakMinutes)
       
-      // 企業設定を取得
-      const allowPreOvertime = companySettings?.allowPreOvertime ?? false
+      // 企業設定を取得（前残業を認める設定、デフォルトはfalse）
+      const allowPreOvertime = companySettings?.allowPreOvertime === true
       
       // 標準始業時刻・終業時刻を取得
       const defaultWorkStart = new Date('2000-01-01T09:00:00')

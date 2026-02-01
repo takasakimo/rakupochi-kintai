@@ -175,7 +175,8 @@ export async function GET(request: NextRequest) {
 
     const overtimeThreshold40 = companySettings?.overtimeThreshold40 || 40
     const overtimeThreshold60 = companySettings?.overtimeThreshold60 || 60
-    const allowPreOvertime = (companySettings as any)?.allowPreOvertime ?? false
+    // 前残業を認める設定を取得（デフォルトはfalse）
+    const allowPreOvertime = companySettings?.allowPreOvertime === true
 
     // 標準就業時間を取得（デフォルト: 9:00-18:00）
     const defaultWorkStart = new Date('2000-01-01T09:00:00')
