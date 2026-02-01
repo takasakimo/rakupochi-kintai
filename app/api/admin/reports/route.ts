@@ -479,19 +479,13 @@ export async function GET(request: NextRequest) {
           // 前残業を認めない場合：シフト開始時刻より前の時間は残業としてカウントしない
           // シフト終了時刻より後の時間のみを残業としてカウント
           
-          // shiftEndTimeForCalcから時刻を取得（24時間加算後の値も考慮）
+          // shiftEndTimeForCalcから時刻を取得
           const shiftEndTimeHours = shiftEndTimeForCalc.getHours()
           const shiftEndTimeMinutes = shiftEndTimeForCalc.getMinutes()
           
           // shiftEndTimeForCalcをclockOutTimeと同じ日付基準で作成
-          // 日付跨ぎがない場合、clockInTimeとclockOutTimeは同じ日付なので、shiftEndTimeForCalcも同じ日付基準で作成
+          // シフトが翌日にまたがる場合でも、実際の勤務は日付跨ぎしていないので、clockOutTimeと同じ日付基準で作成
           let shiftEndTimeForPostCalc = new Date(clockOutYear, clockOutMonth, clockOutDate, shiftEndTimeHours, shiftEndTimeMinutes)
-          
-          // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
-          const shiftStartTimeForPostCalc = new Date(clockOutYear, clockOutMonth, clockOutDate, shiftStartHours, shiftStartMinutes)
-          if (shiftEndTimeForPostCalc.getTime() < shiftStartTimeForPostCalc.getTime()) {
-            shiftEndTimeForPostCalc = new Date(shiftEndTimeForPostCalc.getTime() + 24 * 60 * 60 * 1000)
-          }
           
           // シフト開始時刻より前の時間を計算（clockInTimeと同じ日付基準で比較）
           const preWorkMinutes = Math.max(0, Math.floor((shiftStartTimeForCalc.getTime() - clockInTime.getTime()) / (1000 * 60)))

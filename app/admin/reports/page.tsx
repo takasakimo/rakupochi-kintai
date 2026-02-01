@@ -1762,7 +1762,7 @@ export default function AdminReportsPage() {
                     let workStartTimeForCalc = new Date(inTimeYear, inTimeMonth, inTimeDate, workStartHours, workStartMinutes)
                     let workEndTimeForCalc = new Date(inTimeYear, inTimeMonth, inTimeDate, workEndHours, workEndMinutes)
                     
-                    // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
+                    // シフト終了時刻が開始時刻より前の場合は翌日にまたがるシフトとして1日加算
                     if (workEndTimeForCalc.getTime() < workStartTimeForCalc.getTime()) {
                       workEndTimeForCalc = new Date(workEndTimeForCalc.getTime() + 24 * 60 * 60 * 1000)
                     }
@@ -1782,19 +1782,13 @@ export default function AdminReportsPage() {
                       const outTimeMonth = outTime.getMonth()
                       const outTimeYear = outTime.getFullYear()
                       
-                      // workEndTimeForCalcから時刻を取得（24時間加算後の値も考慮）
+                      // workEndTimeForCalcから時刻を取得
                       const workEndTimeForCalcHours = workEndTimeForCalc.getHours()
                       const workEndTimeForCalcMinutes = workEndTimeForCalc.getMinutes()
                       
                       // workEndTimeForCalcをoutTimeと同じ日付基準で作成
-                      // 日付跨ぎがない場合、inTimeとoutTimeは同じ日付なので、workEndTimeForCalcも同じ日付基準で作成
+                      // シフトが翌日にまたがる場合でも、実際の勤務は日付跨ぎしていないので、outTimeと同じ日付基準で作成
                       let workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndTimeForCalcHours, workEndTimeForCalcMinutes)
-                      
-                      // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
-                      const workStartTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workStartHours, workStartMinutes)
-                      if (workEndTimeForPostCalc.getTime() < workStartTimeForPostCalc.getTime()) {
-                        workEndTimeForPostCalc = new Date(workEndTimeForPostCalc.getTime() + 24 * 60 * 60 * 1000)
-                      }
                       
                       // シフト開始時刻より前の時間を計算（inTimeと同じ日付基準で比較）
                       const preWorkMinutes = Math.max(0, Math.floor((workStartTimeForCalc.getTime() - inTime.getTime()) / (1000 * 60)))
