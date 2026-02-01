@@ -1387,35 +1387,22 @@ export default function AdminReportsPage() {
                         workEndTime = new Date(workEndTime.getTime() + 24 * 60 * 60 * 1000)
                       }
                       
-                      // シフト勤務時間を計算（元の日付基準で計算）
+                      // シフト勤務時間を計算
                       const shiftBreakMinutes = shift?.breakMinutes || companySettings?.standardBreakMinutes || 60
-                      // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
-                      let calcWorkEndTime = workEndTime
-                      if (calcWorkEndTime.getTime() < workStartTime.getTime()) {
-                        calcWorkEndTime = new Date(calcWorkEndTime.getTime() + 24 * 60 * 60 * 1000)
-                      }
                       const shiftWorkMinutes = Math.max(0, Math.floor(
-                        (calcWorkEndTime.getTime() - workStartTime.getTime()) / (1000 * 60)
+                        (workEndTime.getTime() - workStartTime.getTime()) / (1000 * 60)
                       ) - shiftBreakMinutes)
                       
                       // 残業時間計算用に、inTimeとoutTimeの日付基準に合わせる
-                      const inTimeDate = inTime.getDate()
-                      const inTimeMonth = inTime.getMonth()
-                      const inTimeYear = inTime.getFullYear()
                       const outTimeDate = outTime.getDate()
                       const outTimeMonth = outTime.getMonth()
                       const outTimeYear = outTime.getFullYear()
                       
-                      const workStartHours = workStartTime.getHours()
-                      const workStartMins = workStartTime.getMinutes()
-                      const workEndHours = workEndTime.getHours()
-                      const workEndMins = workEndTime.getMinutes()
-                      
-                      // preWorkMinutes計算用：inTimeと同じ日付基準
-                      const workStartTimeForPreCalc = new Date(inTimeYear, inTimeMonth, inTimeDate, workStartHours, workStartMins)
+                      // preWorkMinutes計算用：inTimeと同じ日付基準（既にworkStartTimeはinTimeと同じ日付基準）
+                      const workStartTimeForPreCalc = workStartTime
                       
                       // postWorkMinutes計算用：outTimeと同じ日付基準
-                      let workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndHours, workEndMins)
+                      let workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndHours, workEndMinutes)
                       
                       // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
                       // ただし、outTimeが翌日でない場合は、workStartTimeForPreCalcと比較
