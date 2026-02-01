@@ -1368,9 +1368,36 @@ export default function AdminReportsPage() {
                         }
                       }
                       
+                      // inTimeと同じ日付基準にworkStartTimeとworkEndTimeを合わせる
+                      const inTimeDate = inTime.getDate()
+                      const inTimeMonth = inTime.getMonth()
+                      const inTimeYear = inTime.getFullYear()
+                      
+                      // workStartTimeとworkEndTimeをinTimeと同じ日付で作成
+                      const workStartHours = workStartTime.getHours()
+                      const workStartMinutes = workStartTime.getMinutes()
+                      const workEndHours = workEndTime.getHours()
+                      const workEndMinutes = workEndTime.getMinutes()
+                      
+                      workStartTime = new Date(inTimeYear, inTimeMonth, inTimeDate, workStartHours, workStartMinutes)
+                      workEndTime = new Date(inTimeYear, inTimeMonth, inTimeDate, workEndHours, workEndMinutes)
+                      
                       // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
                       if (workEndTime.getTime() < workStartTime.getTime()) {
                         workEndTime = new Date(workEndTime.getTime() + 24 * 60 * 60 * 1000)
+                      }
+                      
+                      // outTimeが翌日の場合、workEndTimeも翌日に合わせる
+                      if (outTime.getDate() !== inTime.getDate()) {
+                        // outTimeが翌日の場合
+                        const dayDiff = outTime.getDate() - inTime.getDate()
+                        if (dayDiff > 0) {
+                          workEndTime = new Date(workEndTime.getTime() + dayDiff * 24 * 60 * 60 * 1000)
+                          // workStartTimeも同じ日数だけ加算（シフトが翌日にまたがる場合）
+                          if (workEndTime.getTime() < workStartTime.getTime()) {
+                            workStartTime = new Date(workStartTime.getTime() + dayDiff * 24 * 60 * 60 * 1000)
+                          }
+                        }
                       }
                       
                       // シフト勤務時間を計算
