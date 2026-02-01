@@ -479,12 +479,24 @@ export async function GET(request: NextRequest) {
           // 前残業を認めない場合：シフト開始時刻より前の時間は残業としてカウントしない
           // シフト終了時刻より後の時間のみを残業としてカウント
           
-          // shiftEndTimeForCalcから時刻を取得
-          const shiftEndTimeHours = shiftEndTimeForCalc.getHours()
-          const shiftEndTimeMinutes = shiftEndTimeForCalc.getMinutes()
+          // shiftEndTimeForCalcの日付をclockOutTimeの日付に調整
+          // shiftEndTimeForCalcは既にclockInTimeの日付基準で作成されているが、
+          // postWorkMinutesを計算する際はclockOutTimeの日付基準で比較する必要がある
           
-          // shiftEndTimeForCalcをclockOutTimeと同じ日付基準で作成
-          const shiftEndTimeForPostCalc = new Date(clockOutYear, clockOutMonth, clockOutDate, shiftEndTimeHours, shiftEndTimeMinutes)
+          // shiftEndTimeForCalcから時刻を取得
+          const shiftEndTimeForCalcHours = shiftEndTimeForCalc.getHours()
+          const shiftEndTimeForCalcMinutes = shiftEndTimeForCalc.getMinutes()
+          
+          // shiftEndTimeForCalcをclockOutTimeの日付基準で作成
+          let shiftEndTimeForPostCalc = new Date(clockOutYear, clockOutMonth, clockOutDate, shiftEndTimeForCalcHours, shiftEndTimeForCalcMinutes)
+          
+          // shiftEndTimeForCalcが既に日をまたぐシフトとして1日加算されている場合、
+          // shiftEndTimeForPostCalcもclockOutTime基準で1日加算する必要がある
+          // shiftEndTimeとshiftStartTimeを比較して、シフトが日をまたぐかどうかを判断
+          if (shiftEndTime.getTime() < shiftStartTime.getTime()) {
+            // シフトが日をまたぐ場合、shiftEndTimeForPostCalcをclockOutTime基準で翌日に設定
+            shiftEndTimeForPostCalc = new Date(clockOutYear, clockOutMonth, clockOutDate + 1, shiftEndTimeForCalcHours, shiftEndTimeForCalcMinutes)
+          }
           
           // シフト開始時刻より前の時間を計算（clockInTimeと同じ日付基準で比較）
           const preWorkMinutes = Math.max(0, Math.floor((shiftStartTimeForCalc.getTime() - clockInTime.getTime()) / (1000 * 60)))

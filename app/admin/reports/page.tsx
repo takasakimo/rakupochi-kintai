@@ -1769,7 +1769,9 @@ export default function AdminReportsPage() {
                       // 前残業を認めない場合：シフト開始時刻より前の時間は残業としてカウントしない
                       // シフト終了時刻より後の時間のみを残業としてカウント
                       
-                      // workEndTimeForCalcをoutTimeと同じ日付基準で作成
+                      // workEndTimeForCalcの日付をoutTimeの日付に調整
+                      // workEndTimeForCalcは既にinTimeの日付基準で作成されているが、
+                      // postWorkMinutesを計算する際はoutTimeの日付基準で比較する必要がある
                       const outTimeDate = outTime.getDate()
                       const outTimeMonth = outTime.getMonth()
                       const outTimeYear = outTime.getFullYear()
@@ -1778,8 +1780,16 @@ export default function AdminReportsPage() {
                       const workEndTimeForCalcHours = workEndTimeForCalc.getHours()
                       const workEndTimeForCalcMinutes = workEndTimeForCalc.getMinutes()
                       
-                      // workEndTimeForCalcをoutTimeと同じ日付基準で作成
-                      const workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndTimeForCalcHours, workEndTimeForCalcMinutes)
+                      // workEndTimeForCalcをoutTimeの日付基準で作成
+                      let workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndTimeForCalcHours, workEndTimeForCalcMinutes)
+                      
+                      // workEndTimeForCalcが既に日をまたぐシフトとして1日加算されている場合、
+                      // workEndTimeForPostCalcもoutTime基準で1日加算する必要がある
+                      // workEndTimeとworkStartTimeを比較して、シフトが日をまたぐかどうかを判断
+                      if (workEndTime.getTime() < workStartTime.getTime()) {
+                        // シフトが日をまたぐ場合、workEndTimeForPostCalcをoutTime基準で翌日に設定
+                        workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate + 1, workEndTimeForCalcHours, workEndTimeForCalcMinutes)
+                      }
                       
                       // シフト開始時刻より前の時間を計算（inTimeと同じ日付基準で比較）
                       const preWorkMinutes = Math.max(0, Math.floor((workStartTimeForCalc.getTime() - inTime.getTime()) / (1000 * 60)))
