@@ -1387,43 +1387,55 @@ export default function AdminReportsPage() {
                         workEndTime = new Date(workEndTime.getTime() + 24 * 60 * 60 * 1000)
                       }
                       
-                      // outTimeが翌日の場合、workEndTimeも翌日に合わせる
-                      // ただし、シフト勤務時間の計算は元の日付基準で行う
-                      const originalWorkStartTime = new Date(workStartTime)
-                      const originalWorkEndTime = new Date(workEndTime)
-                      
-                      if (outTime.getDate() !== inTime.getDate()) {
-                        // outTimeが翌日の場合
-                        const dayDiff = outTime.getDate() - inTime.getDate()
-                        if (dayDiff > 0) {
-                          workEndTime = new Date(workEndTime.getTime() + dayDiff * 24 * 60 * 60 * 1000)
-                          // workStartTimeも同じ日数だけ加算（シフトが翌日にまたがる場合）
-                          if (workEndTime.getTime() < workStartTime.getTime()) {
-                            workStartTime = new Date(workStartTime.getTime() + dayDiff * 24 * 60 * 60 * 1000)
-                          }
-                        }
-                      }
-                      
                       // シフト勤務時間を計算（元の日付基準で計算）
                       const shiftBreakMinutes = shift?.breakMinutes || companySettings?.standardBreakMinutes || 60
                       // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
-                      let calcWorkEndTime = originalWorkEndTime
-                      if (calcWorkEndTime.getTime() < originalWorkStartTime.getTime()) {
+                      let calcWorkEndTime = workEndTime
+                      if (calcWorkEndTime.getTime() < workStartTime.getTime()) {
                         calcWorkEndTime = new Date(calcWorkEndTime.getTime() + 24 * 60 * 60 * 1000)
                       }
                       const shiftWorkMinutes = Math.max(0, Math.floor(
-                        (calcWorkEndTime.getTime() - originalWorkStartTime.getTime()) / (1000 * 60)
+                        (calcWorkEndTime.getTime() - workStartTime.getTime()) / (1000 * 60)
                       ) - shiftBreakMinutes)
+                      
+                      // 残業時間計算用に、inTimeとoutTimeの日付基準に合わせる
+                      const inTimeDate = inTime.getDate()
+                      const inTimeMonth = inTime.getMonth()
+                      const inTimeYear = inTime.getFullYear()
+                      const outTimeDate = outTime.getDate()
+                      const outTimeMonth = outTime.getMonth()
+                      const outTimeYear = outTime.getFullYear()
+                      
+                      const workStartHours = workStartTime.getHours()
+                      const workStartMins = workStartTime.getMinutes()
+                      const workEndHours = workEndTime.getHours()
+                      const workEndMins = workEndTime.getMinutes()
+                      
+                      // preWorkMinutes計算用：inTimeと同じ日付基準
+                      const workStartTimeForPreCalc = new Date(inTimeYear, inTimeMonth, inTimeDate, workStartHours, workStartMins)
+                      
+                      // postWorkMinutes計算用：outTimeと同じ日付基準
+                      let workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndHours, workEndMins)
+                      
+                      // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
+                      // ただし、outTimeが翌日でない場合は、workStartTimeForPreCalcと比較
+                      if (outTimeDate === inTimeDate) {
+                        // 同じ日付の場合
+                        if (workEndTimeForPostCalc.getTime() < workStartTimeForPreCalc.getTime()) {
+                          workEndTimeForPostCalc = new Date(workEndTimeForPostCalc.getTime() + 24 * 60 * 60 * 1000)
+                        }
+                      }
+                      // outTimeが翌日の場合は、既にoutTimeと同じ日付基準なのでそのまま使用
                       
                       if (!allowPreOvertime) {
                         // 前残業を認めない場合：シフト開始時刻より前の時間は残業としてカウントしない
                         // シフト終了時刻より後の時間のみを残業としてカウント
                         
-                        // シフト開始時刻より前の時間を計算
-                        const preWorkMinutes = Math.max(0, Math.floor((workStartTime.getTime() - inTime.getTime()) / (1000 * 60)))
+                        // シフト開始時刻より前の時間を計算（inTimeと同じ日付基準で比較）
+                        const preWorkMinutes = Math.max(0, Math.floor((workStartTimeForPreCalc.getTime() - inTime.getTime()) / (1000 * 60)))
                         
-                        // シフト終了時刻より後の時間を計算
-                        const postWorkMinutes = Math.max(0, Math.floor((outTime.getTime() - workEndTime.getTime()) / (1000 * 60)))
+                        // シフト終了時刻より後の時間を計算（outTimeと同じ日付基準で比較）
+                        const postWorkMinutes = Math.max(0, Math.floor((outTime.getTime() - workEndTimeForPostCalc.getTime()) / (1000 * 60)))
                         
                         // 実働時間から前残業分を除外
                         const adjustedNetWorkMinutes = Math.max(0, netWorkMinutes - preWorkMinutes)
