@@ -256,12 +256,25 @@ export async function GET(request: NextRequest) {
     // シフト情報を日付と従業員IDでマップ
     const shiftMap: Map<string, any> = new Map()
     shifts.forEach((shift) => {
-      const dateStr = shift.date.toISOString().split('T')[0]
+      // 日付を文字列に変換（タイムゾーンの問題を回避）
+      let dateStr: string
+      if (shift.date instanceof Date) {
+        // UTC日付として扱う場合
+        const year = shift.date.getUTCFullYear()
+        const month = String(shift.date.getUTCMonth() + 1).padStart(2, '0')
+        const day = String(shift.date.getUTCDate()).padStart(2, '0')
+        dateStr = `${year}-${month}-${day}`
+      } else {
+        // 文字列の場合
+        dateStr = shift.date.toISOString().split('T')[0]
+      }
       const key = `${shift.employeeId}_${dateStr}`
       shiftMap.set(key, shift)
+      console.log('[Reports] Added shift to map:', key, 'startTime:', shift.startTime, 'endTime:', shift.endTime)
     })
     
     console.log('[Reports] Shift map size:', shiftMap.size)
+    console.log('[Reports] Shift map keys:', Array.from(shiftMap.keys()))
 
     attendances.forEach((attendance) => {
       if (!attendance.clockIn || !attendance.clockOut) {
