@@ -138,29 +138,6 @@ export default function AdminReportsPage() {
     }
   }
 
-  useEffect(() => {
-    if (status === 'authenticated') {
-      const isAdmin = session?.user.role === 'admin'
-      const isSuperAdmin = session?.user.role === 'super_admin' || 
-                          session?.user.email === 'superadmin@rakupochi.com'
-      
-      if (isAdmin || (isSuperAdmin && session?.user.selectedCompanyId)) {
-        if (reportType === 'attendance') {
-          fetchReports()
-        } else if (enableSalesVisit) {
-          fetchSalesVisitReports()
-        }
-      }
-    }
-  }, [selectedEmployeeId, selectedMonth, startDate, endDate, reportType, enableSalesVisit])
-  
-  // 選択された従業員が変更されたときにシフト情報を取得
-  useEffect(() => {
-    if (selectedEmployeeForTimesheet && period) {
-      fetchShifts(period, selectedEmployeeForTimesheet.toString())
-    }
-  }, [selectedEmployeeForTimesheet, period, fetchShifts])
-
   const fetchEmployees = async () => {
     try {
       const response = await fetch('/api/admin/employees')
@@ -275,6 +252,29 @@ export default function AdminReportsPage() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      const isAdmin = session?.user.role === 'admin'
+      const isSuperAdmin = session?.user.role === 'super_admin' || 
+                          session?.user.email === 'superadmin@rakupochi.com'
+      
+      if (isAdmin || (isSuperAdmin && session?.user.selectedCompanyId)) {
+        if (reportType === 'attendance') {
+          fetchReports()
+        } else if (enableSalesVisit) {
+          fetchSalesVisitReports()
+        }
+      }
+    }
+  }, [selectedEmployeeId, selectedMonth, startDate, endDate, reportType, enableSalesVisit])
+  
+  // 選択された従業員が変更されたときにシフト情報を取得
+  useEffect(() => {
+    if (selectedEmployeeForTimesheet && period) {
+      fetchShifts(period, selectedEmployeeForTimesheet.toString())
+    }
+  }, [selectedEmployeeForTimesheet, period, fetchShifts])
 
   const formatTime = (hours: number | null | undefined, minutes: number | null | undefined) => {
     const h = hours ?? 0
