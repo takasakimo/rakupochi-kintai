@@ -1256,95 +1256,103 @@ export default function AdminReportsPage() {
                     // シフト情報を取得
                     const shift = shifts[dateStr]
                     
-                    // 標準始業時刻・終業時刻を取得（デフォルト値）
-                    const defaultWorkStart = new Date('2000-01-01T09:00:00')
-                    const defaultWorkEnd = new Date('2000-01-01T18:00:00')
-                    
-                    let workStartTime = defaultWorkStart
-                    let workEndTime = defaultWorkEnd
-                    
-                    // シフト情報があればシフト時間を使用、なければ標準時間を使用
-                    if (shift?.startTime) {
-                      try {
-                        // shift.startTimeはstring型として扱う
-                        const [hours, minutes] = (shift.startTime as string).split(':').map(Number)
-                        workStartTime = new Date(2000, 0, 1, hours, minutes)
-                      } catch (e) {
-                        console.error('Error parsing shift startTime:', e)
-                      }
-                    } else if (companySettings?.workStartTime) {
-                      try {
-                        if (companySettings.workStartTime instanceof Date) {
-                          const hours = companySettings.workStartTime.getHours()
-                          const minutes = companySettings.workStartTime.getMinutes()
-                          workStartTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
-                        } else if (typeof companySettings.workStartTime === 'string') {
-                          workStartTime = new Date(`2000-01-01T${companySettings.workStartTime}`)
-                        }
-                      } catch (e) {
-                        console.error('Error parsing workStartTime:', e)
-                      }
-                    }
-                    
-                    if (shift?.endTime) {
-                      try {
-                        // shift.endTimeはstring型として扱う
-                        const [hours, minutes] = (shift.endTime as string).split(':').map(Number)
-                        workEndTime = new Date(2000, 0, 1, hours, minutes)
-                      } catch (e) {
-                        console.error('Error parsing shift endTime:', e)
-                      }
-                    } else if (companySettings?.workEndTime) {
-                      try {
-                        if (companySettings.workEndTime instanceof Date) {
-                          const hours = companySettings.workEndTime.getHours()
-                          const minutes = companySettings.workEndTime.getMinutes()
-                          workEndTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
-                        } else if (typeof companySettings.workEndTime === 'string') {
-                          workEndTime = new Date(`2000-01-01T${companySettings.workEndTime}`)
-                        }
-                      } catch (e) {
-                        console.error('Error parsing workEndTime:', e)
-                      }
-                    }
-                    
-                    // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
-                    if (workEndTime.getTime() < workStartTime.getTime()) {
-                      workEndTime = new Date(workEndTime.getTime() + 24 * 60 * 60 * 1000)
-                    }
-                    
-                    // シフト勤務時間を計算
-                    const shiftBreakMinutes = shift?.breakMinutes || companySettings?.standardBreakMinutes || 60
-                    const shiftWorkMinutes = Math.floor(
-                      (workEndTime.getTime() - workStartTime.getTime()) / (1000 * 60)
-                    ) - shiftBreakMinutes
-                    
                     // 基本時間と残業時間を計算
                     let basicMinutes: number
                     let overtimeMinutes: number
                     
-                    if (!allowPreOvertime) {
-                      // 前残業を認めない場合：シフト開始時刻より前の時間は残業としてカウントしない
-                      // シフト終了時刻より後の時間のみを残業としてカウント
+                    // シフトが登録されている場合のみシフト時間を使用
+                    if (shift?.startTime && shift?.endTime) {
+                      // 標準始業時刻・終業時刻を取得（デフォルト値）
+                      const defaultWorkStart = new Date('2000-01-01T09:00:00')
+                      const defaultWorkEnd = new Date('2000-01-01T18:00:00')
                       
-                      // シフト開始時刻より前の時間を計算
-                      const preWorkMinutes = Math.max(0, Math.floor((workStartTime.getTime() - inTime.getTime()) / (1000 * 60)))
+                      let workStartTime = defaultWorkStart
+                      let workEndTime = defaultWorkEnd
                       
-                      // シフト終了時刻より後の時間を計算
-                      const postWorkMinutes = Math.max(0, Math.floor((outTime.getTime() - workEndTime.getTime()) / (1000 * 60)))
+                      // シフト情報があればシフト時間を使用、なければ企業設定の標準時間を使用
+                      if (shift.startTime) {
+                        try {
+                          // shift.startTimeはstring型として扱う
+                          const [hours, minutes] = (shift.startTime as string).split(':').map(Number)
+                          workStartTime = new Date(2000, 0, 1, hours, minutes)
+                        } catch (e) {
+                          console.error('Error parsing shift startTime:', e)
+                        }
+                      } else if (companySettings?.workStartTime) {
+                        try {
+                          if (companySettings.workStartTime instanceof Date) {
+                            const hours = companySettings.workStartTime.getHours()
+                            const minutes = companySettings.workStartTime.getMinutes()
+                            workStartTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
+                          } else if (typeof companySettings.workStartTime === 'string') {
+                            workStartTime = new Date(`2000-01-01T${companySettings.workStartTime}`)
+                          }
+                        } catch (e) {
+                          console.error('Error parsing workStartTime:', e)
+                        }
+                      }
                       
-                      // 実働時間から前残業分を除外
-                      const adjustedNetWorkMinutes = Math.max(0, netWorkMinutes - preWorkMinutes)
+                      if (shift.endTime) {
+                        try {
+                          // shift.endTimeはstring型として扱う
+                          const [hours, minutes] = (shift.endTime as string).split(':').map(Number)
+                          workEndTime = new Date(2000, 0, 1, hours, minutes)
+                        } catch (e) {
+                          console.error('Error parsing shift endTime:', e)
+                        }
+                      } else if (companySettings?.workEndTime) {
+                        try {
+                          if (companySettings.workEndTime instanceof Date) {
+                            const hours = companySettings.workEndTime.getHours()
+                            const minutes = companySettings.workEndTime.getMinutes()
+                            workEndTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
+                          } else if (typeof companySettings.workEndTime === 'string') {
+                            workEndTime = new Date(`2000-01-01T${companySettings.workEndTime}`)
+                          }
+                        } catch (e) {
+                          console.error('Error parsing workEndTime:', e)
+                        }
+                      }
                       
-                      // 基本時間はシフト勤務時間まで
-                      basicMinutes = Math.min(adjustedNetWorkMinutes, shiftWorkMinutes)
+                      // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
+                      if (workEndTime.getTime() < workStartTime.getTime()) {
+                        workEndTime = new Date(workEndTime.getTime() + 24 * 60 * 60 * 1000)
+                      }
                       
-                      // 残業時間はシフト終了時刻より後の時間のみ（前残業は含めない）
-                      overtimeMinutes = postWorkMinutes
+                      // シフト勤務時間を計算
+                      const shiftBreakMinutes = shift?.breakMinutes || companySettings?.standardBreakMinutes || 60
+                      const shiftWorkMinutes = Math.floor(
+                        (workEndTime.getTime() - workStartTime.getTime()) / (1000 * 60)
+                      ) - shiftBreakMinutes
+                      
+                      if (!allowPreOvertime) {
+                        // 前残業を認めない場合：シフト開始時刻より前の時間は残業としてカウントしない
+                        // シフト終了時刻より後の時間のみを残業としてカウント
+                        
+                        // シフト開始時刻より前の時間を計算
+                        const preWorkMinutes = Math.max(0, Math.floor((workStartTime.getTime() - inTime.getTime()) / (1000 * 60)))
+                        
+                        // シフト終了時刻より後の時間を計算
+                        const postWorkMinutes = Math.max(0, Math.floor((outTime.getTime() - workEndTime.getTime()) / (1000 * 60)))
+                        
+                        // 実働時間から前残業分を除外
+                        const adjustedNetWorkMinutes = Math.max(0, netWorkMinutes - preWorkMinutes)
+                        
+                        // 基本時間はシフト勤務時間まで
+                        basicMinutes = Math.min(adjustedNetWorkMinutes, shiftWorkMinutes)
+                        
+                        // 残業時間はシフト終了時刻より後の時間のみ（前残業は含めない）
+                        overtimeMinutes = postWorkMinutes
+                      } else {
+                        // 前残業を認める場合：従来通り、シフト勤務時間を超えた分が残業時間
+                        basicMinutes = Math.min(Math.max(0, netWorkMinutes), shiftWorkMinutes)
+                        overtimeMinutes = Math.max(0, netWorkMinutes - shiftWorkMinutes)
+                      }
                     } else {
-                      // 前残業を認める場合：従来通り、シフト勤務時間を超えた分が残業時間
-                      basicMinutes = Math.min(Math.max(0, netWorkMinutes), shiftWorkMinutes)
-                      overtimeMinutes = Math.max(0, netWorkMinutes - shiftWorkMinutes)
+                      // シフトが登録されていない場合：標準時間（8時間）を使用
+                      const standardWorkMinutes = 8 * 60 // 8時間
+                      basicMinutes = Math.min(Math.max(0, netWorkMinutes), standardWorkMinutes)
+                      overtimeMinutes = Math.max(0, netWorkMinutes - standardWorkMinutes)
                     }
 
                     const basicHours = Math.floor(basicMinutes / 60)
@@ -1586,95 +1594,103 @@ export default function AdminReportsPage() {
                   // 企業設定を取得（前残業を認める設定、デフォルトはfalse）
                   const allowPreOvertime = companySettings?.allowPreOvertime === true
                   
-                  // 標準始業時刻・終業時刻を取得（デフォルト値）
-                  const defaultWorkStart = new Date('2000-01-01T09:00:00')
-                  const defaultWorkEnd = new Date('2000-01-01T18:00:00')
-                  
-                  let workStartTime = defaultWorkStart
-                  let workEndTime = defaultWorkEnd
-                  
-                  // シフト情報があればシフト時間を使用、なければ標準時間を使用
-                  if (shift?.startTime) {
-                    try {
-                      // shift.startTimeはstring型として扱う
-                      const [hours, minutes] = (shift.startTime as string).split(':').map(Number)
-                      workStartTime = new Date(2000, 0, 1, hours, minutes)
-                    } catch (e) {
-                      console.error('Error parsing shift startTime:', e)
-                    }
-                  } else if (companySettings?.workStartTime) {
-                    try {
-                      if (companySettings.workStartTime instanceof Date) {
-                        const hours = companySettings.workStartTime.getHours()
-                        const minutes = companySettings.workStartTime.getMinutes()
-                        workStartTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
-                      } else if (typeof companySettings.workStartTime === 'string') {
-                        workStartTime = new Date(`2000-01-01T${companySettings.workStartTime}`)
-                      }
-                    } catch (e) {
-                      console.error('Error parsing workStartTime:', e)
-                    }
-                  }
-                  
-                  if (shift?.endTime) {
-                    try {
-                      // shift.endTimeはstring型として扱う
-                      const [hours, minutes] = (shift.endTime as string).split(':').map(Number)
-                      workEndTime = new Date(2000, 0, 1, hours, minutes)
-                    } catch (e) {
-                      console.error('Error parsing shift endTime:', e)
-                    }
-                  } else if (companySettings?.workEndTime) {
-                    try {
-                      if (companySettings.workEndTime instanceof Date) {
-                        const hours = companySettings.workEndTime.getHours()
-                        const minutes = companySettings.workEndTime.getMinutes()
-                        workEndTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
-                      } else if (typeof companySettings.workEndTime === 'string') {
-                        workEndTime = new Date(`2000-01-01T${companySettings.workEndTime}`)
-                      }
-                    } catch (e) {
-                      console.error('Error parsing workEndTime:', e)
-                    }
-                  }
-                  
-                  // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
-                  if (workEndTime.getTime() < workStartTime.getTime()) {
-                    workEndTime = new Date(workEndTime.getTime() + 24 * 60 * 60 * 1000)
-                  }
-                  
-                  // シフト勤務時間を計算
-                  const shiftBreakMinutes = shift?.breakMinutes || companySettings?.standardBreakMinutes || 60
-                  const shiftWorkMinutes = Math.floor(
-                    (workEndTime.getTime() - workStartTime.getTime()) / (1000 * 60)
-                  ) - shiftBreakMinutes
-                  
                   // 基本時間と残業時間を計算
                   let basicMinutes: number
                   let overtimeMinutes: number
                   
-                  if (!allowPreOvertime) {
-                    // 前残業を認めない場合：シフト開始時刻より前の時間は残業としてカウントしない
-                    // シフト終了時刻より後の時間のみを残業としてカウント
+                  // シフトが登録されている場合のみシフト時間を使用
+                  if (shift?.startTime && shift?.endTime) {
+                    // 標準始業時刻・終業時刻を取得（デフォルト値）
+                    const defaultWorkStart = new Date('2000-01-01T09:00:00')
+                    const defaultWorkEnd = new Date('2000-01-01T18:00:00')
                     
-                    // シフト開始時刻より前の時間を計算
-                    const preWorkMinutes = Math.max(0, Math.floor((workStartTime.getTime() - inTime.getTime()) / (1000 * 60)))
+                    let workStartTime = defaultWorkStart
+                    let workEndTime = defaultWorkEnd
                     
-                    // シフト終了時刻より後の時間を計算
-                    const postWorkMinutes = Math.max(0, Math.floor((outTime.getTime() - workEndTime.getTime()) / (1000 * 60)))
+                    // シフト情報があればシフト時間を使用、なければ企業設定の標準時間を使用
+                    if (shift.startTime) {
+                      try {
+                        // shift.startTimeはstring型として扱う
+                        const [hours, minutes] = (shift.startTime as string).split(':').map(Number)
+                        workStartTime = new Date(2000, 0, 1, hours, minutes)
+                      } catch (e) {
+                        console.error('Error parsing shift startTime:', e)
+                      }
+                    } else if (companySettings?.workStartTime) {
+                      try {
+                        if (companySettings.workStartTime instanceof Date) {
+                          const hours = companySettings.workStartTime.getHours()
+                          const minutes = companySettings.workStartTime.getMinutes()
+                          workStartTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
+                        } else if (typeof companySettings.workStartTime === 'string') {
+                          workStartTime = new Date(`2000-01-01T${companySettings.workStartTime}`)
+                        }
+                      } catch (e) {
+                        console.error('Error parsing workStartTime:', e)
+                      }
+                    }
                     
-                    // 実働時間から前残業分を除外
-                    const adjustedNetWorkMinutes = Math.max(0, netWorkMinutes - preWorkMinutes)
+                    if (shift.endTime) {
+                      try {
+                        // shift.endTimeはstring型として扱う
+                        const [hours, minutes] = (shift.endTime as string).split(':').map(Number)
+                        workEndTime = new Date(2000, 0, 1, hours, minutes)
+                      } catch (e) {
+                        console.error('Error parsing shift endTime:', e)
+                      }
+                    } else if (companySettings?.workEndTime) {
+                      try {
+                        if (companySettings.workEndTime instanceof Date) {
+                          const hours = companySettings.workEndTime.getHours()
+                          const minutes = companySettings.workEndTime.getMinutes()
+                          workEndTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
+                        } else if (typeof companySettings.workEndTime === 'string') {
+                          workEndTime = new Date(`2000-01-01T${companySettings.workEndTime}`)
+                        }
+                      } catch (e) {
+                        console.error('Error parsing workEndTime:', e)
+                      }
+                    }
                     
-                    // 基本時間はシフト勤務時間まで
-                    basicMinutes = Math.min(adjustedNetWorkMinutes, shiftWorkMinutes)
+                    // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
+                    if (workEndTime.getTime() < workStartTime.getTime()) {
+                      workEndTime = new Date(workEndTime.getTime() + 24 * 60 * 60 * 1000)
+                    }
                     
-                    // 残業時間はシフト終了時刻より後の時間のみ（前残業は含めない）
-                    overtimeMinutes = postWorkMinutes
+                    // シフト勤務時間を計算
+                    const shiftBreakMinutes = shift?.breakMinutes || companySettings?.standardBreakMinutes || 60
+                    const shiftWorkMinutes = Math.floor(
+                      (workEndTime.getTime() - workStartTime.getTime()) / (1000 * 60)
+                    ) - shiftBreakMinutes
+                    
+                    if (!allowPreOvertime) {
+                      // 前残業を認めない場合：シフト開始時刻より前の時間は残業としてカウントしない
+                      // シフト終了時刻より後の時間のみを残業としてカウント
+                      
+                      // シフト開始時刻より前の時間を計算
+                      const preWorkMinutes = Math.max(0, Math.floor((workStartTime.getTime() - inTime.getTime()) / (1000 * 60)))
+                      
+                      // シフト終了時刻より後の時間を計算
+                      const postWorkMinutes = Math.max(0, Math.floor((outTime.getTime() - workEndTime.getTime()) / (1000 * 60)))
+                      
+                      // 実働時間から前残業分を除外
+                      const adjustedNetWorkMinutes = Math.max(0, netWorkMinutes - preWorkMinutes)
+                      
+                      // 基本時間はシフト勤務時間まで
+                      basicMinutes = Math.min(adjustedNetWorkMinutes, shiftWorkMinutes)
+                      
+                      // 残業時間はシフト終了時刻より後の時間のみ（前残業は含めない）
+                      overtimeMinutes = postWorkMinutes
+                    } else {
+                      // 前残業を認める場合：従来通り、シフト勤務時間を超えた分が残業時間
+                      basicMinutes = Math.min(Math.max(0, netWorkMinutes), shiftWorkMinutes)
+                      overtimeMinutes = Math.max(0, netWorkMinutes - shiftWorkMinutes)
+                    }
                   } else {
-                    // 前残業を認める場合：従来通り、シフト勤務時間を超えた分が残業時間
-                    basicMinutes = Math.min(Math.max(0, netWorkMinutes), shiftWorkMinutes)
-                    overtimeMinutes = Math.max(0, netWorkMinutes - shiftWorkMinutes)
+                    // シフトが登録されていない場合：標準時間（8時間）を使用
+                    const standardWorkMinutes = 8 * 60 // 8時間
+                    basicMinutes = Math.min(Math.max(0, netWorkMinutes), standardWorkMinutes)
+                    overtimeMinutes = Math.max(0, netWorkMinutes - standardWorkMinutes)
                   }
 
                   const basicHours = Math.floor(basicMinutes / 60)
