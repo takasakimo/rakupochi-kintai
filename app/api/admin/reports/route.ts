@@ -363,6 +363,11 @@ export async function GET(request: NextRequest) {
       clockInTime = new Date(`2000-01-01T${String(inHours).padStart(2, '0')}:${String(inMinutes).padStart(2, '0')}:${String(inSeconds || 0).padStart(2, '0')}`)
       clockOutTime = new Date(`2000-01-01T${String(outHours).padStart(2, '0')}:${String(outMinutes).padStart(2, '0')}:${String(outSeconds || 0).padStart(2, '0')}`)
       
+      // 終了時刻が開始時刻より小さい場合は翌日とみなす
+      if (clockOutTime.getTime() < clockInTime.getTime()) {
+        clockOutTime = new Date(`2000-01-02T${String(outHours).padStart(2, '0')}:${String(outMinutes).padStart(2, '0')}:${String(outSeconds || 0).padStart(2, '0')}`)
+      }
+      
       // 総勤務時間を計算
       const diffMs = clockOutTime.getTime() - clockInTime.getTime()
       const totalWorkMinutes = Math.floor(diffMs / (1000 * 60))
@@ -442,26 +447,52 @@ export async function GET(request: NextRequest) {
           console.error('Error parsing shift endTime:', e)
         }
         
+        // clockInTimeとclockOutTimeの日付基準に合わせる
+        const clockInDate = clockInTime.getDate()
+        const clockInMonth = clockInTime.getMonth()
+        const clockInYear = clockInTime.getFullYear()
+        const clockOutDate = clockOutTime.getDate()
+        const clockOutMonth = clockOutTime.getMonth()
+        const clockOutYear = clockOutTime.getFullYear()
+        
+        // shiftStartTimeとshiftEndTimeをclockInTimeと同じ日付基準で作成
+        const shiftStartHours = shiftStartTime.getHours()
+        const shiftStartMinutes = shiftStartTime.getMinutes()
+        const shiftEndHours = shiftEndTime.getHours()
+        const shiftEndMinutes = shiftEndTime.getMinutes()
+        
+        let shiftStartTimeForCalc = new Date(clockInYear, clockInMonth, clockInDate, shiftStartHours, shiftStartMinutes)
+        let shiftEndTimeForCalc = new Date(clockInYear, clockInMonth, clockInDate, shiftEndHours, shiftEndMinutes)
+        
         // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
-        if (shiftEndTime.getTime() < shiftStartTime.getTime()) {
-          shiftEndTime = new Date(shiftEndTime.getTime() + 24 * 60 * 60 * 1000)
+        if (shiftEndTimeForCalc.getTime() < shiftStartTimeForCalc.getTime()) {
+          shiftEndTimeForCalc = new Date(shiftEndTimeForCalc.getTime() + 24 * 60 * 60 * 1000)
         }
         
         // シフト勤務時間を計算
         const shiftBreakMinutes = shift?.breakMinutes || companySettings?.standardBreakMinutes || 60
         const shiftWorkMinutes = Math.floor(
-          (shiftEndTime.getTime() - shiftStartTime.getTime()) / (1000 * 60)
+          (shiftEndTimeForCalc.getTime() - shiftStartTimeForCalc.getTime()) / (1000 * 60)
         ) - shiftBreakMinutes
         
         if (!allowPreOvertime) {
           // 前残業を認めない場合：シフト開始時刻より前の時間は残業としてカウントしない
           // シフト終了時刻より後の時間のみを残業としてカウント
           
-          // シフト開始時刻より前の時間を計算
-          const preWorkMinutes = Math.max(0, Math.floor((shiftStartTime.getTime() - clockInTime.getTime()) / (1000 * 60)))
+          // shiftEndTimeForCalcをclockOutTimeと同じ日付基準で作成
+          let shiftEndTimeForPostCalc = new Date(clockOutYear, clockOutMonth, clockOutDate, shiftEndHours, shiftEndMinutes)
           
-          // シフト終了時刻より後の時間を計算
-          const postWorkMinutes = Math.max(0, Math.floor((clockOutTime.getTime() - shiftEndTime.getTime()) / (1000 * 60)))
+          // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
+          const shiftStartTimeForPostCalc = new Date(clockOutYear, clockOutMonth, clockOutDate, shiftStartHours, shiftStartMinutes)
+          if (shiftEndTimeForPostCalc.getTime() < shiftStartTimeForPostCalc.getTime()) {
+            shiftEndTimeForPostCalc = new Date(shiftEndTimeForPostCalc.getTime() + 24 * 60 * 60 * 1000)
+          }
+          
+          // シフト開始時刻より前の時間を計算（clockInTimeと同じ日付基準で比較）
+          const preWorkMinutes = Math.max(0, Math.floor((shiftStartTimeForCalc.getTime() - clockInTime.getTime()) / (1000 * 60)))
+          
+          // シフト終了時刻より後の時間を計算（clockOutTimeと同じ日付基準で比較）
+          const postWorkMinutes = Math.max(0, Math.floor((clockOutTime.getTime() - shiftEndTimeForPostCalc.getTime()) / (1000 * 60)))
           
           // 実働時間から前残業分を除外
           const adjustedNetWorkMinutes = Math.max(0, netWorkMinutes - preWorkMinutes)

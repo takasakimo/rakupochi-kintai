@@ -1393,26 +1393,23 @@ export default function AdminReportsPage() {
                         (workEndTime.getTime() - workStartTime.getTime()) / (1000 * 60)
                       ) - shiftBreakMinutes)
                       
-                      // 残業時間計算用に、inTimeとoutTimeの日付基準に合わせる
+                      // preWorkMinutes計算用：inTimeと同じ日付基準（既にworkStartTimeはinTimeと同じ日付基準）
+                      const workStartTimeForPreCalc = workStartTime
+                      
+                      // postWorkMinutes計算用：outTimeと同じ日付基準でworkEndTimeを作成
                       const outTimeDate = outTime.getDate()
                       const outTimeMonth = outTime.getMonth()
                       const outTimeYear = outTime.getFullYear()
                       
-                      // preWorkMinutes計算用：inTimeと同じ日付基準（既にworkStartTimeはinTimeと同じ日付基準）
-                      const workStartTimeForPreCalc = workStartTime
-                      
-                      // postWorkMinutes計算用：outTimeと同じ日付基準
+                      // workEndTimeをoutTimeと同じ日付基準で作成
                       let workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndHours, workEndMinutes)
                       
                       // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
-                      // ただし、outTimeが翌日でない場合は、workStartTimeForPreCalcと比較
-                      if (outTimeDate === inTimeDate) {
-                        // 同じ日付の場合
-                        if (workEndTimeForPostCalc.getTime() < workStartTimeForPreCalc.getTime()) {
-                          workEndTimeForPostCalc = new Date(workEndTimeForPostCalc.getTime() + 24 * 60 * 60 * 1000)
-                        }
+                      // workStartTimeをoutTimeと同じ日付基準に調整して比較
+                      const workStartTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workStartHours, workStartMinutes)
+                      if (workEndTimeForPostCalc.getTime() < workStartTimeForPostCalc.getTime()) {
+                        workEndTimeForPostCalc = new Date(workEndTimeForPostCalc.getTime() + 24 * 60 * 60 * 1000)
                       }
-                      // outTimeが翌日の場合は、既にoutTimeと同じ日付基準なのでそのまま使用
                       
                       if (!allowPreOvertime) {
                         // 前残業を認めない場合：シフト開始時刻より前の時間は残業としてカウントしない
