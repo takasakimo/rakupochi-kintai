@@ -1795,8 +1795,19 @@ export default function AdminReportsPage() {
                       
                       // workEndTimeForCalcが既に日をまたぐシフトとして1日加算されている場合、
                       // workEndTimeForPostCalcもoutTime基準で1日加算する必要がある
-                      // workEndTimeとworkStartTimeを比較して、シフトが日をまたぐかどうかを判断
-                      if (workEndTime.getTime() < workStartTime.getTime()) {
+                      // workEndTimeForCalcとworkStartTimeForCalcの日付差を確認（1768-1770行目で既に判定済み）
+                      // workEndTimeForCalcがworkStartTimeForCalcより後の日付の場合、日をまたぐシフト
+                      const workEndTimeForCalcDate = workEndTimeForCalc.getDate()
+                      const workStartTimeForCalcDate = workStartTimeForCalc.getDate()
+                      const workEndTimeForCalcMonth = workEndTimeForCalc.getMonth()
+                      const workStartTimeForCalcMonth = workStartTimeForCalc.getMonth()
+                      const workEndTimeForCalcYear = workEndTimeForCalc.getFullYear()
+                      const workStartTimeForCalcYear = workStartTimeForCalc.getFullYear()
+                      
+                      // 日付が異なる場合（日をまたぐシフト）、workEndTimeForPostCalcを翌日に設定
+                      if (workEndTimeForCalcYear !== workStartTimeForCalcYear || 
+                          workEndTimeForCalcMonth !== workStartTimeForCalcMonth || 
+                          workEndTimeForCalcDate !== workStartTimeForCalcDate) {
                         // シフトが日をまたぐ場合、workEndTimeForPostCalcをoutTime基準で翌日に設定
                         workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate + 1, workEndTimeForCalcHours, workEndTimeForCalcMinutes)
                       }
