@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import jsPDF from 'jspdf'
@@ -153,6 +153,13 @@ export default function AdminReportsPage() {
       }
     }
   }, [selectedEmployeeId, selectedMonth, startDate, endDate, reportType, enableSalesVisit])
+  
+  // 選択された従業員が変更されたときにシフト情報を取得
+  useEffect(() => {
+    if (selectedEmployeeForTimesheet && period) {
+      fetchShifts(period, selectedEmployeeForTimesheet.toString())
+    }
+  }, [selectedEmployeeForTimesheet, period, fetchShifts])
 
   const fetchEmployees = async () => {
     try {
@@ -168,8 +175,12 @@ export default function AdminReportsPage() {
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      if (selectedEmployeeId) {
-        params.append('employee_id', selectedEmployeeId)
+      // selectedEmployeeForTimesheetが設定されている場合はそれを優先
+      const employeeIdToUse = selectedEmployeeForTimesheet 
+        ? selectedEmployeeForTimesheet.toString() 
+        : selectedEmployeeId
+      if (employeeIdToUse) {
+        params.append('employee_id', employeeIdToUse)
       }
       if (selectedMonth && !startDate && !endDate) {
         params.append('month', selectedMonth)
@@ -186,12 +197,55 @@ export default function AdminReportsPage() {
       const data = await response.json()
       setReports(data.reports || [])
       setPeriod(data.period || null)
+      
+      // シフト情報を取得（残業時間の計算に必要）
+      const periodToUse = data.period || { 
+        start: startDate || (selectedMonth ? `${selectedMonth}-01` : new Date().toISOString().split('T')[0]), 
+        end: endDate || (selectedMonth ? new Date(new Date(`${selectedMonth}-01`).getFullYear(), new Date(`${selectedMonth}-01`).getMonth() + 1, 0).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]) 
+      }
+      await fetchShifts(periodToUse, employeeIdToUse)
     } catch (err) {
       console.error('Failed to fetch reports:', err)
     } finally {
       setLoading(false)
     }
   }
+  
+  const fetchShifts = useCallback(async (period: { start: string; end: string }, employeeId?: string) => {
+    try {
+      const params = new URLSearchParams()
+      if (employeeId) {
+        params.append('employee_id', employeeId)
+      }
+      if (period.start) {
+        params.append('start_date', period.start)
+      }
+      if (period.end) {
+        params.append('end_date', period.end)
+      }
+      
+      const response = await fetch(`/api/admin/shifts?${params.toString()}`)
+      const data = await response.json()
+      
+      // シフト情報を日付をキーとしたマップに変換
+      const shiftMap: Record<string, any> = {}
+      if (data.shifts && Array.isArray(data.shifts)) {
+        data.shifts.forEach((shift: any) => {
+          const dateStr = shift.date
+          if (dateStr) {
+            shiftMap[dateStr] = {
+              startTime: shift.startTime,
+              endTime: shift.endTime,
+              breakMinutes: shift.breakMinutes || 0,
+            }
+          }
+        })
+      }
+      setShifts(shiftMap)
+    } catch (err) {
+      console.error('Failed to fetch shifts:', err)
+    }
+  }, [])
 
   const fetchSalesVisitReports = async () => {
     setLoading(true)
