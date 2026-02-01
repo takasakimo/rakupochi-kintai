@@ -1406,23 +1406,8 @@ export default function AdminReportsPage() {
                       const workEndTimeMinutes = workEndTime.getMinutes()
                       
                       // workEndTimeをoutTimeと同じ日付基準で作成
-                      // workEndTimeが既に翌日にまたがっている場合は、その日数差を考慮
-                      const workEndTimeDate = workEndTime.getDate()
-                      const workEndTimeMonth = workEndTime.getMonth()
-                      const workEndTimeYear = workEndTime.getFullYear()
-                      
-                      // inTimeとworkEndTimeの日付差を計算
-                      const inTimeMs = inTime.getTime()
-                      const workEndTimeMs = workEndTime.getTime()
-                      const daysDiff = Math.floor((workEndTimeMs - inTimeMs) / (24 * 60 * 60 * 1000))
-                      
-                      // outTimeと同じ日付基準でworkEndTimeを作成
+                      // 日付跨ぎがない場合、inTimeとoutTimeは同じ日付なので、workEndTimeも同じ日付基準で作成
                       let workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndTimeHours, workEndTimeMinutes)
-                      
-                      // workEndTimeが翌日にまたがっている場合は、outTimeも同じ日数分加算
-                      if (daysDiff > 0) {
-                        workEndTimeForPostCalc = new Date(workEndTimeForPostCalc.getTime() + daysDiff * 24 * 60 * 60 * 1000)
-                      }
                       
                       // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
                       // workStartTimeをoutTimeと同じ日付基準に調整して比較
@@ -1801,18 +1786,9 @@ export default function AdminReportsPage() {
                       const workEndTimeForCalcHours = workEndTimeForCalc.getHours()
                       const workEndTimeForCalcMinutes = workEndTimeForCalc.getMinutes()
                       
-                      // workEndTimeForCalcがinTimeから何日後かを計算
-                      const inTimeMs = inTime.getTime()
-                      const workEndTimeForCalcMs = workEndTimeForCalc.getTime()
-                      const daysDiff = Math.floor((workEndTimeForCalcMs - inTimeMs) / (24 * 60 * 60 * 1000))
-                      
                       // workEndTimeForCalcをoutTimeと同じ日付基準で作成
+                      // 日付跨ぎがない場合、inTimeとoutTimeは同じ日付なので、workEndTimeForCalcも同じ日付基準で作成
                       let workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndTimeForCalcHours, workEndTimeForCalcMinutes)
-                      
-                      // workEndTimeForCalcが翌日にまたがっている場合は、outTimeも同じ日数分加算
-                      if (daysDiff > 0) {
-                        workEndTimeForPostCalc = new Date(workEndTimeForPostCalc.getTime() + daysDiff * 24 * 60 * 60 * 1000)
-                      }
                       
                       // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
                       const workStartTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workStartHours, workStartMinutes)

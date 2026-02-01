@@ -483,18 +483,9 @@ export async function GET(request: NextRequest) {
           const shiftEndTimeHours = shiftEndTimeForCalc.getHours()
           const shiftEndTimeMinutes = shiftEndTimeForCalc.getMinutes()
           
-          // shiftEndTimeForCalcがclockInTimeから何日後かを計算
-          const clockInTimeMs = clockInTime.getTime()
-          const shiftEndTimeForCalcMs = shiftEndTimeForCalc.getTime()
-          const daysDiff = Math.floor((shiftEndTimeForCalcMs - clockInTimeMs) / (24 * 60 * 60 * 1000))
-          
           // shiftEndTimeForCalcをclockOutTimeと同じ日付基準で作成
+          // 日付跨ぎがない場合、clockInTimeとclockOutTimeは同じ日付なので、shiftEndTimeForCalcも同じ日付基準で作成
           let shiftEndTimeForPostCalc = new Date(clockOutYear, clockOutMonth, clockOutDate, shiftEndTimeHours, shiftEndTimeMinutes)
-          
-          // shiftEndTimeForCalcが翌日にまたがっている場合は、clockOutTimeも同じ日数分加算
-          if (daysDiff > 0) {
-            shiftEndTimeForPostCalc = new Date(shiftEndTimeForPostCalc.getTime() + daysDiff * 24 * 60 * 60 * 1000)
-          }
           
           // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
           const shiftStartTimeForPostCalc = new Date(clockOutYear, clockOutMonth, clockOutDate, shiftStartHours, shiftStartMinutes)
