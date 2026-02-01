@@ -471,9 +471,8 @@ export async function GET(request: NextRequest) {
         // 基本時間はシフト勤務時間まで
         basicMinutes = Math.min(adjustedNetWorkMinutes, shiftWorkMinutes)
         
-        // 残業時間はシフト終了時刻より後の時間 + シフト時間を超えた分
-        const overtimeWithinShift = Math.max(0, adjustedNetWorkMinutes - shiftWorkMinutes)
-        overtimeMinutes = postWorkMinutes + overtimeWithinShift
+        // 残業時間はシフト終了時刻より後の時間のみ（前残業は含めない）
+        overtimeMinutes = postWorkMinutes
       } else {
         // 前残業を認める場合：従来通り、シフト勤務時間を超えた分が残業時間
         basicMinutes = Math.min(Math.max(0, netWorkMinutes), shiftWorkMinutes)

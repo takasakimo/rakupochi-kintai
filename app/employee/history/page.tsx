@@ -456,12 +456,8 @@ export default function HistoryPage() {
         // シフト終了時刻より後の時間を計算
         const postWorkMinutes = Math.max(0, Math.floor((outTime.getTime() - workEndTime.getTime()) / (1000 * 60)))
         
-        // 実働時間から前残業分を除外
-        const adjustedNetWorkMinutes = Math.max(0, netWorkMinutes - preWorkMinutes)
-        
-        // 残業時間はシフト終了時刻より後の時間 + シフト時間を超えた分
-        const overtimeWithinShift = Math.max(0, adjustedNetWorkMinutes - shiftWorkMinutes)
-        overtimeMinutes = postWorkMinutes + overtimeWithinShift
+        // 残業時間はシフト終了時刻より後の時間のみ（前残業は含めない）
+        overtimeMinutes = postWorkMinutes
       } else {
         // 前残業を認める場合：従来通り、シフト勤務時間を超えた分が残業時間
         overtimeMinutes = Math.max(0, netWorkMinutes - shiftWorkMinutes)
