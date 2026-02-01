@@ -1472,31 +1472,308 @@ export default function ShiftManagePage() {
           </div>
         )}
         
+        {/* 編集モーダル */}
+        {editingShift && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setEditingShift(null)
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setEditingShift(null)
+              }
+            }}
+            tabIndex={-1}
+          >
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-blue-600 text-white p-4 rounded-t-lg flex items-center justify-between">
+                <h2 className="text-xl font-bold">
+                  {editingShift.employee?.name || 'シフト'} のシフト編集
+                </h2>
+                <button
+                  onClick={() => setEditingShift(null)}
+                  className="text-white hover:text-gray-200 text-2xl font-bold"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-6">
+                {/* 基本情報 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">日付</label>
+                    <input
+                      type="date"
+                      value={editingShift.date.split('T')[0]}
+                      onChange={(e) =>
+                        setEditingShift({
+                          ...editingShift,
+                          date: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">従業員</label>
+                    <div className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700">
+                      {editingShift.employee?.name || '-'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 公休チェックボックス */}
+                <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editingShift.isPublicHoliday}
+                      onChange={(e) => {
+                        const isPublicHoliday = e.target.checked
+                        setEditingShift({
+                          ...editingShift,
+                          isPublicHoliday,
+                          // 公休にした場合は時間関連のフィールドをクリア
+                          ...(isPublicHoliday && {
+                            startTime: null,
+                            endTime: null,
+                            breakMinutes: 0,
+                            workingHours: null,
+                            timeSlot: null,
+                          }),
+                        })
+                      }}
+                      className="w-5 h-5 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500"
+                    />
+                    <span className="text-lg font-bold text-gray-900">公休</span>
+                  </label>
+                </div>
+
+                {/* 勤務時間（重要フィールド） */}
+                {!editingShift.isPublicHoliday && (
+                  <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">勤務時間</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">開始時間</label>
+                        <input
+                          type="time"
+                          value={formatTime(editingShift.startTime)}
+                          onChange={(e) =>
+                            setEditingShift({
+                              ...editingShift,
+                              startTime: e.target.value,
+                            })
+                          }
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">終了時間</label>
+                        <input
+                          type="time"
+                          value={formatTime(editingShift.endTime)}
+                          onChange={(e) =>
+                            setEditingShift({
+                              ...editingShift,
+                              endTime: e.target.value,
+                            })
+                          }
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">休憩時間（分）</label>
+                        <input
+                          type="number"
+                          value={editingShift.breakMinutes}
+                          onChange={(e) =>
+                            setEditingShift({
+                              ...editingShift,
+                              breakMinutes: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="60"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* その他の情報 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">勤務場所</label>
+                    <input
+                      type="text"
+                      value={editingShift.workLocation || ''}
+                      onChange={(e) =>
+                        setEditingShift({
+                          ...editingShift,
+                          workLocation: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="SB天白"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">勤務種別</label>
+                    <select
+                      value={editingShift.workType || '出勤'}
+                      onChange={(e) => {
+                        const workType = e.target.value
+                        const isPublicHoliday = workType === '公休'
+                        setEditingShift({
+                          ...editingShift,
+                          workType,
+                          isPublicHoliday,
+                          // 公休にした場合は時間関連のフィールドをクリア
+                          ...(isPublicHoliday && {
+                            startTime: null,
+                            endTime: null,
+                            breakMinutes: 0,
+                            workingHours: null,
+                            timeSlot: null,
+                          }),
+                        })
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="出勤">出勤</option>
+                      <option value="公休">公休</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">勤務時間</label>
+                    <input
+                      type="text"
+                      value={editingShift.workingHours || ''}
+                      onChange={(e) =>
+                        setEditingShift({
+                          ...editingShift,
+                          workingHours: e.target.value,
+                        })
+                      }
+                      disabled={editingShift.isPublicHoliday}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        editingShift.isPublicHoliday ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''
+                      }`}
+                      placeholder="8:00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">時間帯</label>
+                    <select
+                      value={editingShift.timeSlot || '-'}
+                      onChange={(e) =>
+                        setEditingShift({
+                          ...editingShift,
+                          timeSlot: e.target.value,
+                        })
+                      }
+                      disabled={editingShift.isPublicHoliday}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        editingShift.isPublicHoliday ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''
+                      }`}
+                    >
+                      <option value="-">-</option>
+                      <option value="早番">早番</option>
+                      <option value="中番">中番</option>
+                      <option value="遅番">遅番</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">直行先</label>
+                    <input
+                      type="text"
+                      value={editingShift.directDestination || ''}
+                      onChange={(e) =>
+                        setEditingShift({
+                          ...editingShift,
+                          directDestination: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="-"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">稟議番号</label>
+                    <input
+                      type="text"
+                      value={editingShift.approvalNumber || ''}
+                      onChange={(e) =>
+                        setEditingShift({
+                          ...editingShift,
+                          approvalNumber: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="-"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">退勤場所</label>
+                    <input
+                      type="text"
+                      value={editingShift.leavingLocation || ''}
+                      onChange={(e) =>
+                        setEditingShift({
+                          ...editingShift,
+                          leavingLocation: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="-"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">備考</label>
+                    <textarea
+                      value={editingShift.notes || ''}
+                      onChange={(e) =>
+                        setEditingShift({
+                          ...editingShift,
+                          notes: e.target.value,
+                        })
+                      }
+                      rows={3}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="-"
+                    />
+                  </div>
+                </div>
+
+                {/* ボタン */}
+                <div className="flex justify-end gap-4 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={() => setEditingShift(null)}
+                    className="px-6 py-3 bg-gray-200 text-gray-900 rounded-lg text-base font-medium hover:bg-gray-300 transition-colors"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    onClick={handleUpdate}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg text-base font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    保存
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {filteredShifts.length === 0 ? (
           <div className="p-6 text-center text-gray-700">シフトがありません</div>
         ) : (
           <div>
-            {editingShift && (
-              <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded sticky top-0 z-20 flex items-center justify-between">
-                <span className="text-sm font-semibold text-gray-900">
-                  {editingShift.employee?.name || 'シフト'} のシフトを編集中
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleUpdate}
-                    className="px-4 py-2 bg-blue-500 text-white rounded text-sm font-medium hover:bg-blue-600 whitespace-nowrap"
-                  >
-                    保存
-                  </button>
-                  <button
-                    onClick={() => setEditingShift(null)}
-                    className="px-4 py-2 bg-gray-200 text-gray-900 rounded text-sm font-medium hover:bg-gray-300 whitespace-nowrap"
-                  >
-                    キャンセル
-                  </button>
-                </div>
-              </div>
-            )}
             <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
               <table className="w-full">
                 <thead className="bg-gray-50 sticky top-0 z-10">
@@ -1537,245 +1814,7 @@ export default function ShiftManagePage() {
                   
                   return (
                   <tr key={shift.id} className={rowClassName}>
-                    {editingShift?.id === shift.id ? (
-                      <>
-                        <td className="px-1 py-0.5">
-                          <input
-                            type="date"
-                            value={editingShift.date.split('T')[0]}
-                            onChange={(e) =>
-                              setEditingShift({
-                                ...editingShift,
-                                date: e.target.value,
-                              })
-                            }
-                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-28 h-6"
-                          />
-                        </td>
-                        <td className="px-1 py-0.5 text-xs text-gray-900">{shift.employee.name}</td>
-                        {displayMode === 'all' && (
-                          <td className="px-1 py-0.5 text-xs text-gray-900">{shift.employee.department || '-'}</td>
-                        )}
-                        <td className="px-1 py-0.5">
-                          <input
-                            type="checkbox"
-                            checked={selectedShiftIds.has(shift.id)}
-                            onChange={(e) => handleSelectShift(shift.id, e.target.checked)}
-                            className="w-3 h-3"
-                          />
-                        </td>
-                        <td className="px-1 py-0.5">
-                          <input
-                            type="checkbox"
-                            checked={editingShift.isPublicHoliday}
-                            onChange={(e) => {
-                              const isPublicHoliday = e.target.checked
-                              setEditingShift({
-                                ...editingShift,
-                                isPublicHoliday,
-                                // 公休にした場合は時間関連のフィールドをクリア
-                                ...(isPublicHoliday && {
-                                  startTime: null,
-                                  endTime: null,
-                                  breakMinutes: 0,
-                                  workingHours: null,
-                                  timeSlot: null,
-                                }),
-                              })
-                            }}
-                            className="w-3 h-3"
-                          />
-                        </td>
-                        <td className="px-1 py-0.5">
-                          <input
-                            type="text"
-                            value={editingShift.workLocation || ''}
-                            onChange={(e) =>
-                              setEditingShift({
-                                ...editingShift,
-                                workLocation: e.target.value,
-                              })
-                            }
-                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-24 h-6"
-                            placeholder="SB天白"
-                          />
-                        </td>
-                        <td className="px-1 py-0.5">
-                          <select
-                            value={editingShift.workType || '出勤'}
-                            onChange={(e) => {
-                              const workType = e.target.value
-                              const isPublicHoliday = workType === '公休'
-                              setEditingShift({
-                                ...editingShift,
-                                workType,
-                                isPublicHoliday,
-                                // 公休にした場合は時間関連のフィールドをクリア
-                                ...(isPublicHoliday && {
-                                  startTime: null,
-                                  endTime: null,
-                                  breakMinutes: 0,
-                                  workingHours: null,
-                                  timeSlot: null,
-                                }),
-                              })
-                            }}
-                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-20 h-6"
-                          >
-                            <option value="出勤">出勤</option>
-                            <option value="公休">公休</option>
-                          </select>
-                        </td>
-                        <td className="px-1 py-0.5">
-                          <input
-                            type="text"
-                            value={editingShift.workingHours || ''}
-                            onChange={(e) =>
-                              setEditingShift({
-                                ...editingShift,
-                                workingHours: e.target.value,
-                              })
-                            }
-                            disabled={editingShift.isPublicHoliday}
-                            className={`px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-16 h-6 ${
-                              editingShift.isPublicHoliday ? 'opacity-50 cursor-not-allowed' : ''
-                            }`}
-                            placeholder="8:00"
-                          />
-                        </td>
-                        <td className="px-1 py-0.5">
-                          <select
-                            value={editingShift.timeSlot || '-'}
-                            onChange={(e) =>
-                              setEditingShift({
-                                ...editingShift,
-                                timeSlot: e.target.value,
-                              })
-                            }
-                            disabled={editingShift.isPublicHoliday}
-                            className={`px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-16 h-6 ${
-                              editingShift.isPublicHoliday ? 'opacity-50 cursor-not-allowed' : ''
-                            }`}
-                          >
-                            <option value="-">-</option>
-                            <option value="早番">早番</option>
-                            <option value="中番">中番</option>
-                            <option value="遅番">遅番</option>
-                          </select>
-                        </td>
-                        <td className="px-1 py-0.5">
-                          <input
-                            type="time"
-                            value={formatTime(editingShift.startTime)}
-                            onChange={(e) =>
-                              setEditingShift({
-                                ...editingShift,
-                                startTime: e.target.value,
-                              })
-                            }
-                            disabled={editingShift.isPublicHoliday}
-                            className={`px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-20 h-6 ${
-                              editingShift.isPublicHoliday ? 'opacity-50 cursor-not-allowed' : ''
-                            }`}
-                          />
-                        </td>
-                        <td className="px-1 py-0.5">
-                          <input
-                            type="time"
-                            value={formatTime(editingShift.endTime)}
-                            onChange={(e) =>
-                              setEditingShift({
-                                ...editingShift,
-                                endTime: e.target.value,
-                              })
-                            }
-                            disabled={editingShift.isPublicHoliday}
-                            className={`px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-20 h-6 ${
-                              editingShift.isPublicHoliday ? 'opacity-50 cursor-not-allowed' : ''
-                            }`}
-                          />
-                        </td>
-                        <td className="px-1 py-0.5">
-                          <div className="flex items-center gap-0.5">
-                            <input
-                              type="number"
-                              value={editingShift.breakMinutes}
-                              onChange={(e) =>
-                                setEditingShift({
-                                  ...editingShift,
-                                  breakMinutes: parseInt(e.target.value) || 0,
-                                })
-                              }
-                              disabled={editingShift.isPublicHoliday}
-                              className={`px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-12 h-6 ${
-                                editingShift.isPublicHoliday ? 'opacity-50 cursor-not-allowed' : ''
-                              }`}
-                            />
-                            <span className="text-xs text-gray-700">分</span>
-                          </div>
-                        </td>
-                        <td className="px-1 py-0.5">
-                          <input
-                            type="text"
-                            value={editingShift.directDestination || ''}
-                            onChange={(e) =>
-                              setEditingShift({
-                                ...editingShift,
-                                directDestination: e.target.value,
-                              })
-                            }
-                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-20 h-6"
-                            placeholder="-"
-                          />
-                        </td>
-                        <td className="px-1 py-0.5">
-                          <input
-                            type="text"
-                            value={editingShift.approvalNumber || ''}
-                            onChange={(e) =>
-                              setEditingShift({
-                                ...editingShift,
-                                approvalNumber: e.target.value,
-                              })
-                            }
-                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-20 h-6"
-                            placeholder="-"
-                          />
-                        </td>
-                        <td className="px-1 py-0.5">
-                          <input
-                            type="text"
-                            value={editingShift.leavingLocation || ''}
-                            onChange={(e) =>
-                              setEditingShift({
-                                ...editingShift,
-                                leavingLocation: e.target.value,
-                              })
-                            }
-                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-20 h-6"
-                            placeholder="-"
-                          />
-                        </td>
-                        <td className="px-1 py-0.5">
-                          <input
-                            type="text"
-                            value={editingShift.notes || ''}
-                            onChange={(e) =>
-                              setEditingShift({
-                                ...editingShift,
-                                notes: e.target.value,
-                              })
-                            }
-                            className="px-1 py-0.5 border border-gray-300 rounded text-xs text-gray-900 bg-white w-24 h-6"
-                            placeholder="-"
-                          />
-                        </td>
-                        <td className="px-1 py-0.5">
-                          <div className="text-xs text-gray-500">編集中</div>
-                        </td>
-                      </>
-                    ) : (
-                      <>
+                    <>
                         <td className={`px-2 py-2 text-xs ${isHolidayOrSun ? 'text-red-700 font-semibold' : 'text-gray-900'}`}>{formatDate(shift.date)}</td>
                         <td className="px-2 py-2 text-xs text-gray-900">{shift.employee.name}</td>
                         {displayMode === 'all' && (
@@ -1817,8 +1856,7 @@ export default function ShiftManagePage() {
                             </button>
                           </div>
                         </td>
-                      </>
-                    )}
+                    </>
                   </tr>
                 )
               })}
