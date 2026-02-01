@@ -484,8 +484,7 @@ export async function GET(request: NextRequest) {
           const shiftEndTimeMinutes = shiftEndTimeForCalc.getMinutes()
           
           // shiftEndTimeForCalcをclockOutTimeと同じ日付基準で作成
-          // シフトが翌日にまたがる場合でも、実際の勤務は日付跨ぎしていないので、clockOutTimeと同じ日付基準で作成
-          let shiftEndTimeForPostCalc = new Date(clockOutYear, clockOutMonth, clockOutDate, shiftEndTimeHours, shiftEndTimeMinutes)
+          const shiftEndTimeForPostCalc = new Date(clockOutYear, clockOutMonth, clockOutDate, shiftEndTimeHours, shiftEndTimeMinutes)
           
           // シフト開始時刻より前の時間を計算（clockInTimeと同じ日付基準で比較）
           const preWorkMinutes = Math.max(0, Math.floor((shiftStartTimeForCalc.getTime() - clockInTime.getTime()) / (1000 * 60)))

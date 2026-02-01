@@ -1406,15 +1406,7 @@ export default function AdminReportsPage() {
                       const workEndTimeMinutes = workEndTime.getMinutes()
                       
                       // workEndTimeをoutTimeと同じ日付基準で作成
-                      // 日付跨ぎがない場合、inTimeとoutTimeは同じ日付なので、workEndTimeも同じ日付基準で作成
-                      let workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndTimeHours, workEndTimeMinutes)
-                      
-                      // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
-                      // workStartTimeをoutTimeと同じ日付基準に調整して比較
-                      const workStartTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workStartHours, workStartMinutes)
-                      if (workEndTimeForPostCalc.getTime() < workStartTimeForPostCalc.getTime()) {
-                        workEndTimeForPostCalc = new Date(workEndTimeForPostCalc.getTime() + 24 * 60 * 60 * 1000)
-                      }
+                      const workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndTimeHours, workEndTimeMinutes)
                       
                       if (!allowPreOvertime) {
                         // 前残業を認めない場合：シフト開始時刻より前の時間は残業としてカウントしない
@@ -1787,8 +1779,7 @@ export default function AdminReportsPage() {
                       const workEndTimeForCalcMinutes = workEndTimeForCalc.getMinutes()
                       
                       // workEndTimeForCalcをoutTimeと同じ日付基準で作成
-                      // シフトが翌日にまたがる場合でも、実際の勤務は日付跨ぎしていないので、outTimeと同じ日付基準で作成
-                      let workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndTimeForCalcHours, workEndTimeForCalcMinutes)
+                      const workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndTimeForCalcHours, workEndTimeForCalcMinutes)
                       
                       // シフト開始時刻より前の時間を計算（inTimeと同じ日付基準で比較）
                       const preWorkMinutes = Math.max(0, Math.floor((workStartTimeForCalc.getTime() - inTime.getTime()) / (1000 * 60)))
