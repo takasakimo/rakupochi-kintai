@@ -725,14 +725,8 @@ export default function AdminAttendancesPage() {
       // シフト情報があればシフト時間を使用、なければ標準時間を使用
       if (shift?.startTime) {
         try {
-          if (typeof shift.startTime === 'string') {
-            const [hours, minutes] = shift.startTime.split(':').map(Number)
-            workStartTime = new Date(2000, 0, 1, hours, minutes)
-          } else if (shift.startTime instanceof Date) {
-            const hours = shift.startTime.getHours()
-            const minutes = shift.startTime.getMinutes()
-            workStartTime = new Date(2000, 0, 1, hours, minutes)
-          }
+          const [hours, minutes] = shift.startTime.split(':').map(Number)
+          workStartTime = new Date(2000, 0, 1, hours, minutes)
         } catch (e) {
           console.error('Error parsing shift startTime:', e)
         }
@@ -752,14 +746,8 @@ export default function AdminAttendancesPage() {
       
       if (shift?.endTime) {
         try {
-          if (typeof shift.endTime === 'string') {
-            const [hours, minutes] = shift.endTime.split(':').map(Number)
-            workEndTime = new Date(2000, 0, 1, hours, minutes)
-          } else if (shift.endTime instanceof Date) {
-            const hours = shift.endTime.getHours()
-            const minutes = shift.endTime.getMinutes()
-            workEndTime = new Date(2000, 0, 1, hours, minutes)
-          }
+          const [hours, minutes] = shift.endTime.split(':').map(Number)
+          workEndTime = new Date(2000, 0, 1, hours, minutes)
         } catch (e) {
           console.error('Error parsing shift endTime:', e)
         }
