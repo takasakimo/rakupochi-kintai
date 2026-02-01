@@ -1379,8 +1379,12 @@ export default function AdminReportsPage() {
                       const workEndHours = workEndTime.getHours()
                       const workEndMinutes = workEndTime.getMinutes()
                       
-                      workStartTime = new Date(inTimeYear, inTimeMonth, inTimeDate, workStartHours, workStartMinutes)
-                      workEndTime = new Date(inTimeYear, inTimeMonth, inTimeDate, workEndHours, workEndMinutes)
+                      // 元のworkEndTimeの時刻を保存（日をまたぐシフトの判定に使用）
+                      const originalWorkEndTime = new Date(inTimeYear, inTimeMonth, inTimeDate, workEndHours, workEndMinutes)
+                      const originalWorkStartTime = new Date(inTimeYear, inTimeMonth, inTimeDate, workStartHours, workStartMinutes)
+                      
+                      workStartTime = originalWorkStartTime
+                      workEndTime = originalWorkEndTime
                       
                       // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
                       if (workEndTime.getTime() < workStartTime.getTime()) {
@@ -1401,12 +1405,18 @@ export default function AdminReportsPage() {
                       const outTimeMonth = outTime.getMonth()
                       const outTimeYear = outTime.getFullYear()
                       
-                      // workEndTimeから時刻を取得（24時間加算後の値も考慮）
-                      const workEndTimeHours = workEndTime.getHours()
-                      const workEndTimeMinutes = workEndTime.getMinutes()
+                      // 元のworkEndTimeの時刻を取得（日をまたぐシフトの考慮なし）
+                      const workEndTimeHours = workEndHours
+                      const workEndTimeMinutes = workEndMinutes
                       
                       // workEndTimeをoutTimeと同じ日付基準で作成
-                      const workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndTimeHours, workEndTimeMinutes)
+                      let workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndTimeHours, workEndTimeMinutes)
+                      
+                      // シフトが日をまたぐ場合（originalWorkEndTime < originalWorkStartTime）、workEndTimeForPostCalcを調整
+                      if (originalWorkEndTime.getTime() < originalWorkStartTime.getTime()) {
+                        // シフトが日をまたぐ場合、workEndTimeForPostCalcをoutTime基準で翌日に設定
+                        workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate + 1, workEndTimeHours, workEndTimeMinutes)
+                      }
                       
                       if (!allowPreOvertime) {
                         // 前残業を認めない場合：シフト開始時刻より前の時間は残業としてカウントしない
