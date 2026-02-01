@@ -170,6 +170,42 @@ export default function AdminReportsPage() {
       console.error('Failed to fetch employees:', err)
     }
   }
+  
+  const fetchShifts = useCallback(async (period: { start: string; end: string }, employeeId?: string) => {
+    try {
+      const params = new URLSearchParams()
+      if (employeeId) {
+        params.append('employee_id', employeeId)
+      }
+      if (period.start) {
+        params.append('start_date', period.start)
+      }
+      if (period.end) {
+        params.append('end_date', period.end)
+      }
+      
+      const response = await fetch(`/api/admin/shifts?${params.toString()}`)
+      const data = await response.json()
+      
+      // シフト情報を日付をキーとしたマップに変換
+      const shiftMap: Record<string, any> = {}
+      if (data.shifts && Array.isArray(data.shifts)) {
+        data.shifts.forEach((shift: any) => {
+          const dateStr = shift.date
+          if (dateStr) {
+            shiftMap[dateStr] = {
+              startTime: shift.startTime,
+              endTime: shift.endTime,
+              breakMinutes: shift.breakMinutes || 0,
+            }
+          }
+        })
+      }
+      setShifts(shiftMap)
+    } catch (err) {
+      console.error('Failed to fetch shifts:', err)
+    }
+  }, [])
 
   const fetchReports = async () => {
     setLoading(true)
@@ -210,42 +246,6 @@ export default function AdminReportsPage() {
       setLoading(false)
     }
   }
-  
-  const fetchShifts = useCallback(async (period: { start: string; end: string }, employeeId?: string) => {
-    try {
-      const params = new URLSearchParams()
-      if (employeeId) {
-        params.append('employee_id', employeeId)
-      }
-      if (period.start) {
-        params.append('start_date', period.start)
-      }
-      if (period.end) {
-        params.append('end_date', period.end)
-      }
-      
-      const response = await fetch(`/api/admin/shifts?${params.toString()}`)
-      const data = await response.json()
-      
-      // シフト情報を日付をキーとしたマップに変換
-      const shiftMap: Record<string, any> = {}
-      if (data.shifts && Array.isArray(data.shifts)) {
-        data.shifts.forEach((shift: any) => {
-          const dateStr = shift.date
-          if (dateStr) {
-            shiftMap[dateStr] = {
-              startTime: shift.startTime,
-              endTime: shift.endTime,
-              breakMinutes: shift.breakMinutes || 0,
-            }
-          }
-        })
-      }
-      setShifts(shiftMap)
-    } catch (err) {
-      console.error('Failed to fetch shifts:', err)
-    }
-  }, [])
 
   const fetchSalesVisitReports = async () => {
     setLoading(true)
