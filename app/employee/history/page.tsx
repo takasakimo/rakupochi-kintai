@@ -391,8 +391,15 @@ export default function HistoryPage() {
       // シフト情報があればシフト時間を使用、なければ標準時間を使用
       if (shift?.startTime) {
         try {
-          const [hours, minutes] = shift.startTime.split(':').map(Number)
-          workStartTime = new Date(2000, 0, 1, hours, minutes)
+          if (shift.startTime instanceof Date) {
+            // UTC時間として取得（シフト登録時と同じ方法）
+            const hours = shift.startTime.getUTCHours()
+            const minutes = shift.startTime.getUTCMinutes()
+            workStartTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
+          } else if (typeof shift.startTime === 'string') {
+            const [hours, minutes] = shift.startTime.split(':').map(Number)
+            workStartTime = new Date(2000, 0, 1, hours, minutes)
+          }
         } catch (e) {
           console.error('Error parsing shift startTime:', e)
         }
@@ -412,8 +419,15 @@ export default function HistoryPage() {
       
       if (shift?.endTime) {
         try {
-          const [hours, minutes] = shift.endTime.split(':').map(Number)
-          workEndTime = new Date(2000, 0, 1, hours, minutes)
+          if (shift.endTime instanceof Date) {
+            // UTC時間として取得（シフト登録時と同じ方法）
+            const hours = shift.endTime.getUTCHours()
+            const minutes = shift.endTime.getUTCMinutes()
+            workEndTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
+          } else if (typeof shift.endTime === 'string') {
+            const [hours, minutes] = shift.endTime.split(':').map(Number)
+            workEndTime = new Date(2000, 0, 1, hours, minutes)
+          }
         } catch (e) {
           console.error('Error parsing shift endTime:', e)
         }
@@ -429,6 +443,11 @@ export default function HistoryPage() {
         } catch (e) {
           console.error('Error parsing workEndTime:', e)
         }
+      }
+      
+      // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
+      if (workEndTime.getTime() < workStartTime.getTime()) {
+        workEndTime = new Date(workEndTime.getTime() + 24 * 60 * 60 * 1000)
       }
       
       // シフト勤務時間を計算
@@ -449,8 +468,12 @@ export default function HistoryPage() {
         // シフト終了時刻より後の時間を計算
         const postWorkMinutes = Math.max(0, Math.floor((outTime.getTime() - workEndTime.getTime()) / (1000 * 60)))
         
-        // 残業時間はシフト終了時刻より後の時間のみ
-        overtimeMinutes = postWorkMinutes
+        // 実働時間から前残業分を除外
+        const adjustedNetWorkMinutes = Math.max(0, netWorkMinutes - preWorkMinutes)
+        
+        // 残業時間はシフト終了時刻より後の時間 + シフト時間を超えた分
+        const overtimeWithinShift = Math.max(0, adjustedNetWorkMinutes - shiftWorkMinutes)
+        overtimeMinutes = postWorkMinutes + overtimeWithinShift
       } else {
         // 前残業を認める場合：従来通り、シフト勤務時間を超えた分が残業時間
         overtimeMinutes = Math.max(0, netWorkMinutes - shiftWorkMinutes)

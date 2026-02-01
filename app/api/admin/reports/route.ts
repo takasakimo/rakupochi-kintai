@@ -413,8 +413,9 @@ export async function GET(request: NextRequest) {
       if (shift?.startTime) {
         try {
           if (shift.startTime instanceof Date) {
-            const hours = shift.startTime.getHours()
-            const minutes = shift.startTime.getMinutes()
+            // UTC時間として取得（シフト登録時と同じ方法）
+            const hours = shift.startTime.getUTCHours()
+            const minutes = shift.startTime.getUTCMinutes()
             shiftStartTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
           } else if (typeof shift.startTime === 'string') {
             shiftStartTime = new Date(`2000-01-01T${shift.startTime}`)
@@ -427,8 +428,9 @@ export async function GET(request: NextRequest) {
       if (shift?.endTime) {
         try {
           if (shift.endTime instanceof Date) {
-            const hours = shift.endTime.getHours()
-            const minutes = shift.endTime.getMinutes()
+            // UTC時間として取得（シフト登録時と同じ方法）
+            const hours = shift.endTime.getUTCHours()
+            const minutes = shift.endTime.getUTCMinutes()
             shiftEndTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
           } else if (typeof shift.endTime === 'string') {
             shiftEndTime = new Date(`2000-01-01T${shift.endTime}`)
@@ -436,6 +438,11 @@ export async function GET(request: NextRequest) {
         } catch (e) {
           console.error('Error parsing shift endTime:', e)
         }
+      }
+      
+      // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
+      if (shiftEndTime.getTime() < shiftStartTime.getTime()) {
+        shiftEndTime = new Date(shiftEndTime.getTime() + 24 * 60 * 60 * 1000)
       }
       
       // シフト勤務時間を計算
@@ -464,8 +471,9 @@ export async function GET(request: NextRequest) {
         // 基本時間はシフト勤務時間まで
         basicMinutes = Math.min(adjustedNetWorkMinutes, shiftWorkMinutes)
         
-        // 残業時間はシフト終了時刻より後の時間のみ
-        overtimeMinutes = postWorkMinutes
+        // 残業時間はシフト終了時刻より後の時間 + シフト時間を超えた分
+        const overtimeWithinShift = Math.max(0, adjustedNetWorkMinutes - shiftWorkMinutes)
+        overtimeMinutes = postWorkMinutes + overtimeWithinShift
       } else {
         // 前残業を認める場合：従来通り、シフト勤務時間を超えた分が残業時間
         basicMinutes = Math.min(Math.max(0, netWorkMinutes), shiftWorkMinutes)
