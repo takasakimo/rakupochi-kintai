@@ -1755,14 +1755,19 @@ export default function AdminReportsPage() {
                     const inTimeMonth = inTime.getMonth()
                     const inTimeYear = inTime.getFullYear()
                     
-                    // workStartTimeとworkEndTimeをinTimeと同じ日付で作成
-                    const workStartHours = workStartTime.getHours()
-                    const workStartMinutes = workStartTime.getMinutes()
-                    const workEndHours = workEndTime.getHours()
-                    const workEndMinutes = workEndTime.getMinutes()
+                    // workStartTimeとworkEndTimeの元の時刻を保存（日付調整前）
+                    // workEndTimeは既に日付調整されている可能性があるため、元の時刻を保存
+                    const originalWorkStartHours = workStartTime.getHours()
+                    const originalWorkStartMinutes = workStartTime.getMinutes()
+                    // workEndTimeが日付調整されている場合、元の時刻を取得
+                    // workEndTimeは2000-01-01または2000-01-02の時刻として作成されている
+                    // 日付調整前の時刻を取得するため、getHours()とgetMinutes()を使用
+                    const originalWorkEndHours = workEndTime.getHours()
+                    const originalWorkEndMinutes = workEndTime.getMinutes()
                     
-                    let workStartTimeForCalc = new Date(inTimeYear, inTimeMonth, inTimeDate, workStartHours, workStartMinutes)
-                    let workEndTimeForCalc = new Date(inTimeYear, inTimeMonth, inTimeDate, workEndHours, workEndMinutes)
+                    // workStartTimeとworkEndTimeをinTimeと同じ日付で作成
+                    let workStartTimeForCalc = new Date(inTimeYear, inTimeMonth, inTimeDate, originalWorkStartHours, originalWorkStartMinutes)
+                    let workEndTimeForCalc = new Date(inTimeYear, inTimeMonth, inTimeDate, originalWorkEndHours, originalWorkEndMinutes)
                     
                     // シフト終了時刻が開始時刻より前の場合は翌日にまたがるシフトとして1日加算
                     if (workEndTimeForCalc.getTime() < workStartTimeForCalc.getTime()) {
@@ -1786,22 +1791,18 @@ export default function AdminReportsPage() {
                       const outTimeMonth = outTime.getMonth()
                       const outTimeYear = outTime.getFullYear()
                       
-                      // 元のworkEndTimeの時刻を取得（日をまたぐシフトの考慮なし）
-                      // workEndTimeは既に日付調整前の時刻（例：19:00）
-                      const workEndHours = workEndTime.getHours()
-                      const workEndMinutes = workEndTime.getMinutes()
-                      
+                      // 元のworkEndTimeの時刻を使用（既に保存済み）
                       // workEndTimeをoutTimeの日付基準で作成
-                      let workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndHours, workEndMinutes)
+                      let workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, originalWorkEndHours, originalWorkEndMinutes)
                       
                       // シフトが日をまたぐ場合（元のworkEndTime < workStartTime）、workEndTimeForPostCalcを翌日に設定
                       // 元のworkStartTimeとworkEndTimeを比較（日付調整前）
-                      const originalWorkStartTime = new Date(2000, 0, 1, workStartTime.getHours(), workStartTime.getMinutes())
-                      const originalWorkEndTime = new Date(2000, 0, 1, workEndHours, workEndMinutes)
+                      const originalWorkStartTime = new Date(2000, 0, 1, originalWorkStartHours, originalWorkStartMinutes)
+                      const originalWorkEndTime = new Date(2000, 0, 1, originalWorkEndHours, originalWorkEndMinutes)
                       
                       // シフトが日をまたぐ場合、workEndTimeForPostCalcをoutTime基準で翌日に設定
                       if (originalWorkEndTime.getTime() < originalWorkStartTime.getTime()) {
-                        workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate + 1, workEndHours, workEndMinutes)
+                        workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate + 1, originalWorkEndHours, originalWorkEndMinutes)
                       }
                       
                       // シフト開始時刻より前の時間を計算（inTimeと同じ日付基準で比較）
@@ -1817,7 +1818,8 @@ export default function AdminReportsPage() {
                       basicMinutes = Math.min(adjustedNetWorkMinutes, shiftWorkMinutes)
                       
                       // 残業時間はシフト終了時刻より後の時間のみ（前残業は含めない）
-                      overtimeMinutes = postWorkMinutes
+                      // ただし、基本時間と残業時間の合計が実働時間を超えないようにする
+                      overtimeMinutes = Math.min(postWorkMinutes, Math.max(0, adjustedNetWorkMinutes - shiftWorkMinutes))
                     } else {
                       // 前残業を認める場合：従来通り、シフト勤務時間を超えた分が残業時間
                       basicMinutes = Math.min(Math.max(0, netWorkMinutes), shiftWorkMinutes)
