@@ -76,7 +76,7 @@ export default function ShiftRegisterPage() {
 
   // 勤務場所の選択肢
   const workLocations = ['SB天白', 'その他']
-  const workTypes = ['出勤', '公休']
+  const workTypes = ['出勤', '公休', '有給休暇']
   const timeSlots = ['-', '早番', '中番', '遅番']
   const workHourOptions = ['2', '3', '4', '5', '6', '7', '8'] // 2時間から8時間まで
 
@@ -330,6 +330,12 @@ export default function ShiftRegisterPage() {
       newRows[index].workingHours = ''
       newRows[index].startTime = ''
       newRows[index].endTime = '' // 終了時間もクリア
+    } else if (field === 'workType' && value === '有給休暇') {
+      newRows[index].isPublicHoliday = false
+      newRows[index].workLocation = ''
+      newRows[index].workingHours = ''
+      newRows[index].startTime = ''
+      newRows[index].endTime = '' // 終了時間もクリア
     } else if (field === 'workType' && value === '出勤') {
       newRows[index].isPublicHoliday = false
       // 出勤に変更した場合、基本設定を適用
@@ -362,7 +368,7 @@ export default function ShiftRegisterPage() {
 
     try {
       const shiftsToSave = shiftRows
-        .filter((row) => row.workType === '出勤' || row.isPublicHoliday)
+        .filter((row) => row.workType === '出勤' || row.workType === '有給休暇' || row.isPublicHoliday)
         .map((row) => {
           // 日付をローカル時間で取得（タイムゾーンの問題を回避）
           const year = row.date.getFullYear()
@@ -390,6 +396,11 @@ export default function ShiftRegisterPage() {
             baseShift.startTime = row.startTime
             baseShift.endTime = row.endTime
             baseShift.breakMinutes = calculateBreakHours(workHours) * 60 // 休憩時間を計算（分単位）
+          } else if (row.workType === '有給休暇') {
+            // 有給休暇の場合
+            baseShift.startTime = '00:00'
+            baseShift.endTime = '00:00'
+            baseShift.breakMinutes = 0
           } else {
             // 公休の場合
             baseShift.startTime = '00:00'
@@ -680,7 +691,7 @@ export default function ShiftRegisterPage() {
                           onChange={(e) =>
                             handleRowChange(index, 'workLocation', e.target.value)
                           }
-                          disabled={row.isPublicHoliday}
+                          disabled={row.isPublicHoliday || row.workType === '有給休暇'}
                           className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white disabled:bg-gray-100"
                         >
                           <option value="">-</option>
@@ -713,7 +724,7 @@ export default function ShiftRegisterPage() {
                           onChange={(e) =>
                             handleRowChange(index, 'workingHours', e.target.value)
                           }
-                          disabled={row.isPublicHoliday}
+                          disabled={row.isPublicHoliday || row.workType === '有給休暇'}
                           placeholder="-"
                           readOnly
                           className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-gray-50 disabled:bg-gray-100"
@@ -725,7 +736,7 @@ export default function ShiftRegisterPage() {
                           onChange={(e) =>
                             handleRowChange(index, 'timeSlot', e.target.value)
                           }
-                          disabled={row.isPublicHoliday}
+                          disabled={row.isPublicHoliday || row.workType === '有給休暇'}
                           className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white disabled:bg-gray-100"
                         >
                           {timeSlots.map((slot) => (
@@ -736,7 +747,7 @@ export default function ShiftRegisterPage() {
                         </select>
                       </td>
                       <td className="px-3 py-2 border-r border-b">
-                        {row.isPublicHoliday ? (
+                        {row.isPublicHoliday || row.workType === '有給休暇' ? (
                           <div className="w-full px-2 py-1 text-sm text-gray-900 text-center">-</div>
                         ) : (
                           <input
@@ -767,7 +778,7 @@ export default function ShiftRegisterPage() {
                         )}
                       </td>
                       <td className="px-3 py-2 border-r border-b">
-                        {row.isPublicHoliday ? (
+                        {row.isPublicHoliday || row.workType === '有給休暇' ? (
                           <div className="w-full px-2 py-1 text-sm text-gray-900 text-center">-</div>
                         ) : (
                           <input
@@ -788,7 +799,7 @@ export default function ShiftRegisterPage() {
                           onChange={(e) =>
                             handleRowChange(index, 'directDestination', e.target.value)
                           }
-                          disabled={row.isPublicHoliday}
+                          disabled={row.isPublicHoliday || row.workType === '有給休暇'}
                           placeholder="-"
                           className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white disabled:bg-gray-100"
                         />
@@ -800,7 +811,7 @@ export default function ShiftRegisterPage() {
                           onChange={(e) =>
                             handleRowChange(index, 'approvalNumber', e.target.value)
                           }
-                          disabled={row.isPublicHoliday}
+                          disabled={row.isPublicHoliday || row.workType === '有給休暇'}
                           placeholder="-"
                           className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white disabled:bg-gray-100"
                         />
@@ -812,7 +823,7 @@ export default function ShiftRegisterPage() {
                           onChange={(e) =>
                             handleRowChange(index, 'leavingLocation', e.target.value)
                           }
-                          disabled={row.isPublicHoliday}
+                          disabled={row.isPublicHoliday || row.workType === '有給休暇'}
                           placeholder="-"
                           className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white disabled:bg-gray-100"
                         />

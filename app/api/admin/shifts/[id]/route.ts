@@ -91,13 +91,17 @@ export async function PATCH(
       }),
     }
 
+    // 有給休暇の使用状況を確認
+    const isPaidLeave = body.workType === '有給休暇'
+    const wasPaidLeave = shift.workType === '有給休暇'
+
     // workTypeが'公休'の場合はisPublicHolidayもtrueにする
     if (body.workType === '公休') {
       updateData.isPublicHoliday = true
     }
 
-    // 公休の場合は時間関連を強制的にnull/0にする
-    if (isPublicHoliday === true || body.workType === '公休') {
+    // 公休・有給休暇の場合は時間関連を強制的にnull/0にする
+    if (isPublicHoliday === true || body.workType === '公休' || body.workType === '有給休暇') {
       // マイグレーションを確実に実行（エラーを無視して続行）
       try {
         await prisma.$executeRawUnsafe(`
@@ -114,6 +118,13 @@ export async function PATCH(
         // 既に実行済みの場合はエラーを無視
       }
       
+      updateData.startTime = null
+      updateData.endTime = null
+      updateData.breakMinutes = 0
+      updateData.workingHours = null
+      updateData.timeSlot = null
+    } else if (body.workType === '有給休暇') {
+      // 有給休暇の場合も時間関連をnull/0にする
       updateData.startTime = null
       updateData.endTime = null
       updateData.breakMinutes = 0
@@ -148,6 +159,37 @@ export async function PATCH(
         where: { id },
         data: updateData,
       })
+
+      // 有給残数の更新処理
+      if (isPaidLeave && !wasPaidLeave) {
+        // 新規に有給休暇を使用する場合：残数を1日減らす
+        const employee = await prisma.employee.findUnique({
+          where: { id: shift.employeeId },
+          select: { id: true, paidLeaveBalance: true },
+        })
+        if (employee) {
+          const newBalance = Math.max(0, employee.paidLeaveBalance - 1)
+          await prisma.employee.update({
+            where: { id: shift.employeeId },
+            data: { paidLeaveBalance: newBalance },
+          })
+          console.log(`[Shifts] Reduced paid leave balance for employee ${shift.employeeId}: ${employee.paidLeaveBalance} -> ${newBalance}`)
+        }
+      } else if (!isPaidLeave && wasPaidLeave) {
+        // 有給休暇を解除する場合：残数を1日戻す
+        const employee = await prisma.employee.findUnique({
+          where: { id: shift.employeeId },
+          select: { id: true, paidLeaveBalance: true },
+        })
+        if (employee) {
+          const newBalance = employee.paidLeaveBalance + 1
+          await prisma.employee.update({
+            where: { id: shift.employeeId },
+            data: { paidLeaveBalance: newBalance },
+          })
+          console.log(`[Shifts] Restored paid leave balance for employee ${shift.employeeId}: ${employee.paidLeaveBalance} -> ${newBalance}`)
+        }
+      }
 
       return NextResponse.json({
         success: true,
@@ -251,6 +293,22 @@ export async function DELETE(
 
     if (!shift) {
       return NextResponse.json({ error: 'Shift not found' }, { status: 404 })
+    }
+
+    // 有給休暇のシフトを削除する場合は残数を戻す
+    if (shift.workType === '有給休暇') {
+      const employee = await prisma.employee.findUnique({
+        where: { id: shift.employeeId },
+        select: { id: true, paidLeaveBalance: true },
+      })
+      if (employee) {
+        const newBalance = employee.paidLeaveBalance + 1
+        await prisma.employee.update({
+          where: { id: shift.employeeId },
+          data: { paidLeaveBalance: newBalance },
+        })
+        console.log(`[Shifts] Restored paid leave balance for employee ${shift.employeeId} after shift deletion: ${employee.paidLeaveBalance} -> ${newBalance}`)
+      }
     }
 
     await prisma.shift.delete({

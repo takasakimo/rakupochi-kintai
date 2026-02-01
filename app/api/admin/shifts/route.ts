@@ -248,6 +248,20 @@ export async function POST(request: NextRequest) {
             },
           })
 
+          // 有給休暇の使用状況を確認
+          const isPaidLeave = shift.workType === '有給休暇'
+          const wasPaidLeave = existingShift?.workType === '有給休暇'
+
+          // 従業員情報を取得（有給残数の更新用）
+          const employee = await prisma.employee.findUnique({
+            where: { id: shift.employeeId },
+            select: { id: true, paidLeaveBalance: true },
+          })
+
+          if (!employee) {
+            throw new Error(`Employee ${shift.employeeId} not found`)
+          }
+
           const shiftData: any = {
             breakMinutes: shift.breakMinutes || 0,
             notes: shift.notes || null,
@@ -262,9 +276,9 @@ export async function POST(request: NextRequest) {
             leavingLocation: shift.leavingLocation || null,
           }
 
-          // startTimeとendTimeは必須なので、公休の場合でもデフォルト値を設定
-          if (shift.isPublicHoliday) {
-            // 公休の場合は00:00を設定
+          // startTimeとendTimeは必須なので、公休・有給休暇の場合でもデフォルト値を設定
+          if (shift.isPublicHoliday || isPaidLeave) {
+            // 公休・有給休暇の場合は00:00を設定
             shiftData.startTime = new Date(`2000-01-01T00:00:00`)
             shiftData.endTime = new Date(`2000-01-01T00:00:00`)
           } else {
@@ -281,8 +295,9 @@ export async function POST(request: NextRequest) {
             }
           }
 
+          let updatedShift
           if (existingShift) {
-            return prisma.shift.update({
+            updatedShift = await prisma.shift.update({
               where: { id: existingShift.id },
               data: shiftData,
             })
@@ -295,7 +310,7 @@ export async function POST(request: NextRequest) {
             const [createYear, createMonth, createDay] = shift.date.split('-').map(Number)
             const createDate = new Date(Date.UTC(createYear, createMonth - 1, createDay, 0, 0, 0, 0))
             
-            return prisma.shift.create({
+            updatedShift = await prisma.shift.create({
               data: {
                 companyId: effectiveCompanyId,
                 employeeId: shift.employeeId,
@@ -304,6 +319,27 @@ export async function POST(request: NextRequest) {
               },
             })
           }
+
+          // 有給残数の更新処理
+          if (isPaidLeave && !wasPaidLeave) {
+            // 新規に有給休暇を使用する場合：残数を1日減らす
+            const newBalance = Math.max(0, employee.paidLeaveBalance - 1)
+            await prisma.employee.update({
+              where: { id: shift.employeeId },
+              data: { paidLeaveBalance: newBalance },
+            })
+            console.log(`[Shifts] Reduced paid leave balance for employee ${shift.employeeId}: ${employee.paidLeaveBalance} -> ${newBalance}`)
+          } else if (!isPaidLeave && wasPaidLeave) {
+            // 有給休暇を解除する場合：残数を1日戻す
+            const newBalance = employee.paidLeaveBalance + 1
+            await prisma.employee.update({
+              where: { id: shift.employeeId },
+              data: { paidLeaveBalance: newBalance },
+            })
+            console.log(`[Shifts] Restored paid leave balance for employee ${shift.employeeId}: ${employee.paidLeaveBalance} -> ${newBalance}`)
+          }
+
+          return updatedShift
         } catch (shiftError: any) {
           console.error(`[Shifts] Error processing shift ${index + 1}:`, shiftError)
           throw shiftError
