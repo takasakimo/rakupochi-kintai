@@ -109,6 +109,12 @@ export default function AdminAttendancesPage() {
   const [showAllHistoryModal, setShowAllHistoryModal] = useState(false)
   const [allModificationLogs, setAllModificationLogs] = useState<any[]>([])
   const [loadingAllHistory, setLoadingAllHistory] = useState(false)
+  const [companySettings, setCompanySettings] = useState<{
+    allowPreOvertime?: boolean
+    workStartTime?: Date | string | null
+    workEndTime?: Date | string | null
+    standardBreakMinutes?: number
+  } | null>(null)
 
   // URLパラメータからviewModeを読み取る
   useEffect(() => {
@@ -132,6 +138,7 @@ export default function AdminAttendancesPage() {
         fetchLocations()
         fetchDepartments()
         fetchDirectDestinations()
+        fetchCompanySettings()
         if (viewMode === 'shifts') {
           fetchShiftsAndAttendances()
         } else {
@@ -140,6 +147,18 @@ export default function AdminAttendancesPage() {
       }
     }
   }, [status, session, viewMode])
+
+  const fetchCompanySettings = async () => {
+    try {
+      const response = await fetch('/api/admin/settings')
+      const data = await response.json()
+      if (data.settings) {
+        setCompanySettings(data.settings)
+      }
+    } catch (err) {
+      console.error('Failed to fetch company settings:', err)
+    }
+  }
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -693,9 +712,68 @@ export default function AdminAttendancesPage() {
       const breakMinutes = calculateBreakMinutes(attendance)
       const netWorkMinutes = Math.max(0, totalWorkMinutes - breakMinutes)
       
-      // 標準勤務時間（8時間）を超えた分が残業時間
-      const standardWorkMinutes = 8 * 60
-      const overtimeMinutes = Math.max(0, netWorkMinutes - standardWorkMinutes)
+      // 企業設定を取得
+      const allowPreOvertime = companySettings?.allowPreOvertime ?? false
+      
+      // 標準始業時刻・終業時刻を取得
+      const defaultWorkStart = new Date('2000-01-01T09:00:00')
+      const defaultWorkEnd = new Date('2000-01-01T18:00:00')
+      
+      let workStartTime = defaultWorkStart
+      let workEndTime = defaultWorkEnd
+      
+      if (companySettings?.workStartTime) {
+        try {
+          if (companySettings.workStartTime instanceof Date) {
+            const hours = companySettings.workStartTime.getHours()
+            const minutes = companySettings.workStartTime.getMinutes()
+            workStartTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
+          } else if (typeof companySettings.workStartTime === 'string') {
+            workStartTime = new Date(`2000-01-01T${companySettings.workStartTime}`)
+          }
+        } catch (e) {
+          console.error('Error parsing workStartTime:', e)
+        }
+      }
+      
+      if (companySettings?.workEndTime) {
+        try {
+          if (companySettings.workEndTime instanceof Date) {
+            const hours = companySettings.workEndTime.getHours()
+            const minutes = companySettings.workEndTime.getMinutes()
+            workEndTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
+          } else if (typeof companySettings.workEndTime === 'string') {
+            workEndTime = new Date(`2000-01-01T${companySettings.workEndTime}`)
+          }
+        } catch (e) {
+          console.error('Error parsing workEndTime:', e)
+        }
+      }
+      
+      // 標準勤務時間を計算
+      const standardBreakMinutes = companySettings?.standardBreakMinutes || 60
+      const standardWorkMinutes = Math.floor(
+        (workEndTime.getTime() - workStartTime.getTime()) / (1000 * 60)
+      ) - standardBreakMinutes
+      
+      let overtimeMinutes: number
+      
+      if (!allowPreOvertime) {
+        // 前残業を認めない場合：標準始業時刻より前の時間は残業としてカウントしない
+        // 標準終業時刻より後の時間のみを残業としてカウント
+        
+        // 標準始業時刻より前の時間を計算
+        const preWorkMinutes = Math.max(0, Math.floor((workStartTime.getTime() - inTime.getTime()) / (1000 * 60)))
+        
+        // 標準終業時刻より後の時間を計算
+        const postWorkMinutes = Math.max(0, Math.floor((outTime.getTime() - workEndTime.getTime()) / (1000 * 60)))
+        
+        // 残業時間は標準終業時刻より後の時間のみ
+        overtimeMinutes = postWorkMinutes
+      } else {
+        // 前残業を認める場合：従来通り、標準勤務時間を超えた分が残業時間
+        overtimeMinutes = Math.max(0, netWorkMinutes - standardWorkMinutes)
+      }
       
       if (overtimeMinutes === 0) return '0:00'
       

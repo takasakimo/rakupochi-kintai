@@ -32,6 +32,10 @@ export async function GET(request: NextRequest) {
       select: {
         enableSalesVisit: true,
         enableWakeUpDeparture: true,
+        allowPreOvertime: true,
+        workStartTime: true,
+        workEndTime: true,
+        standardBreakMinutes: true,
       },
     })
 
@@ -40,12 +44,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         enableSalesVisit: true,
         enableWakeUpDeparture: true,
+        allowPreOvertime: false,
+        workStartTime: null,
+        workEndTime: null,
+        standardBreakMinutes: 60,
       })
     }
 
     return NextResponse.json({
       enableSalesVisit: settings.enableSalesVisit ?? true,
       enableWakeUpDeparture: settings.enableWakeUpDeparture ?? true,
+      allowPreOvertime: settings.allowPreOvertime ?? false,
+      workStartTime: settings.workStartTime,
+      workEndTime: settings.workEndTime,
+      standardBreakMinutes: settings.standardBreakMinutes ?? 60,
     })
   } catch (error) {
     console.error('Get display settings error:', error)

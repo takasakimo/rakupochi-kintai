@@ -310,10 +310,38 @@ export async function GET(request: NextRequest) {
       // 実働時間を計算（休憩時間を控除）
       const netWorkMinutes = Math.max(0, totalWorkMinutes - breakMinutes)
       
-      // 標準勤務時間（8時間）を超えた分が残業時間
-      const standardWorkMinutes = 8 * 60
-      const basicMinutes = Math.min(Math.max(0, netWorkMinutes), standardWorkMinutes)
-      const overtimeMinutes = Math.max(0, netWorkMinutes - standardWorkMinutes)
+      // 標準勤務時間を計算
+      const standardWorkMinutes = Math.floor(
+        (workEndTime.getTime() - workStartTime.getTime()) / (1000 * 60)
+      ) - (companySettings?.standardBreakMinutes || 60)
+      
+      // 残業時間の計算
+      let basicMinutes: number
+      let overtimeMinutes: number
+      
+      if (!allowPreOvertime) {
+        // 前残業を認めない場合：標準始業時刻より前の時間は残業としてカウントしない
+        // 標準終業時刻より後の時間のみを残業としてカウント
+        
+        // 標準始業時刻より前の時間を計算
+        const preWorkMinutes = Math.max(0, Math.floor((workStartTime.getTime() - clockInTime.getTime()) / (1000 * 60)))
+        
+        // 標準終業時刻より後の時間を計算
+        const postWorkMinutes = Math.max(0, Math.floor((clockOutTime.getTime() - workEndTime.getTime()) / (1000 * 60)))
+        
+        // 実働時間から前残業分を除外
+        const adjustedNetWorkMinutes = Math.max(0, netWorkMinutes - preWorkMinutes)
+        
+        // 基本時間は標準勤務時間まで
+        basicMinutes = Math.min(adjustedNetWorkMinutes, standardWorkMinutes)
+        
+        // 残業時間は標準終業時刻より後の時間のみ
+        overtimeMinutes = postWorkMinutes
+      } else {
+        // 前残業を認める場合：従来通り、標準勤務時間を超えた分が残業時間
+        basicMinutes = Math.min(Math.max(0, netWorkMinutes), standardWorkMinutes)
+        overtimeMinutes = Math.max(0, netWorkMinutes - standardWorkMinutes)
+      }
 
       report.totalWorkDays++
       report.totalWorkMinutes += netWorkMinutes

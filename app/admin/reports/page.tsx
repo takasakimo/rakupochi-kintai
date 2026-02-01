@@ -57,6 +57,12 @@ export default function AdminReportsPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(false)
   const [enableSalesVisit, setEnableSalesVisit] = useState(true)
+  const [companySettings, setCompanySettings] = useState<{
+    allowPreOvertime?: boolean
+    workStartTime?: Date | string | null
+    workEndTime?: Date | string | null
+    standardBreakMinutes?: number
+  } | null>(null)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7)
@@ -111,12 +117,20 @@ export default function AdminReportsPage() {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch('/api/settings/display')
+      const response = await fetch('/api/admin/settings')
       const data = await response.json()
-      setEnableSalesVisit(data.enableSalesVisit ?? true)
-      // 営業先入退店機能が無効の場合は、入退店記録レポートタブが選択されていたら打刻レポートに戻す
-      if (!data.enableSalesVisit && reportType === 'sales-visit') {
-        setReportType('attendance')
+      if (data.settings) {
+        setEnableSalesVisit(data.settings.enableSalesVisit ?? true)
+        setCompanySettings({
+          allowPreOvertime: data.settings.allowPreOvertime,
+          workStartTime: data.settings.workStartTime,
+          workEndTime: data.settings.workEndTime,
+          standardBreakMinutes: data.settings.standardBreakMinutes,
+        })
+        // 営業先入退店機能が無効の場合は、入退店記録レポートタブが選択されていたら打刻レポートに戻す
+        if (!data.settings.enableSalesVisit && reportType === 'sales-visit') {
+          setReportType('attendance')
+        }
       }
     } catch (err) {
       console.error('Failed to fetch settings:', err)
@@ -1235,10 +1249,77 @@ export default function AdminReportsPage() {
                     }
                     const netWorkMinutes = Math.max(0, totalWorkMinutes - breakMinutes)
 
-                    // 標準勤務時間（8時間）を考慮して基本と残業を計算
-                    const standardWorkMinutes = 8 * 60
-                    const basicMinutes = Math.min(Math.max(0, netWorkMinutes), standardWorkMinutes)
-                    const overtimeMinutes = Math.max(0, netWorkMinutes - standardWorkMinutes)
+                    // 企業設定を取得
+                    const allowPreOvertime = companySettings?.allowPreOvertime ?? false
+                    
+                    // 標準始業時刻・終業時刻を取得
+                    const defaultWorkStart = new Date('2000-01-01T09:00:00')
+                    const defaultWorkEnd = new Date('2000-01-01T18:00:00')
+                    
+                    let workStartTime = defaultWorkStart
+                    let workEndTime = defaultWorkEnd
+                    
+                    if (companySettings?.workStartTime) {
+                      try {
+                        if (companySettings.workStartTime instanceof Date) {
+                          const hours = companySettings.workStartTime.getHours()
+                          const minutes = companySettings.workStartTime.getMinutes()
+                          workStartTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
+                        } else if (typeof companySettings.workStartTime === 'string') {
+                          workStartTime = new Date(`2000-01-01T${companySettings.workStartTime}`)
+                        }
+                      } catch (e) {
+                        console.error('Error parsing workStartTime:', e)
+                      }
+                    }
+                    
+                    if (companySettings?.workEndTime) {
+                      try {
+                        if (companySettings.workEndTime instanceof Date) {
+                          const hours = companySettings.workEndTime.getHours()
+                          const minutes = companySettings.workEndTime.getMinutes()
+                          workEndTime = new Date(`2000-01-01T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
+                        } else if (typeof companySettings.workEndTime === 'string') {
+                          workEndTime = new Date(`2000-01-01T${companySettings.workEndTime}`)
+                        }
+                      } catch (e) {
+                        console.error('Error parsing workEndTime:', e)
+                      }
+                    }
+                    
+                    // 標準勤務時間を計算
+                    const standardBreakMinutes = companySettings?.standardBreakMinutes || 60
+                    const standardWorkMinutes = Math.floor(
+                      (workEndTime.getTime() - workStartTime.getTime()) / (1000 * 60)
+                    ) - standardBreakMinutes
+                    
+                    // 基本時間と残業時間を計算
+                    let basicMinutes: number
+                    let overtimeMinutes: number
+                    
+                    if (!allowPreOvertime) {
+                      // 前残業を認めない場合：標準始業時刻より前の時間は残業としてカウントしない
+                      // 標準終業時刻より後の時間のみを残業としてカウント
+                      
+                      // 標準始業時刻より前の時間を計算
+                      const preWorkMinutes = Math.max(0, Math.floor((workStartTime.getTime() - inTime.getTime()) / (1000 * 60)))
+                      
+                      // 標準終業時刻より後の時間を計算
+                      const postWorkMinutes = Math.max(0, Math.floor((outTime.getTime() - workEndTime.getTime()) / (1000 * 60)))
+                      
+                      // 実働時間から前残業分を除外
+                      const adjustedNetWorkMinutes = Math.max(0, netWorkMinutes - preWorkMinutes)
+                      
+                      // 基本時間は標準勤務時間まで
+                      basicMinutes = Math.min(adjustedNetWorkMinutes, standardWorkMinutes)
+                      
+                      // 残業時間は標準終業時刻より後の時間のみ
+                      overtimeMinutes = postWorkMinutes
+                    } else {
+                      // 前残業を認める場合：従来通り、標準勤務時間を超えた分が残業時間
+                      basicMinutes = Math.min(Math.max(0, netWorkMinutes), standardWorkMinutes)
+                      overtimeMinutes = Math.max(0, netWorkMinutes - standardWorkMinutes)
+                    }
 
                     const basicHours = Math.floor(basicMinutes / 60)
                     const basicMins = basicMinutes % 60
