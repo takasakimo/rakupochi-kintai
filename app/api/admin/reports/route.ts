@@ -377,9 +377,34 @@ export async function GET(request: NextRequest) {
       const netWorkMinutes = Math.max(0, totalWorkMinutes - breakMinutes)
       
       // シフト情報を取得
-      const attendanceDateStr = attendance.date.toISOString().split('T')[0]
+      // 日付を文字列に変換（タイムゾーンの問題を回避）
+      let attendanceDateStr: string
+      const attendanceDate = attendance.date as any
+      if (attendanceDate instanceof Date) {
+        // UTC日付として扱う場合
+        const year = attendanceDate.getUTCFullYear()
+        const month = String(attendanceDate.getUTCMonth() + 1).padStart(2, '0')
+        const day = String(attendanceDate.getUTCDate()).padStart(2, '0')
+        attendanceDateStr = `${year}-${month}-${day}`
+      } else if (typeof attendanceDate === 'string') {
+        // 文字列の場合
+        attendanceDateStr = attendanceDate.split('T')[0]
+      } else {
+        // Dateオブジェクトとして扱う
+        const dateObj = new Date(attendanceDate)
+        const year = dateObj.getUTCFullYear()
+        const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0')
+        const day = String(dateObj.getUTCDate()).padStart(2, '0')
+        attendanceDateStr = `${year}-${month}-${day}`
+      }
       const shiftKey = `${attendance.employeeId}_${attendanceDateStr}`
       const shift = shiftMap.get(shiftKey)
+      
+      if (!shift) {
+        console.log('[Reports] No shift found for:', shiftKey, 'employeeId:', attendance.employeeId, 'employeeName:', attendance.employee.name, 'date:', attendanceDateStr, 'available keys:', Array.from(shiftMap.keys()).filter(k => k.startsWith(`${attendance.employeeId}_`)))
+      } else {
+        console.log('[Reports] Found shift for:', shiftKey, 'startTime:', shift.startTime, 'endTime:', shift.endTime)
+      }
       
       // シフト開始時間・終了時間を取得（シフトがあればシフト時間、なければ標準時間）
       let shiftStartTime = workStartTime
