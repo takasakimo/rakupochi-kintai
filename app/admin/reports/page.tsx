@@ -1786,30 +1786,22 @@ export default function AdminReportsPage() {
                       const outTimeMonth = outTime.getMonth()
                       const outTimeYear = outTime.getFullYear()
                       
-                      // workEndTimeForCalcから時刻を取得
-                      const workEndTimeForCalcHours = workEndTimeForCalc.getHours()
-                      const workEndTimeForCalcMinutes = workEndTimeForCalc.getMinutes()
+                      // 元のworkEndTimeの時刻を取得（日をまたぐシフトの考慮なし）
+                      // workEndTimeは既に日付調整前の時刻（例：19:00）
+                      const workEndHours = workEndTime.getHours()
+                      const workEndMinutes = workEndTime.getMinutes()
                       
-                      // workEndTimeForCalcをoutTimeの日付基準で作成
-                      let workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndTimeForCalcHours, workEndTimeForCalcMinutes)
+                      // workEndTimeをoutTimeの日付基準で作成
+                      let workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndHours, workEndMinutes)
                       
-                      // workEndTimeForCalcが既に日をまたぐシフトとして1日加算されている場合、
-                      // workEndTimeForPostCalcもoutTime基準で1日加算する必要がある
-                      // workEndTimeForCalcとworkStartTimeForCalcの日付差を確認（1768-1770行目で既に判定済み）
-                      // workEndTimeForCalcがworkStartTimeForCalcより後の日付の場合、日をまたぐシフト
-                      const workEndTimeForCalcDate = workEndTimeForCalc.getDate()
-                      const workStartTimeForCalcDate = workStartTimeForCalc.getDate()
-                      const workEndTimeForCalcMonth = workEndTimeForCalc.getMonth()
-                      const workStartTimeForCalcMonth = workStartTimeForCalc.getMonth()
-                      const workEndTimeForCalcYear = workEndTimeForCalc.getFullYear()
-                      const workStartTimeForCalcYear = workStartTimeForCalc.getFullYear()
+                      // シフトが日をまたぐ場合（元のworkEndTime < workStartTime）、workEndTimeForPostCalcを翌日に設定
+                      // 元のworkStartTimeとworkEndTimeを比較（日付調整前）
+                      const originalWorkStartTime = new Date(2000, 0, 1, workStartTime.getHours(), workStartTime.getMinutes())
+                      const originalWorkEndTime = new Date(2000, 0, 1, workEndHours, workEndMinutes)
                       
-                      // 日付が異なる場合（日をまたぐシフト）、workEndTimeForPostCalcを翌日に設定
-                      if (workEndTimeForCalcYear !== workStartTimeForCalcYear || 
-                          workEndTimeForCalcMonth !== workStartTimeForCalcMonth || 
-                          workEndTimeForCalcDate !== workStartTimeForCalcDate) {
-                        // シフトが日をまたぐ場合、workEndTimeForPostCalcをoutTime基準で翌日に設定
-                        workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate + 1, workEndTimeForCalcHours, workEndTimeForCalcMinutes)
+                      // シフトが日をまたぐ場合、workEndTimeForPostCalcをoutTime基準で翌日に設定
+                      if (originalWorkEndTime.getTime() < originalWorkStartTime.getTime()) {
+                        workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate + 1, workEndHours, workEndMinutes)
                       }
                       
                       // シフト開始時刻より前の時間を計算（inTimeと同じ日付基準で比較）
