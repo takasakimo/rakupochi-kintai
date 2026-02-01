@@ -1401,8 +1401,28 @@ export default function AdminReportsPage() {
                       const outTimeMonth = outTime.getMonth()
                       const outTimeYear = outTime.getFullYear()
                       
+                      // workEndTimeから時刻を取得（24時間加算後の値も考慮）
+                      const workEndTimeHours = workEndTime.getHours()
+                      const workEndTimeMinutes = workEndTime.getMinutes()
+                      
                       // workEndTimeをoutTimeと同じ日付基準で作成
-                      let workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndHours, workEndMinutes)
+                      // workEndTimeが既に翌日にまたがっている場合は、その日数差を考慮
+                      const workEndTimeDate = workEndTime.getDate()
+                      const workEndTimeMonth = workEndTime.getMonth()
+                      const workEndTimeYear = workEndTime.getFullYear()
+                      
+                      // inTimeとworkEndTimeの日付差を計算
+                      const inTimeMs = inTime.getTime()
+                      const workEndTimeMs = workEndTime.getTime()
+                      const daysDiff = Math.floor((workEndTimeMs - inTimeMs) / (24 * 60 * 60 * 1000))
+                      
+                      // outTimeと同じ日付基準でworkEndTimeを作成
+                      let workEndTimeForPostCalc = new Date(outTimeYear, outTimeMonth, outTimeDate, workEndTimeHours, workEndTimeMinutes)
+                      
+                      // workEndTimeが翌日にまたがっている場合は、outTimeも同じ日数分加算
+                      if (daysDiff > 0) {
+                        workEndTimeForPostCalc = new Date(workEndTimeForPostCalc.getTime() + daysDiff * 24 * 60 * 60 * 1000)
+                      }
                       
                       // シフト終了時刻が開始時刻より前の場合（翌日にまたがるシフト）は1日加算
                       // workStartTimeをoutTimeと同じ日付基準に調整して比較
