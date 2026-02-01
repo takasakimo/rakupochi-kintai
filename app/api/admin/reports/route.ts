@@ -258,15 +258,23 @@ export async function GET(request: NextRequest) {
     shifts.forEach((shift) => {
       // 日付を文字列に変換（タイムゾーンの問題を回避）
       let dateStr: string
-      if (shift.date instanceof Date) {
+      const shiftDate = shift.date as any
+      if (shiftDate instanceof Date) {
         // UTC日付として扱う場合
-        const year = shift.date.getUTCFullYear()
-        const month = String(shift.date.getUTCMonth() + 1).padStart(2, '0')
-        const day = String(shift.date.getUTCDate()).padStart(2, '0')
+        const year = shiftDate.getUTCFullYear()
+        const month = String(shiftDate.getUTCMonth() + 1).padStart(2, '0')
+        const day = String(shiftDate.getUTCDate()).padStart(2, '0')
         dateStr = `${year}-${month}-${day}`
-      } else {
+      } else if (typeof shiftDate === 'string') {
         // 文字列の場合
-        dateStr = shift.date.toISOString().split('T')[0]
+        dateStr = shiftDate.split('T')[0]
+      } else {
+        // Dateオブジェクトとして扱う
+        const dateObj = new Date(shiftDate)
+        const year = dateObj.getUTCFullYear()
+        const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0')
+        const day = String(dateObj.getUTCDate()).padStart(2, '0')
+        dateStr = `${year}-${month}-${day}`
       }
       const key = `${shift.employeeId}_${dateStr}`
       shiftMap.set(key, shift)
