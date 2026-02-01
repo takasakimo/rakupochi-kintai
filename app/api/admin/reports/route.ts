@@ -220,6 +220,7 @@ export async function GET(request: NextRequest) {
     ) - (companySettings?.standardBreakMinutes || 60)
 
     // シフト情報を取得（日付と従業員IDでマッチング用）
+    // 全従業員のシフトを取得（employeeIdが指定されていない場合も含む）
     const shiftWhere: any = {
       companyId: effectiveCompanyId,
       date: {
@@ -227,8 +228,16 @@ export async function GET(request: NextRequest) {
         lte: end,
       },
     }
+    // employeeIdが指定されている場合はフィルタリング、指定されていない場合は全従業員のシフトを取得
     if (employeeId) {
       shiftWhere.employeeId = employeeId
+    } else {
+      // 全従業員のシフトを取得するため、employeeIdのフィルタは追加しない
+      // ただし、attendancesに含まれる従業員のシフトのみを取得する
+      const employeeIds = [...new Set(attendances.map(a => a.employeeId))]
+      if (employeeIds.length > 0) {
+        shiftWhere.employeeId = { in: employeeIds }
+      }
     }
     
     const shifts = await prisma.shift.findMany({
@@ -242,6 +251,8 @@ export async function GET(request: NextRequest) {
       },
     })
     
+    console.log('[Reports] Found shifts:', shifts.length, 'for period:', start.toISOString().split('T')[0], 'to', end.toISOString().split('T')[0])
+    
     // シフト情報を日付と従業員IDでマップ
     const shiftMap: Map<string, any> = new Map()
     shifts.forEach((shift) => {
@@ -249,6 +260,8 @@ export async function GET(request: NextRequest) {
       const key = `${shift.employeeId}_${dateStr}`
       shiftMap.set(key, shift)
     })
+    
+    console.log('[Reports] Shift map size:', shiftMap.size)
 
     attendances.forEach((attendance) => {
       if (!attendance.clockIn || !attendance.clockOut) {
