@@ -1375,31 +1375,31 @@ export default function AdminReportsPage() {
                       
                       // シフト勤務時間を計算
                       const shiftBreakMinutes = shift?.breakMinutes || companySettings?.standardBreakMinutes || 60
-                      const shiftWorkMinutes = Math.floor(
+                      const shiftWorkMinutes = Math.max(0, Math.floor(
                         (workEndTime.getTime() - workStartTime.getTime()) / (1000 * 60)
-                      ) - shiftBreakMinutes
+                      ) - shiftBreakMinutes)
                       
                       if (!allowPreOvertime) {
                         // 前残業を認めない場合：シフト開始時刻より前の時間は残業としてカウントしない
                         // シフト終了時刻より後の時間のみを残業としてカウント
                         
-                        // シフト開始時刻より前の時間を計算
+                        // シフト開始時刻より前の時間を計算（同じ日付で比較）
                         const preWorkMinutes = Math.max(0, Math.floor((workStartTime.getTime() - inTime.getTime()) / (1000 * 60)))
                         
-                        // シフト終了時刻より後の時間を計算
+                        // シフト終了時刻より後の時間を計算（同じ日付で比較）
                         const postWorkMinutes = Math.max(0, Math.floor((outTime.getTime() - workEndTime.getTime()) / (1000 * 60)))
                         
                         // 実働時間から前残業分を除外
                         const adjustedNetWorkMinutes = Math.max(0, netWorkMinutes - preWorkMinutes)
                         
-                        // 基本時間はシフト勤務時間まで
-                        basicMinutes = Math.min(adjustedNetWorkMinutes, shiftWorkMinutes)
+                        // 基本時間はシフト勤務時間まで（負の値にならないようにする）
+                        basicMinutes = Math.max(0, Math.min(adjustedNetWorkMinutes, shiftWorkMinutes))
                         
                         // 残業時間はシフト終了時刻より後の時間のみ（前残業は含めない）
                         overtimeMinutes = postWorkMinutes
                       } else {
                         // 前残業を認める場合：従来通り、シフト勤務時間を超えた分が残業時間
-                        basicMinutes = Math.min(Math.max(0, netWorkMinutes), shiftWorkMinutes)
+                        basicMinutes = Math.max(0, Math.min(Math.max(0, netWorkMinutes), shiftWorkMinutes))
                         overtimeMinutes = Math.max(0, netWorkMinutes - shiftWorkMinutes)
                       }
                     } else {
