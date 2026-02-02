@@ -1537,13 +1537,18 @@ export default function ShiftManagePage() {
                         setEditingShift({
                           ...editingShift,
                           isPublicHoliday,
-                          // 公休にした場合は時間関連のフィールドをクリア
+                          // 公休にした場合は勤務種別も「公休」に変更し、時間関連のフィールドをクリア
                           ...(isPublicHoliday && {
+                            workType: '公休',
                             startTime: null,
                             endTime: null,
                             breakMinutes: 0,
                             workingHours: null,
                             timeSlot: null,
+                          }),
+                          // 公休を解除した場合は勤務種別を「出勤」に変更
+                          ...(!isPublicHoliday && editingShift.workType === '公休' && {
+                            workType: '出勤',
                           }),
                         })
                       }}
