@@ -9,9 +9,10 @@ export const dynamic = 'force-dynamic'
 // 従業員一覧取得
 export async function GET() {
   try {
-    console.log('[Employees] GET /api/admin/employees - Starting')
-    console.log('[Employees] DATABASE_URL exists:', !!process.env.DATABASE_URL)
-    console.log('[Employees] DATABASE_URL (first 50 chars):', process.env.DATABASE_URL?.substring(0, 50))
+    // セキュリティ: 本番環境では機密情報をログに出力しない
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Employees] GET /api/admin/employees - Starting')
+    }
     
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
@@ -79,23 +80,39 @@ export async function GET() {
       console.log('[Employees] Found employees:', employees.length)
 
       // 有給消滅ロジック（取得から2年経過した有給を自動消滅）
+      // パフォーマンス最適化: 一括UPDATEに変更（N+1問題の解決）
       const now = new Date()
-      for (const employee of employees) {
-        if (employee.paidLeaveGrantDate && employee.paidLeaveBalance > 0) {
-          const grantDate = new Date(employee.paidLeaveGrantDate)
+      const twoYearsAgo = new Date(now)
+      twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2)
+      
+      // 2年経過した有給を一括で0にリセット
+      await prisma.employee.updateMany({
+        where: {
+          companyId: effectiveCompanyId,
+          paidLeaveGrantDate: {
+            lte: twoYearsAgo,
+          },
+          paidLeaveBalance: {
+            gt: 0,
+          },
+        },
+        data: {
+          paidLeaveBalance: 0,
+        },
+      })
+      
+      // メモリ内のデータも更新（レスポンス用）
+      employees = employees.map(emp => {
+        if (emp.paidLeaveGrantDate && emp.paidLeaveBalance > 0) {
+          const grantDate = new Date(emp.paidLeaveGrantDate)
           const twoYearsLater = new Date(grantDate)
           twoYearsLater.setFullYear(twoYearsLater.getFullYear() + 2)
-          
-          // 2年経過している場合、有給残数を0にリセット
           if (now > twoYearsLater) {
-            await prisma.employee.update({
-              where: { id: employee.id },
-              data: { paidLeaveBalance: 0 },
-            })
-            employee.paidLeaveBalance = 0
+            return { ...emp, paidLeaveBalance: 0 }
           }
         }
-      }
+        return emp
+      })
     } catch (error: any) {
       console.error('[Employees] Database query error:', error)
       console.error('[Employees] Error name:', error?.name)

@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
   try {
     console.log('[Applications] GET /api/applications - Starting')
     
+    const { searchParams } = new URL(request.url)
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       console.log('[Applications] Unauthorized: no session or user')
@@ -79,6 +80,11 @@ export async function GET(request: NextRequest) {
 
     console.log('[Applications] Where clause:', JSON.stringify(where))
 
+    // ページネーション対応（デフォルト: 最新100件）
+    const limit = parseInt(searchParams.get('limit') || '100')
+    const skip = parseInt(searchParams.get('skip') || '0')
+    const maxLimit = 1000 // 最大1000件まで
+    
     let applications
     try {
       applications = await prisma.application.findMany({
@@ -97,6 +103,8 @@ export async function GET(request: NextRequest) {
         orderBy: {
           createdAt: 'desc',
         },
+        take: Math.min(limit, maxLimit),
+        skip: skip,
       })
       
       // 従業員登録申請の場合、employeeIdが0のためemployeeがnullになる可能性がある
@@ -160,7 +168,18 @@ export async function GET(request: NextRequest) {
       console.log('[Applications] After category filter:', applications.length)
     }
 
-    return NextResponse.json({ applications })
+    // 総件数を取得（ページネーション用）
+    const totalCount = await prisma.application.count({ where })
+    
+    return NextResponse.json({ 
+      applications,
+      pagination: {
+        total: totalCount,
+        limit: Math.min(limit, maxLimit),
+        skip: skip,
+        hasMore: skip + applications.length < totalCount,
+      },
+    })
   } catch (error: any) {
     console.error('[Applications] Get applications error:', error)
     console.error('[Applications] Error name:', error?.name)

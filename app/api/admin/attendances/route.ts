@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     console.log('[Attendances] GET /api/admin/attendances - Starting')
     
+    const { searchParams } = new URL(request.url)
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       console.log('[Attendances] Unauthorized: no session or user')
@@ -68,7 +69,18 @@ export async function GET(request: NextRequest) {
         where.date.lte = end
       }
     }
-    // 日付範囲が指定されていない場合は全期間を取得（過去履歴も含む）
+    // 日付範囲が指定されていない場合は最新100件のみ取得（パフォーマンス最適化）
+    // ページネーション対応
+    const limit = parseInt(searchParams.get('limit') || '100')
+    const skip = parseInt(searchParams.get('skip') || '0')
+    const maxLimit = 1000 // 最大1000件まで
+    
+    // 日付範囲が指定されていない場合は最新のデータのみ取得
+    if (!startDate && !endDate) {
+      where.date = {
+        gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), // 過去90日間のみ
+      }
+    }
 
     console.log('[Attendances] Where clause:', JSON.stringify(where))
 
@@ -89,6 +101,8 @@ export async function GET(request: NextRequest) {
         orderBy: {
           date: 'desc',
         },
+        take: Math.min(limit, maxLimit),
+        skip: skip,
       })
       console.log('[Attendances] Found attendances:', attendances.length)
     } catch (error: any) {
@@ -141,7 +155,18 @@ export async function GET(request: NextRequest) {
       }
     })
     
-    return NextResponse.json({ attendances: formattedAttendances })
+    // 総件数を取得（ページネーション用）
+    const totalCount = await prisma.attendance.count({ where })
+    
+    return NextResponse.json({ 
+      attendances: formattedAttendances,
+      pagination: {
+        total: totalCount,
+        limit: Math.min(limit, maxLimit),
+        skip: skip,
+        hasMore: skip + attendances.length < totalCount,
+      },
+    })
   } catch (error: any) {
     console.error('[Attendances] Get attendances error:', error)
     console.error('[Attendances] Error name:', error?.name)
