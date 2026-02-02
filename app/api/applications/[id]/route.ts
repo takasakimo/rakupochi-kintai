@@ -315,7 +315,7 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -336,10 +336,19 @@ export async function DELETE(
       )
     }
 
+    // IDのバリデーション
+    const applicationId = parseInt(params.id)
+    if (isNaN(applicationId)) {
+      return NextResponse.json(
+        { error: 'Invalid application ID' },
+        { status: 400 }
+      )
+    }
+
     // 申請の存在確認
     const existingApplication = await prisma.application.findUnique({
       where: {
-        id: parseInt(params.id),
+        id: applicationId,
         companyId: effectiveCompanyId,
       },
     })
@@ -354,7 +363,7 @@ export async function DELETE(
     // 従業員は自分の申請のみ削除可能
     // 管理者・スーパー管理者は全申請を削除可能
     if (!isAdmin && !isSuperAdmin) {
-      if (existingApplication.employeeId !== parseInt(session.user.id)) {
+      if (!session.user.id || existingApplication.employeeId !== parseInt(session.user.id)) {
         return NextResponse.json(
           { error: '自分の申請のみ削除できます' },
           { status: 403 }
@@ -373,10 +382,11 @@ export async function DELETE(
       }
     }
 
-    // 申請を削除
+    // 申請を削除（companyIdも条件に含めて、より安全に削除）
     await prisma.application.delete({
       where: {
-        id: parseInt(params.id),
+        id: applicationId,
+        companyId: effectiveCompanyId,
       },
     })
 
