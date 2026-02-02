@@ -4,7 +4,6 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { processPaidLeaveOnGrantDate, calculateFirstGrantDate } from '@/lib/paid-leave'
-import { processPaidLeaveOnGrantDate } from '@/lib/paid-leave'
 
 export const dynamic = 'force-dynamic'
 
