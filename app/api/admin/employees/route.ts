@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import { processPaidLeaveOnGrantDate, calculateFirstGrantDate } from '@/lib/paid-leave'
 import { processPaidLeaveOnGrantDate } from '@/lib/paid-leave'
 
 export const dynamic = 'force-dynamic'
@@ -80,6 +81,18 @@ export async function GET() {
       })
       console.log('[Employees] Found employees:', employees.length)
 
+      // 会社設定を取得
+      const companySettings = await prisma.companySetting.findUnique({
+        where: { companyId: effectiveCompanyId },
+        select: {
+          paidLeaveFirstGrantMonths: true,
+          paidLeaveGrantDays: true,
+        },
+      })
+
+      const grantDaysConfig = companySettings?.paidLeaveGrantDays as { year1?: number; year2?: number; year3?: number; year4?: number; year5?: number; year6?: number; year7?: number } | null
+      const firstGrantMonths = companySettings?.paidLeaveFirstGrantMonths ?? 6
+
       // 有給の起算日処理（起算日になった際に消滅分を減らして新規付与分を追加）
       const now = new Date()
       const updatePromises: Promise<any>[] = []
@@ -91,6 +104,8 @@ export async function GET() {
             emp.paidLeaveBalance,
             grantDate,
             emp.yearsOfService,
+            grantDaysConfig,
+            firstGrantMonths,
             now
           )
 
@@ -211,19 +226,23 @@ export async function POST(request: NextRequest) {
       paidLeaveBalance,
     } = body
 
-    // 勤続年数から有給付与日を自動計算
+    // 会社設定を取得
+    const companySettings = await prisma.companySetting.findUnique({
+      where: { companyId: effectiveCompanyId },
+      select: {
+        paidLeaveFirstGrantMonths: true,
+        paidLeaveGrantDays: true,
+      },
+    })
+
+    const firstGrantMonths = companySettings?.paidLeaveFirstGrantMonths ?? 6
+
+    // 入社日から有給付与日を自動計算（設定に基づく）
     let calculatedGrantDate = null
-    if (hireDate && yearsOfService) {
+    if (hireDate && !paidLeaveGrantDate) {
+      // 入社日から初回付与日を計算（設定の初回付与月数を使用）
       const hire = new Date(hireDate)
-      const years = parseFloat(yearsOfService)
-      const grantDate = new Date(hire)
-      grantDate.setFullYear(grantDate.getFullYear() + Math.floor(years))
-      grantDate.setMonth(grantDate.getMonth() + Math.floor((years % 1) * 12))
-      calculatedGrantDate = grantDate
-    } else if (hireDate && !paidLeaveGrantDate) {
-      // 勤続年数が未設定でも入社日があれば、入社日を基準に計算
-      const hire = new Date(hireDate)
-      calculatedGrantDate = hire
+      calculatedGrantDate = calculateFirstGrantDate(hire, firstGrantMonths)
     }
 
     // バリデーション

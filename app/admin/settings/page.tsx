@@ -18,6 +18,8 @@ interface CompanySettings {
   allowPreOvertime: boolean
   enableSalesVisit: boolean
   enableWakeUpDeparture: boolean
+  paidLeaveFirstGrantMonths?: number
+  paidLeaveGrantDays?: { year1?: number; year2?: number; year3?: number; year4?: number; year5?: number; year6?: number; year7?: number } | null
 }
 
 export default function AdminSettingsPage() {
@@ -40,6 +42,16 @@ export default function AdminSettingsPage() {
     allowPreOvertime: false,
     enableSalesVisit: true,
     enableWakeUpDeparture: true,
+    paidLeaveFirstGrantMonths: 6,
+    paidLeaveGrantDays: {
+      year1: 10,
+      year2: 11,
+      year3: 12,
+      year4: 14,
+      year5: 16,
+      year6: 18,
+      year7: 20,
+    },
   })
 
   useEffect(() => {
@@ -77,6 +89,16 @@ export default function AdminSettingsPage() {
           allowPreOvertime: data.settings.allowPreOvertime ?? false,
           enableSalesVisit: data.settings.enableSalesVisit ?? true,
           enableWakeUpDeparture: data.settings.enableWakeUpDeparture ?? true,
+          paidLeaveFirstGrantMonths: data.settings.paidLeaveFirstGrantMonths ?? 6,
+          paidLeaveGrantDays: data.settings.paidLeaveGrantDays || {
+            year1: 10,
+            year2: 11,
+            year3: 12,
+            year4: 14,
+            year5: 16,
+            year6: 18,
+            year7: 20,
+          },
         })
       }
     } catch (err) {
@@ -108,6 +130,8 @@ export default function AdminSettingsPage() {
           allowPreOvertime: formData.allowPreOvertime,
           enableSalesVisit: formData.enableSalesVisit,
           enableWakeUpDeparture: formData.enableWakeUpDeparture,
+          paidLeaveFirstGrantMonths: parseInt(formData.paidLeaveFirstGrantMonths.toString()),
+          paidLeaveGrantDays: formData.paidLeaveGrantDays,
         }),
       })
 
@@ -285,6 +309,69 @@ export default function AdminSettingsPage() {
                 </label>
                 <p className="mt-1 text-sm text-gray-500 ml-6">
                   チェックを入れると、打刻ページに「起床」「出発」ボタンが表示されます。
+                </p>
+              </div>
+            </div>
+
+            {/* 有給付与設定 */}
+            <div className="border-t pt-6">
+              <h2 className="text-lg font-semibold mb-4 text-gray-900">有給付与設定</h2>
+              
+              {/* 初回有給付与までの月数 */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  初回有給付与までの月数
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="24"
+                  value={formData.paidLeaveFirstGrantMonths}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      paidLeaveFirstGrantMonths: parseInt(e.target.value) || 6,
+                    })
+                  }
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                />
+                <p className="mt-1 text-sm text-gray-500">
+                  入社日から何ヶ月後に初回有給を付与するか（例：6ヶ月）
+                </p>
+              </div>
+
+              {/* 年次ごとの付与日数 */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  年次ごとの有給付与日数
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[1, 2, 3, 4, 5, 6, 7].map((year) => (
+                    <div key={year}>
+                      <label className="block text-xs text-gray-600 mb-1">
+                        {year}年目
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.paidLeaveGrantDays[`year${year}` as keyof typeof formData.paidLeaveGrantDays] || 0}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            paidLeaveGrantDays: {
+                              ...formData.paidLeaveGrantDays,
+                              [`year${year}`]: parseInt(e.target.value) || 0,
+                            },
+                          })
+                        }
+                        className="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-sm text-gray-500">
+                  各年次の有給付与日数を設定してください（7年目以降は7年目の設定が適用されます）
                 </p>
               </div>
             </div>

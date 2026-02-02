@@ -210,6 +210,9 @@ model CompanySetting {
   allowPreOvertime     Boolean @default(false) // 前残業を認めるかどうか
   enableSalesVisit      Boolean @default(true) // 営業先入退店機能を有効にするかどうか
   enableWakeUpDeparture Boolean @default(true) // 起床・出発報告機能を有効にするかどうか
+  // 有給付与設定
+  paidLeaveFirstGrantMonths Int @default(6) // 初回有給付与までの月数（例：6ヶ月）
+  paidLeaveGrantDays Json? // 年次ごとの付与日数 {year1: 10, year2: 11, year3: 12, year4: 14, year5: 16, year6: 18, year7: 20}
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -282,22 +285,23 @@ model AttendanceModificationLog {
 
 // 営業先訪問テーブル
 model SalesVisit {
-  id            Int       @id @default(autoincrement())
-  companyId     Int
-  employeeId    Int
-  date          DateTime  @db.Date // 訪問日
-  companyName   String    // 営業先の会社名
-  purpose       String    // 目的: "商談", "見積", "アフターサービス", "その他"
-  entryTime     DateTime? @db.Time // 入店時刻
-  exitTime      DateTime? @db.Time // 退店時刻
-  entryLocation Json?     // 入店時の位置情報 {latitude, longitude, accuracy}
-  exitLocation  Json?     // 退店時の位置情報 {latitude, longitude, accuracy}
-  meetingNotes  String?   @db.Text // 商談内容メモ（最大1000文字）
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id              Int       @id @default(autoincrement())
+  companyId       Int
+  employeeId      Int
+  date            DateTime  @db.Date // 訪問日
+  companyName     String    // 営業先の会社名
+  contactPersonName String? // 取引先担当者名
+  purpose         String    // 目的: "商談", "見積", "アフターサービス", "その他"
+  entryTime       DateTime? @db.Time // 入店時刻
+  exitTime        DateTime? @db.Time // 退店時刻
+  entryLocation   Json?     // 入店時の位置情報 {latitude, longitude, accuracy}
+  exitLocation    Json?     // 退店時の位置情報 {latitude, longitude, accuracy}
+  meetingNotes    String?   @db.Text // 商談内容メモ（最大1000文字）
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employee      Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee        Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
   @@index([employeeId])

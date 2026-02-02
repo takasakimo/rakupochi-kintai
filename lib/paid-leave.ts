@@ -4,20 +4,46 @@
 
 /**
  * 勤続年数に基づいて有給付与日数を計算
- * 労働基準法に基づいた計算
+ * 会社設定に基づいた計算（設定がない場合は労働基準法のデフォルト値を使用）
  * @param yearsOfService 勤続年数（年単位、小数点以下も含む）
+ * @param grantDaysConfig 会社設定の年次ごとの付与日数 {year1: 10, year2: 11, ...}
+ * @param firstGrantMonths 初回付与までの月数（デフォルト: 6）
  * @returns 有給付与日数
  */
-export function calculatePaidLeaveDays(yearsOfService: number | null): number {
+export function calculatePaidLeaveDays(
+  yearsOfService: number | null,
+  grantDaysConfig?: { year1?: number; year2?: number; year3?: number; year4?: number; year5?: number; year6?: number; year7?: number } | null,
+  firstGrantMonths: number = 6
+): number {
   if (!yearsOfService || yearsOfService < 0) {
     return 0
   }
 
-  // 6ヶ月未満は0日
-  if (yearsOfService < 0.5) {
+  // 初回付与月数未満は0日
+  const firstGrantYears = firstGrantMonths / 12
+  if (yearsOfService < firstGrantYears) {
     return 0
   }
 
+  // 設定がある場合は設定値を使用
+  if (grantDaysConfig) {
+    // 年数を整数部分で判定（例：1.5年は1年目、2.3年は2年目）
+    const yearNumber = Math.floor(yearsOfService)
+    
+    if (yearNumber >= 1 && yearNumber <= 7) {
+      const configKey = `year${yearNumber}` as keyof typeof grantDaysConfig
+      if (grantDaysConfig[configKey] !== undefined) {
+        return grantDaysConfig[configKey] || 0
+      }
+    }
+    
+    // 7年目以降は7年目の設定を使用
+    if (yearNumber > 7 && grantDaysConfig.year7 !== undefined) {
+      return grantDaysConfig.year7 || 0
+    }
+  }
+
+  // 設定がない場合は労働基準法のデフォルト値を使用
   // 6ヶ月以上1年未満: 10日
   if (yearsOfService < 1) {
     return 10
@@ -53,10 +79,24 @@ export function calculatePaidLeaveDays(yearsOfService: number | null): number {
 }
 
 /**
+ * 入社日から初回有給付与日を計算
+ * @param hireDate 入社日
+ * @param firstGrantMonths 初回付与までの月数
+ * @returns 初回有給付与日
+ */
+export function calculateFirstGrantDate(hireDate: Date, firstGrantMonths: number = 6): Date {
+  const grantDate = new Date(hireDate)
+  grantDate.setMonth(grantDate.getMonth() + firstGrantMonths)
+  return grantDate
+}
+
+/**
  * 有給の起算日（付与日）になった際に、消滅分を減らして新規付与分を追加する処理
  * @param currentBalance 現在の有給残数
  * @param grantDate 有給付与日（起算日）
  * @param yearsOfService 勤続年数
+ * @param grantDaysConfig 会社設定の年次ごとの付与日数
+ * @param firstGrantMonths 初回付与までの月数
  * @param currentDate 現在の日付（デフォルト: 今日）
  * @returns 更新後の有給残数と、更新が必要かどうかのフラグ
  */
@@ -64,6 +104,8 @@ export function processPaidLeaveOnGrantDate(
   currentBalance: number,
   grantDate: Date,
   yearsOfService: number | null,
+  grantDaysConfig?: { year1?: number; year2?: number; year3?: number; year4?: number; year5?: number; year6?: number; year7?: number } | null,
+  firstGrantMonths: number = 6,
   currentDate: Date = new Date()
 ): { newBalance: number; shouldUpdate: boolean; expiredDays: number; grantedDays: number } {
   // 有給付与日を年単位で比較（月日のみ）
@@ -85,19 +127,15 @@ export function processPaidLeaveOnGrantDate(
     }
   }
 
-  // 2年前の付与日を計算（消滅する分）
-  const twoYearsAgo = new Date(grantDate)
-  twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2)
-
   // 消滅する分を計算（2年前に付与された分）
   // 簡易的に、2年前の勤続年数から計算
   const expiredYearsOfService = (yearsOfService || 0) - 2
-  const expiredDays = expiredYearsOfService >= 0.5 
-    ? calculatePaidLeaveDays(expiredYearsOfService)
+  const expiredDays = expiredYearsOfService >= (firstGrantMonths / 12)
+    ? calculatePaidLeaveDays(expiredYearsOfService, grantDaysConfig, firstGrantMonths)
     : 0
 
   // 新規付与分を計算
-  const grantedDays = calculatePaidLeaveDays(yearsOfService)
+  const grantedDays = calculatePaidLeaveDays(yearsOfService, grantDaysConfig, firstGrantMonths)
 
   // 消滅分を減らして新規付与分を追加
   const newBalance = Math.max(0, currentBalance - expiredDays) + grantedDays

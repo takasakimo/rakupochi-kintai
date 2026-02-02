@@ -52,6 +52,16 @@ export async function GET(request: NextRequest) {
           allowPreOvertime: false,
           enableSalesVisit: true,
           enableWakeUpDeparture: true,
+          paidLeaveFirstGrantMonths: 6,
+          paidLeaveGrantDays: {
+            year1: 10,
+            year2: 11,
+            year3: 12,
+            year4: 14,
+            year5: 16,
+            year6: 18,
+            year7: 20,
+          },
         },
       })
       return NextResponse.json({ settings: defaultSettings })
@@ -156,6 +166,12 @@ export async function PATCH(request: NextRequest) {
         ...(body.enableWakeUpDeparture !== undefined && {
           enableWakeUpDeparture: body.enableWakeUpDeparture,
         }),
+        ...(body.paidLeaveFirstGrantMonths !== undefined && {
+          paidLeaveFirstGrantMonths: body.paidLeaveFirstGrantMonths,
+        }),
+        ...(body.paidLeaveGrantDays !== undefined && {
+          paidLeaveGrantDays: body.paidLeaveGrantDays,
+        }),
       },
       create: {
         companyId: effectiveCompanyId,
@@ -170,6 +186,16 @@ export async function PATCH(request: NextRequest) {
         allowPreOvertime: body.allowPreOvertime ?? false,
         enableSalesVisit: body.enableSalesVisit ?? true,
         enableWakeUpDeparture: body.enableWakeUpDeparture ?? true,
+        paidLeaveFirstGrantMonths: body.paidLeaveFirstGrantMonths ?? 6,
+        paidLeaveGrantDays: body.paidLeaveGrantDays || {
+          year1: 10,
+          year2: 11,
+          year3: 12,
+          year4: 14,
+          year5: 16,
+          year6: 18,
+          year7: 20,
+        },
       },
     })
 
