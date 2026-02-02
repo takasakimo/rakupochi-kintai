@@ -9,7 +9,6 @@ export async function GET(request: NextRequest) {
   try {
     console.log('[Attendances] GET /api/admin/attendances - Starting')
     
-    const { searchParams } = new URL(request.url)
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       console.log('[Attendances] Unauthorized: no session or user')

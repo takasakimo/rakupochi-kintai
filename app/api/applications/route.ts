@@ -10,7 +10,6 @@ export async function GET(request: NextRequest) {
   try {
     console.log('[Applications] GET /api/applications - Starting')
     
-    const { searchParams } = new URL(request.url)
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       console.log('[Applications] Unauthorized: no session or user')
