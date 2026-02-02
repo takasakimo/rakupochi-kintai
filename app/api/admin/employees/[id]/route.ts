@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import { processPaidLeaveOnGrantDate, calculatePaidLeaveDays } from '@/lib/paid-leave'
 
 export const dynamic = 'force-dynamic'
 
@@ -68,19 +69,26 @@ export async function GET(
       },
     })
 
-    // 有給消滅ロジック（取得から2年経過した有給を自動消滅）
-    if (employee && employee.paidLeaveGrantDate && employee.paidLeaveBalance > 0) {
+    // 有給の起算日処理（起算日になった際に消滅分を減らして新規付与分を追加）
+    if (employee && employee.paidLeaveGrantDate) {
       const grantDate = new Date(employee.paidLeaveGrantDate)
-      const twoYearsLater = new Date(grantDate)
-      twoYearsLater.setFullYear(twoYearsLater.getFullYear() + 2)
-      const now = new Date()
-      
-      if (now > twoYearsLater) {
+      const result = processPaidLeaveOnGrantDate(
+        employee.paidLeaveBalance,
+        grantDate,
+        employee.yearsOfService
+      )
+
+      if (result.shouldUpdate) {
         await prisma.employee.update({
           where: { id: employee.id },
-          data: { paidLeaveBalance: 0 },
+          data: { 
+            paidLeaveBalance: result.newBalance,
+            // 付与日を1年進める（次の起算日）
+            paidLeaveGrantDate: new Date(grantDate.getFullYear() + 1, grantDate.getMonth(), grantDate.getDate())
+          },
         })
-        employee.paidLeaveBalance = 0
+        employee.paidLeaveBalance = result.newBalance
+        console.log(`[Employee] Processed paid leave on grant date for employee ${employee.id}: expired ${result.expiredDays} days, granted ${result.grantedDays} days, new balance: ${result.newBalance}`)
       }
     }
 
@@ -204,27 +212,28 @@ export async function PATCH(
       calculatedGrantDate = hireDate
     }
 
-    // 有給消滅ロジック（取得から2年経過した有給を自動消滅）
+    // 有給残数の処理
     let paidLeaveBalance = body.paidLeaveBalance !== undefined 
       ? parseInt(body.paidLeaveBalance) 
       : existingEmployee.paidLeaveBalance
     
-    if (existingEmployee.paidLeaveGrantDate) {
-      const grantDate = new Date(existingEmployee.paidLeaveGrantDate)
-      const twoYearsLater = new Date(grantDate)
-      twoYearsLater.setFullYear(twoYearsLater.getFullYear() + 2)
-      const now = new Date()
-      
-      // 2年経過している場合、有給残数を0にリセット（新規付与分のみ残す）
-      if (now > twoYearsLater && paidLeaveBalance > 0) {
-        // 新しい付与日がある場合は、その付与分のみ残す
-        if (calculatedGrantDate && calculatedGrantDate > grantDate) {
-          // 新しい付与分を計算（簡易的に勤続年数に応じた付与日数を計算）
-          const newGrantDays = Math.floor((yearsOfService || 0) * 10) // 例: 1年で10日付与
-          paidLeaveBalance = Math.max(0, newGrantDays)
-        } else {
-          paidLeaveBalance = 0
-        }
+    // 有給付与日が設定されている場合、起算日処理を実行
+    const finalGrantDate = calculatedGrantDate || 
+      (body.paidLeaveGrantDate ? new Date(body.paidLeaveGrantDate) : existingEmployee.paidLeaveGrantDate)
+    
+    if (finalGrantDate) {
+      const grantDate = finalGrantDate instanceof Date ? finalGrantDate : new Date(finalGrantDate)
+      const result = processPaidLeaveOnGrantDate(
+        paidLeaveBalance,
+        grantDate,
+        yearsOfService
+      )
+
+      if (result.shouldUpdate) {
+        paidLeaveBalance = result.newBalance
+        // 付与日を1年進める（次の起算日）
+        calculatedGrantDate = new Date(grantDate.getFullYear() + 1, grantDate.getMonth(), grantDate.getDate())
+        console.log(`[Employee Update] Processed paid leave on grant date for employee ${id}: expired ${result.expiredDays} days, granted ${result.grantedDays} days, new balance: ${result.newBalance}`)
       }
     }
 

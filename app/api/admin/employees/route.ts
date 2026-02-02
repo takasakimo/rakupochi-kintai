@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import { processPaidLeaveOnGrantDate } from '@/lib/paid-leave'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,40 +80,45 @@ export async function GET() {
       })
       console.log('[Employees] Found employees:', employees.length)
 
-      // 有給消滅ロジック（取得から2年経過した有給を自動消滅）
-      // パフォーマンス最適化: 一括UPDATEに変更（N+1問題の解決）
+      // 有給の起算日処理（起算日になった際に消滅分を減らして新規付与分を追加）
       const now = new Date()
-      const twoYearsAgo = new Date(now)
-      twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2)
+      const updatePromises: Promise<any>[] = []
       
-      // 2年経過した有給を一括で0にリセット
-      await prisma.employee.updateMany({
-        where: {
-          companyId: effectiveCompanyId,
-          paidLeaveGrantDate: {
-            lte: twoYearsAgo,
-          },
-          paidLeaveBalance: {
-            gt: 0,
-          },
-        },
-        data: {
-          paidLeaveBalance: 0,
-        },
-      })
-      
-      // メモリ内のデータも更新（レスポンス用）
-      employees = employees.map(emp => {
-        if (emp.paidLeaveGrantDate && emp.paidLeaveBalance > 0) {
+      for (const emp of employees) {
+        if (emp.paidLeaveGrantDate) {
           const grantDate = new Date(emp.paidLeaveGrantDate)
-          const twoYearsLater = new Date(grantDate)
-          twoYearsLater.setFullYear(twoYearsLater.getFullYear() + 2)
-          if (now > twoYearsLater) {
-            return { ...emp, paidLeaveBalance: 0 }
+          const result = processPaidLeaveOnGrantDate(
+            emp.paidLeaveBalance,
+            grantDate,
+            emp.yearsOfService,
+            now
+          )
+
+          if (result.shouldUpdate) {
+            // 付与日を1年進める（次の起算日）
+            const nextGrantDate = new Date(grantDate.getFullYear() + 1, grantDate.getMonth(), grantDate.getDate())
+            
+            updatePromises.push(
+              prisma.employee.update({
+                where: { id: emp.id },
+                data: { 
+                  paidLeaveBalance: result.newBalance,
+                  paidLeaveGrantDate: nextGrantDate
+                },
+              })
+            )
+            
+            // メモリ内のデータも更新（レスポンス用）
+            emp.paidLeaveBalance = result.newBalance
+            console.log(`[Employees] Processed paid leave on grant date for employee ${emp.id}: expired ${result.expiredDays} days, granted ${result.grantedDays} days, new balance: ${result.newBalance}`)
           }
         }
-        return emp
-      })
+      }
+      
+      // 一括で更新を実行
+      if (updatePromises.length > 0) {
+        await Promise.all(updatePromises)
+      }
     } catch (error: any) {
       console.error('[Employees] Database query error:', error)
       console.error('[Employees] Error name:', error?.name)
