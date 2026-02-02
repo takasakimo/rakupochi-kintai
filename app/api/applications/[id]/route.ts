@@ -308,3 +308,92 @@ export async function PATCH(
   }
 }
 
+
+// 申請削除（従業員が自分の申請を削除）
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const applicationId = parseInt(params.id)
+    if (isNaN(applicationId)) {
+      return NextResponse.json(
+        { error: 'Invalid application ID' },
+        { status: 400 }
+      )
+    }
+
+    // 申請の存在確認と権限チェック
+    const application = await prisma.application.findUnique({
+      where: { id: applicationId },
+      include: {
+        employee: true,
+      },
+    })
+
+    if (!application) {
+      return NextResponse.json(
+        { error: 'Application not found' },
+        { status: 404 }
+      )
+    }
+
+    // スーパー管理者または管理者の判定
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+
+    // スーパー管理者の場合はselectedCompanyIdを使用、通常の管理者の場合はcompanyIdを使用
+    const effectiveCompanyId = isSuperAdmin 
+      ? session.user.selectedCompanyId 
+      : session.user.companyId
+
+    // 管理者の場合は企業IDの一致を確認
+    if (isAdmin || isSuperAdmin) {
+      if (!effectiveCompanyId || application.companyId !== effectiveCompanyId) {
+        return NextResponse.json(
+          { error: 'Forbidden' },
+          { status: 403 }
+        )
+      }
+    } else {
+    // 承認済みの申請は削除不可（管理者・スーパー管理者を除く）
+    // 却下済みの申請は削除可能
+      if (existingApplication.status === 'approved') {
+          { error: '承認済みの申請は削除できません' },
+          { error: '承認済みの申請は削除できません' },
+        )
+      }
+
+      // 承認済みの申請は削除できない
+      // 却下済みの申請は削除可能
+      if (application.status === 'approved') {
+        return NextResponse.json(
+          { error: '承認済みの申請は削除できません' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // 申請を削除
+    await prisma.application.delete({
+      where: { id: applicationId },
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: '申請を削除しました',
+    })
+  } catch (error) {
+    console.error('Delete application error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
