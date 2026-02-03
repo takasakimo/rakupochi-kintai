@@ -226,6 +226,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 従業員ごとに有給残数を追跡するマップ
+    const employeeBalanceMap = new Map<number, number>()
+
     // 一括作成（既存のシフトを更新、新規は作成）
     const createdShifts = await Promise.all(
       shifts.map(async (shift, index) => {
@@ -253,13 +256,21 @@ export async function POST(request: NextRequest) {
           const wasPaidLeave = existingShift?.workType === '有給休暇'
 
           // 従業員情報を取得（有給残数の更新用）
-          const employee = await prisma.employee.findUnique({
-            where: { id: shift.employeeId },
-            select: { id: true, paidLeaveBalance: true },
-          })
+          // 既に取得済みの場合はマップから取得、そうでなければDBから取得
+          let currentBalance: number
+          if (employeeBalanceMap.has(shift.employeeId)) {
+            currentBalance = employeeBalanceMap.get(shift.employeeId)!
+          } else {
+            const employee = await prisma.employee.findUnique({
+              where: { id: shift.employeeId },
+              select: { id: true, paidLeaveBalance: true },
+            })
 
-          if (!employee) {
-            throw new Error(`Employee ${shift.employeeId} not found`)
+            if (!employee) {
+              throw new Error(`Employee ${shift.employeeId} not found`)
+            }
+            currentBalance = employee.paidLeaveBalance
+            employeeBalanceMap.set(shift.employeeId, currentBalance)
           }
 
           const shiftData: any = {
@@ -301,6 +312,17 @@ export async function POST(request: NextRequest) {
               where: { id: existingShift.id },
               data: shiftData,
             })
+
+            // 有給残数の更新処理（既存シフトの更新時）
+            if (isPaidLeave && !wasPaidLeave) {
+              // 新規に有給休暇を使用する場合：残数を1日減らす
+              currentBalance = Math.max(0, currentBalance - 1)
+              employeeBalanceMap.set(shift.employeeId, currentBalance)
+            } else if (!isPaidLeave && wasPaidLeave) {
+              // 有給休暇を解除する場合：残数を1日戻す
+              currentBalance = currentBalance + 1
+              employeeBalanceMap.set(shift.employeeId, currentBalance)
+            }
           } else {
             console.log(`[Shifts] Creating new shift`)
             // 日付をDateオブジェクトに変換（UTC時間で作成）
@@ -318,25 +340,13 @@ export async function POST(request: NextRequest) {
                 ...shiftData,
               },
             })
-          }
 
-          // 有給残数の更新処理
-          if (isPaidLeave && !wasPaidLeave) {
-            // 新規に有給休暇を使用する場合：残数を1日減らす
-            const newBalance = Math.max(0, employee.paidLeaveBalance - 1)
-            await prisma.employee.update({
-              where: { id: shift.employeeId },
-              data: { paidLeaveBalance: newBalance },
-            })
-            console.log(`[Shifts] Reduced paid leave balance for employee ${shift.employeeId}: ${employee.paidLeaveBalance} -> ${newBalance}`)
-          } else if (!isPaidLeave && wasPaidLeave) {
-            // 有給休暇を解除する場合：残数を1日戻す
-            const newBalance = employee.paidLeaveBalance + 1
-            await prisma.employee.update({
-              where: { id: shift.employeeId },
-              data: { paidLeaveBalance: newBalance },
-            })
-            console.log(`[Shifts] Restored paid leave balance for employee ${shift.employeeId}: ${employee.paidLeaveBalance} -> ${newBalance}`)
+            // 有給残数の更新処理（新規シフト作成時）
+            if (isPaidLeave) {
+              // 新規に有給休暇を使用する場合：残数を1日減らす
+              currentBalance = Math.max(0, currentBalance - 1)
+              employeeBalanceMap.set(shift.employeeId, currentBalance)
+            }
           }
 
           return updatedShift
@@ -346,6 +356,22 @@ export async function POST(request: NextRequest) {
         }
       })
     )
+
+    // 有給残数を一括で更新（従業員ごとに1回だけ）
+    const balanceUpdatePromises = Array.from(employeeBalanceMap.entries()).map(async ([employeeId, newBalance]) => {
+      const originalEmployee = await prisma.employee.findUnique({
+        where: { id: employeeId },
+        select: { paidLeaveBalance: true },
+      })
+      if (originalEmployee && originalEmployee.paidLeaveBalance !== newBalance) {
+        await prisma.employee.update({
+          where: { id: employeeId },
+          data: { paidLeaveBalance: newBalance },
+        })
+        console.log(`[Shifts] Updated paid leave balance for employee ${employeeId}: ${originalEmployee.paidLeaveBalance} -> ${newBalance}`)
+      }
+    })
+    await Promise.all(balanceUpdatePromises)
 
     console.log('[Shifts] Successfully created/updated shifts:', createdShifts.length)
     return NextResponse.json({

@@ -130,7 +130,8 @@ export function processPaidLeaveOnGrantDate(
   // 消滅する分を計算（2年前に付与された分）
   // 簡易的に、2年前の勤続年数から計算
   const expiredYearsOfService = (yearsOfService || 0) - 2
-  const expiredDays = expiredYearsOfService >= (firstGrantMonths / 12)
+  // 負の値や初回付与月数未満の場合は消滅分なし
+  const expiredDays = expiredYearsOfService >= (firstGrantMonths / 12) && expiredYearsOfService >= 0
     ? calculatePaidLeaveDays(expiredYearsOfService, grantDaysConfig, firstGrantMonths)
     : 0
 
