@@ -57,6 +57,60 @@ export default function ApplicationsPage() {
     }
   }
 
+  const handleDelete = async (id: number) => {
+    if (!confirm('この申請を削除しますか？')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/applications/${id}`, {
+        method: 'DELETE',
+      })
+
+      // レスポンスが空でないことを確認
+      if (!response.ok) {
+        const errorText = await response.text()
+        let errorMessage = '申請の削除に失敗しました'
+        try {
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.error || errorMessage
+        } catch {
+          // JSONパースに失敗した場合はデフォルトメッセージを使用
+          if (response.status === 405) {
+            errorMessage = '削除メソッドが許可されていません'
+          } else if (response.status === 403) {
+            errorMessage = 'この申請を削除する権限がありません'
+          } else if (response.status === 404) {
+            errorMessage = '申請が見つかりません'
+          }
+        }
+        alert(errorMessage)
+        return
+      }
+
+      // レスポンスが空の場合は成功とみなす
+      const text = await response.text()
+      let data: any = {}
+      if (text) {
+        try {
+          data = JSON.parse(text)
+        } catch {
+          // JSONパースに失敗した場合は空のオブジェクトを使用
+        }
+      }
+
+      if (data.success !== false) {
+        // 削除成功後、一覧を再取得
+        await fetchApplications()
+      } else {
+        alert(data.error || '申請の削除に失敗しました')
+      }
+    } catch (err) {
+      console.error('Failed to delete application:', err)
+      alert('申請の削除に失敗しました')
+    }
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ja-JP', {
       year: 'numeric',
@@ -131,6 +185,16 @@ export default function ApplicationsPage() {
                     <div className="text-sm text-red-700">{app.rejectionReason}</div>
                   </div>
                 )}
+
+                {/* 削除ボタン（全てのステータスで表示） */}
+                <div className="mt-4 flex justify-end">
+                  <button
+                    onClick={() => handleDelete(app.id)}
+                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium"
+                  >
+                    削除
+                  </button>
+                </div>
               </div>
             ))}
           </div>

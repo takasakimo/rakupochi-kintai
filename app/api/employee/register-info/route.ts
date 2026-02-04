@@ -104,10 +104,13 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // セキュリティ: 一時パスワードをレスポンスに含めない
+    // パスワードはメールで送信するか、別の安全な方法で通知する
     return NextResponse.json({
       success: true,
       employee,
-      tempPassword, // デバッグ用（本番では削除推奨）
+      message: '従業員情報が登録されました。パスワードは別途通知されます。',
+      // tempPasswordはセキュリティのためレスポンスに含めない
     })
   } catch (error: any) {
     console.error('Employee info registration error:', error)

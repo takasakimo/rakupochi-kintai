@@ -3,7 +3,23 @@ import { PrismaClient } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
 
+// セキュリティ: 本番環境では無効化
 export async function GET() {
+  // 本番環境ではこのエンドポイントを無効化
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { error: 'Not Found' },
+      { status: 404 }
+    )
+  }
+
+  // セキュリティ: ハードコードされたパスワードや機密情報を含むエンドポイントは使用しない
+  return NextResponse.json(
+    { error: 'This endpoint is disabled for security reasons' },
+    { status: 403 }
+  )
+
+  /* 以下のコードは使用しない（セキュリティリスクのため）
   const results: any = {
     timestamp: new Date().toISOString(),
     tests: [],
@@ -121,5 +137,6 @@ export async function GET() {
   }
 
   return NextResponse.json(results, { status: 200 })
+  */
 }
 

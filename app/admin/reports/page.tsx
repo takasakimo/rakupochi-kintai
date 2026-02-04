@@ -164,16 +164,20 @@ export default function AdminReportsPage() {
       const response = await fetch(`/api/admin/shifts?${params.toString()}`)
       const data = await response.json()
       
-      // シフト情報を日付をキーとしたマップに変換
+      // シフト情報を日付をキーとしたマップに変換（同じ日付に複数のシフトがある場合、最新のものを優先）
       const shiftMap: Record<string, any> = {}
       if (data.shifts && Array.isArray(data.shifts)) {
         data.shifts.forEach((shift: any) => {
           const dateStr = shift.date
           if (dateStr) {
-            shiftMap[dateStr] = {
-              startTime: shift.startTime,
-              endTime: shift.endTime,
-              breakMinutes: shift.breakMinutes || 0,
+            const existingShift = shiftMap[dateStr]
+            if (!existingShift || (shift.id && existingShift.id && shift.id > existingShift.id)) {
+              shiftMap[dateStr] = {
+                id: shift.id,
+                startTime: shift.startTime,
+                endTime: shift.endTime,
+                breakMinutes: shift.breakMinutes || 0,
+              }
             }
           }
         })

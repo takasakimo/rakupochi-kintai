@@ -239,10 +239,20 @@ export default function ShiftManagePage() {
 
     const dateStr = selectedDate.split('T')[0]
     const filteredShifts = getFilteredShifts()
-    const dayShifts = filteredShifts.filter(shift => {
+    const dayShiftsRaw = filteredShifts.filter(shift => {
       const shiftDateStr = shift.date.split('T')[0]
       return shiftDateStr === dateStr && !shift.isPublicHoliday && shift.workType === '出勤'
     })
+
+    // 同じ日付・同じ従業員のシフトを1つにまとめる（最新のシフトを優先）
+    const shiftMap = new Map<number, Shift>()
+    dayShiftsRaw.forEach((shift) => {
+      const existingShift = shiftMap.get(shift.employee.id)
+      if (!existingShift || shift.id > existingShift.id) {
+        shiftMap.set(shift.employee.id, shift)
+      }
+    })
+    const dayShifts = Array.from(shiftMap.values())
 
     const timetableData: TimetableShift[] = dayShifts.map(shift => {
       const startTime = shift.startTime || '00:00'
@@ -354,10 +364,21 @@ export default function ShiftManagePage() {
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month - 1, day)
       const dateStr = formatLocalDateString(date)
-      const dayShifts = shifts.filter(shift => {
+      const dayShiftsRaw = shifts.filter(shift => {
         const shiftDateStr = shift.date.split('T')[0]
         return shiftDateStr === dateStr && !shift.isPublicHoliday && shift.workType === '出勤'
       })
+      
+      // 同じ日付・同じ従業員のシフトを1つにまとめる（最新のシフトを優先）
+      const shiftMap = new Map<number, Shift>()
+      dayShiftsRaw.forEach((shift) => {
+        const existingShift = shiftMap.get(shift.employee.id)
+        if (!existingShift || shift.id > existingShift.id) {
+          shiftMap.set(shift.employee.id, shift)
+        }
+      })
+      const dayShifts = Array.from(shiftMap.values())
+      
       currentWeek.push({ date, shifts: dayShifts })
 
       if (currentWeek.length === 7) {

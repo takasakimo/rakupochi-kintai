@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { holidays } from '@/lib/holidays'
 
 interface Attendance {
   id: number
@@ -105,26 +106,51 @@ export default function HistoryPage() {
       const attendanceMap: { [key: string]: Attendance } = {}
       const shiftMap: { [key: string]: ShiftInfo } = {}
 
+      // 日付文字列をローカル時間で正規化する関数
+      const normalizeDateString = (dateInput: string | Date): string => {
+        if (typeof dateInput === 'string') {
+          // YYYY-MM-DD形式の文字列の場合はそのまま返す
+          if (/^\d{4}-\d{2}-\d{2}/.test(dateInput)) {
+            return dateInput.split('T')[0]
+          }
+          // それ以外の場合はDateオブジェクトに変換してから処理
+          const d = new Date(dateInput)
+          const year = d.getFullYear()
+          const month = String(d.getMonth() + 1).padStart(2, '0')
+          const day = String(d.getDate()).padStart(2, '0')
+          return `${year}-${month}-${day}`
+        } else {
+          // Dateオブジェクトの場合はローカル時間で日付文字列を作成
+          const year = dateInput.getFullYear()
+          const month = String(dateInput.getMonth() + 1).padStart(2, '0')
+          const day = String(dateInput.getDate()).padStart(2, '0')
+          return `${year}-${month}-${day}`
+        }
+      }
+
       // 打刻履歴を日付でマップ
       if (attendanceData.attendances && Array.isArray(attendanceData.attendances)) {
         attendanceData.attendances.forEach((attendance: Attendance) => {
-          const dateStr = new Date(attendance.date).toISOString().split('T')[0]
+          const dateStr = normalizeDateString(attendance.date)
           attendanceMap[dateStr] = attendance
         })
       }
 
-      // シフト情報を日付でマップ
+      // シフト情報を日付でマップ（同じ日付に複数のシフトがある場合、最新のものを優先）
       if (shiftData.shifts && Array.isArray(shiftData.shifts)) {
         shiftData.shifts.forEach((shift: ShiftInfo) => {
-          const dateStr = new Date(shift.date).toISOString().split('T')[0]
-          shiftMap[dateStr] = shift
+          const dateStr = normalizeDateString(shift.date)
+          const existingShift = shiftMap[dateStr]
+          if (!existingShift || (shift.id && existingShift.id && shift.id > existingShift.id)) {
+            shiftMap[dateStr] = shift
+          }
         })
       }
 
       // 選択された月の全ての日をループ
       const currentDate = new Date(startDate)
       while (currentDate <= endDate) {
-        const dateStr = currentDate.toISOString().split('T')[0]
+        const dateStr = normalizeDateString(currentDate)
         merged.push({
           date: dateStr,
           attendance: attendanceMap[dateStr] || null,
@@ -190,12 +216,15 @@ export default function HistoryPage() {
   }
 
   const formatDate = (date: string) => {
-    const d = new Date(date)
-    return d.getDate().toString()
+    // YYYY-MM-DD形式の文字列から日付を抽出（タイムゾーンの影響を受けないように）
+    const [year, month, day] = date.split('T')[0].split('-').map(Number)
+    return day.toString()
   }
 
   const formatWeekday = (date: string) => {
-    const d = new Date(date)
+    // YYYY-MM-DD形式の文字列から日付を抽出してローカル時間でDateオブジェクトを作成
+    const [year, month, day] = date.split('T')[0].split('-').map(Number)
+    const d = new Date(year, month - 1, day)
     const weekdays = ['日', '月', '火', '水', '木', '金', '土']
     return weekdays[d.getDay()]
   }
@@ -739,8 +768,26 @@ export default function HistoryPage() {
                     // 備考: 打刻があれば打刻の備考、なければ「-」
                     const notes = attendance ? formatNotes(attendance.notes) : '-'
                     
+                    // 祝日・土日の判定
+                    const dateStr = item.date.split('T')[0] // YYYY-MM-DD形式
+                    const [year, month, day] = dateStr.split('-').map(Number)
+                    const dateObj = new Date(year, month - 1, day)
+                    const dayOfWeek = dateObj.getDay() // 0=日曜日, 6=土曜日
+                    const isSat = dayOfWeek === 6
+                    const isSun = dayOfWeek === 0
+                    // 祝日判定は日付文字列を直接使用（タイムゾーンの影響を避ける）
+                    const yearStr = year.toString()
+                    const isHoliday = holidays[yearStr]?.includes(dateStr) || false
+                    // 土曜日は薄い青色、日曜日・祝日は薄い赤色
+                    let rowBgColor = 'hover:bg-gray-50'
+                    if (isSat) {
+                      rowBgColor = 'bg-blue-50 hover:bg-blue-100'
+                    } else if (isSun || isHoliday) {
+                      rowBgColor = 'bg-red-50 hover:bg-red-100'
+                    }
+                    
                     return (
-                      <tr key={item.date} className="hover:bg-gray-50">
+                      <tr key={item.date} className={rowBgColor}>
                         <td className="px-4 py-3 text-sm text-center text-gray-900">
                           {formatDate(item.date)}
                         </td>

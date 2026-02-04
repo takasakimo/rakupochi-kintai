@@ -18,21 +18,9 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          console.log('[Auth] Attempting to authenticate:', credentials.email)
-          const dbUrl = process.env.DATABASE_URL
-          console.log('[Auth] DATABASE_URL exists:', !!dbUrl)
-          console.log('[Auth] DATABASE_URL (first 80 chars):', dbUrl?.substring(0, 80))
-          
-          // 接続文字列の解析（エラー処理付き）
-          try {
-            if (dbUrl) {
-              const url = new URL(dbUrl)
-              console.log('[Auth] DATABASE_URL username:', url.username)
-              console.log('[Auth] DATABASE_URL hostname:', url.hostname)
-              console.log('[Auth] DATABASE_URL port:', url.port)
-            }
-          } catch (urlError) {
-            console.error('[Auth] Failed to parse DATABASE_URL:', urlError)
+          // セキュリティ: 本番環境では詳細なログを出力しない
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[Auth] Attempting to authenticate:', credentials.email)
           }
           
           let employee
@@ -56,25 +44,25 @@ export const authOptions: NextAuthOptions = {
                 }
               }
             })
-            console.log('[Auth] Employee query result:', employee ? 'found' : 'not found')
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[Auth] Employee query result:', employee ? 'found' : 'not found')
+            }
           } catch (dbError: any) {
-            console.error('[Auth] Database query error:', dbError)
-            console.error('[Auth] Error name:', dbError?.name)
-            console.error('[Auth] Error message:', dbError?.message)
-            console.error('[Auth] Error code:', dbError?.code)
-            if (dbError?.stack) {
-              console.error('[Auth] Error stack (first 500 chars):', dbError.stack.substring(0, 500))
+            // セキュリティ: エラーの詳細をログに出力しない（本番環境）
+            console.error('[Auth] Database query error')
+            if (process.env.NODE_ENV === 'development') {
+              console.error('[Auth] Error details:', dbError?.message)
             }
             throw dbError
           }
 
           if (!employee) {
-            console.log('[Auth] Employee not found:', credentials.email)
+            // セキュリティ: ユーザーが存在しないことを明示しない
             return null
           }
 
           if (!employee.isActive) {
-            console.log('[Auth] Employee is inactive:', credentials.email)
+            // セキュリティ: アカウントが無効であることを明示しない
             return null
           }
 
@@ -84,11 +72,13 @@ export const authOptions: NextAuthOptions = {
           )
 
           if (!isPasswordValid) {
-            console.log('[Auth] Invalid password for:', credentials.email)
+            // セキュリティ: パスワードが無効であることを明示しない
             return null
           }
 
-          console.log('[Auth] Authentication successful for:', credentials.email)
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[Auth] Authentication successful for:', credentials.email)
+          }
           
           // スーパー管理者の判定
           const isSuperAdmin = employee.role === 'super_admin' || 
@@ -102,18 +92,16 @@ export const authOptions: NextAuthOptions = {
             companyId: isSuperAdmin ? null : employee.companyId, // スーパー管理者の場合はnull
           }
         } catch (error: any) {
-          console.error('[Auth] Auth error:', error)
-          console.error('[Auth] Error name:', error?.name)
-          console.error('[Auth] Error message:', error?.message)
-          console.error('[Auth] Error code:', error?.code)
-          if (error?.stack) {
-            console.error('[Auth] Error stack (first 500 chars):', error.stack.substring(0, 500))
+          // セキュリティ: 本番環境ではエラーの詳細をログに出力しない
+          console.error('[Auth] Authentication error')
+          if (process.env.NODE_ENV === 'development') {
+            console.error('[Auth] Error details:', error?.message)
           }
           // データベース接続エラーの場合は、エラーを再スローしてNextAuthに伝える
           if (error?.name === 'PrismaClientInitializationError' || 
               error?.message?.includes('Tenant') || 
               error?.message?.includes('database')) {
-            throw new Error('Database connection error: ' + error?.message)
+            throw new Error('Database connection error')
           }
           return null
         }
@@ -159,7 +147,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30日
+    maxAge: 8 * 60 * 60, // 8時間（セキュリティ強化）
   },
   secret: process.env.NEXTAUTH_SECRET,
   // ビルド時のエラーを防ぐため、NEXTAUTH_URLが設定されていない場合は警告のみ

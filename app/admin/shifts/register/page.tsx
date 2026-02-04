@@ -205,11 +205,12 @@ export default function ShiftRegisterPage() {
       const date = new Date(year, month - 1, day, 12, 0, 0, 0)
       const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()]
 
-      // 既存のシフトを検索
+      // 既存のシフトを検索（同じ日付に複数のシフトがある場合、最新のものを優先）
       // ターゲット日付を文字列形式で作成
       const targetDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
       
-      const existingShift = existingShifts.find((s) => {
+      // 同じ日付のシフトを全て取得して、最新のものを選択
+      const dayShifts = existingShifts.filter((s) => {
         // 日付文字列から直接比較（タイムゾーンの問題を回避）
         // APIからは既に文字列形式（YYYY-MM-DD）で返されているはず
         const shiftDateStr = typeof s.date === 'string' 
@@ -217,6 +218,13 @@ export default function ShiftRegisterPage() {
           : s.date
         return shiftDateStr === targetDateStr
       })
+      
+      // 最新のシフトを選択（IDが大きいもの）
+      const existingShift = dayShifts.length > 0
+        ? dayShifts.reduce((latest, current) => 
+            (current.id && latest.id && current.id > latest.id) ? current : latest
+          )
+        : null
 
       // 祝日判定（既存のシフトで祝日として登録されている場合、または実際の祝日・日曜日の場合）
       const isHoliday = existingShift?.isPublicHoliday || isHolidayOrSunday(date)

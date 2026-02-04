@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendPasswordResetEmail } from '@/lib/email'
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit'
 import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
@@ -8,6 +9,22 @@ export const dynamic = 'force-dynamic'
 // パスワードリセットリクエスト
 export async function POST(request: NextRequest) {
   try {
+    // レート制限チェック（15分間に3回まで）
+    const clientIP = getClientIP(request)
+    const rateLimitResult = checkRateLimit(`forgot-password:${clientIP}`, 3, 15 * 60 * 1000)
+    
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'リクエストが多すぎます。しばらく時間をおいてから再度お試しください。' },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString(),
+          },
+        }
+      )
+    }
+
     const body = await request.json()
     const { email } = body
 

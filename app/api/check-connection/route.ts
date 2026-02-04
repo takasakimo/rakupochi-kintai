@@ -3,7 +3,16 @@ import { PrismaClient } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
 
+// セキュリティ: 本番環境では無効化
 export async function GET() {
+  // 本番環境ではこのエンドポイントを無効化
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { error: 'Not Found' },
+      { status: 404 }
+    )
+  }
+
   const results: any = {
     timestamp: new Date().toISOString(),
     envCheck: {},
@@ -11,30 +20,10 @@ export async function GET() {
     queryTest: {},
   }
 
-  // 環境変数のチェック
+  // セキュリティ: 機密情報を返さない
   const dbUrl = process.env.DATABASE_URL
   results.envCheck.hasDatabaseUrl = !!dbUrl
-  results.envCheck.databaseUrlLength = dbUrl?.length || 0
-  results.envCheck.databaseUrlPreview = dbUrl ? `${dbUrl.substring(0, 100)}...` : 'NOT SET'
-
-  if (dbUrl) {
-    try {
-      const url = new URL(dbUrl)
-      results.envCheck.parsedUrl = {
-        protocol: url.protocol,
-        username: url.username,
-        usernameLength: url.username.length,
-        hostname: url.hostname,
-        port: url.port,
-        pathname: url.pathname,
-        search: url.search,
-        hasPgbouncer: url.searchParams.has('pgbouncer'),
-        pgbouncerValue: url.searchParams.get('pgbouncer'),
-      }
-    } catch (e: any) {
-      results.envCheck.parseError = e.message
-    }
-  }
+  // databaseUrlPreview, parsedUrlなどの機密情報は返さない
 
   // 接続テスト
   let testClient: PrismaClient | null = null

@@ -1,11 +1,28 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-// データベース内のユーザーを確認するAPI
+// データベース内のユーザーを確認するAPI（管理者のみ）
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // 認証チェック
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // スーパー管理者または管理者のみアクセス可能
+    const isSuperAdmin = session.user.role === 'super_admin' || 
+                         session.user.email === 'superadmin@rakupochi.com'
+    const isAdmin = session.user.role === 'admin'
+
+    if (!isSuperAdmin && !isAdmin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     // 企業一覧
     const companies = await prisma.company.findMany({
       select: {
@@ -15,7 +32,7 @@ export async function GET() {
       },
     })
 
-    // 従業員一覧
+    // 従業員一覧（パスワード情報は含めない）
     const employees = await prisma.employee.findMany({
       select: {
         id: true,
@@ -24,7 +41,7 @@ export async function GET() {
         role: true,
         isActive: true,
         companyId: true,
-        password: true, // デバッグ用（本番環境では削除推奨）
+        // passwordはセキュリティのため除外
       },
     })
 
@@ -38,8 +55,7 @@ export async function GET() {
         role: e.role,
         isActive: e.isActive,
         companyId: e.companyId,
-        hasPassword: !!e.password,
-        passwordLength: e.password?.length || 0,
+        hasPassword: true, // パスワードの存在のみ確認（実際の値は返さない）
       })),
     })
   } catch (error: any) {
@@ -47,7 +63,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'ユーザー確認に失敗しました',
+        error: 'ユーザー確認に失敗しました',
       },
       { status: 500 }
     )

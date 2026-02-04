@@ -3,7 +3,15 @@ import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
+// セキュリティ: 本番環境では無効化
 export async function GET() {
+  // 本番環境ではこのエンドポイントを無効化
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { error: 'Not Found' },
+      { status: 404 }
+    )
+  }
   try {
     const dbUrl = process.env.DATABASE_URL
     const dbUrlPreview = dbUrl ? `${dbUrl.substring(0, 80)}...` : 'NOT SET'
@@ -46,12 +54,11 @@ export async function GET() {
     
     return NextResponse.json({
       success: true,
-      databaseUrl: dbUrlPreview,
-      parsedUrl,
+      // セキュリティ: 機密情報を返さない
       connectionTest: 'OK',
       queryTest: 'OK',
       employeeTest: employeeTest ? 'OK' : 'Failed',
-      employeeTestDetails: employeeTest,
+      // employeeTestDetailsは機密情報を含む可能性があるため削除
     })
   } catch (error: any) {
     const dbUrl = process.env.DATABASE_URL
@@ -76,13 +83,8 @@ export async function GET() {
     
     return NextResponse.json({
       success: false,
-      databaseUrl: dbUrlPreview,
-      parsedUrl,
-      error: {
-        name: error?.name,
-        message: error?.message,
-        code: error?.code,
-      },
+      // セキュリティ: 機密情報を返さない
+      error: 'Database connection failed',
     }, { status: 500 })
   }
 }

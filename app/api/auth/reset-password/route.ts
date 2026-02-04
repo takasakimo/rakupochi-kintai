@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit'
 import bcrypt from 'bcryptjs'
 
 export const dynamic = 'force-dynamic'
@@ -7,6 +8,22 @@ export const dynamic = 'force-dynamic'
 // パスワードリセット実行
 export async function POST(request: NextRequest) {
   try {
+    // レート制限チェック（15分間に5回まで）
+    const clientIP = getClientIP(request)
+    const rateLimitResult = checkRateLimit(`reset-password:${clientIP}`, 5, 15 * 60 * 1000)
+    
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'リクエストが多すぎます。しばらく時間をおいてから再度お試しください。' },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString(),
+          },
+        }
+      )
+    }
+
     const body = await request.json()
     const { token, password } = body
 
@@ -39,31 +56,18 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    if (!resetToken) {
+    // セキュリティ: 詳細なエラーメッセージを返さない
+    if (!resetToken || resetToken.used || resetToken.expiresAt < new Date()) {
       return NextResponse.json(
         { error: '無効なトークンです' },
         { status: 400 }
       )
     }
 
-    if (resetToken.used) {
-      return NextResponse.json(
-        { error: 'このトークンは既に使用されています' },
-        { status: 400 }
-      )
-    }
-
-    if (resetToken.expiresAt < new Date()) {
-      return NextResponse.json(
-        { error: 'このトークンの有効期限が切れています' },
-        { status: 400 }
-      )
-    }
-
     if (!resetToken.employee.isActive) {
       return NextResponse.json(
-        { error: 'このアカウントは無効です' },
-        { status: 403 }
+        { error: '無効なトークンです' },
+        { status: 400 }
       )
     }
 

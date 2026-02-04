@@ -3,7 +3,7 @@
  */
 
 // 日本の祝日を定義（2024年〜2026年）
-const holidays: { [key: string]: string[] } = {
+export const holidays: { [key: string]: string[] } = {
   '2024': [
     '2024-01-01', // 元日
     '2024-01-08', // 成人の日

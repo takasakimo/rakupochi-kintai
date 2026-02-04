@@ -10,6 +10,10 @@
     {
       "path": "/api/cron/generate-alerts",
       "schedule": "0 9,18 * * *"
+    },
+    {
+      "path": "/api/cron/backup",
+      "schedule": "0 2 * * *"
     }
   ]
 }
