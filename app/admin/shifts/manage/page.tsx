@@ -174,7 +174,17 @@ export default function ShiftManagePage() {
       filtered = filtered.filter(shift => shift.workLocation === selectedLocation)
     }
 
-    return filtered
+    // 同じ日付・同じ従業員のシフトを1つにまとめる（最新のシフトを優先）
+    const shiftMap = new Map<string, Shift>()
+    filtered.forEach((shift) => {
+      const dateStr = typeof shift.date === 'string' ? shift.date.split('T')[0] : shift.date
+      const key = `${shift.employee.id}-${dateStr}`
+      const existingShift = shiftMap.get(key)
+      if (!existingShift || shift.id > existingShift.id) {
+        shiftMap.set(key, shift)
+      }
+    })
+    return Array.from(shiftMap.values())
   }
 
   // 事業部の一覧を取得
