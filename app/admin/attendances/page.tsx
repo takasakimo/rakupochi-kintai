@@ -329,13 +329,14 @@ export default function AdminAttendancesPage() {
         )
       }
 
-      // 同じ従業員のシフトを1つにまとめる（最新のシフトを優先）
-      const shiftMap = new Map<number, Shift>()
+      // 同じ日付・同じ従業員のシフトを1つにまとめる（最新のシフトを優先）
+      // キー: `${employeeId}-${date}` で重複排除
+      const shiftMap = new Map<string, Shift>()
       fetchedShifts.forEach((shift: Shift) => {
-        const existingShift = shiftMap.get(shift.employee.id)
-        if (!existingShift || new Date(shift.date) > new Date(existingShift.date) || 
-            (shift.date === existingShift.date && shift.id > existingShift.id)) {
-          shiftMap.set(shift.employee.id, shift)
+        const key = `${shift.employee.id}-${shift.date}`
+        const existingShift = shiftMap.get(key)
+        if (!existingShift || shift.id > existingShift.id) {
+          shiftMap.set(key, shift)
         }
       })
       const uniqueShifts = Array.from(shiftMap.values())
