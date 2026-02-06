@@ -10,6 +10,7 @@ interface MenuItem {
   label: string
   icon: string
   section?: string // セクション名（オプション）
+  onClick?: (e: React.MouseEvent) => void // カスタムクリックハンドラ（オプション）
 }
 
 // 管理者メニュー（使いやすい順番に整理）
@@ -25,6 +26,7 @@ const adminMenuItems: MenuItem[] = [
   // 従業員・シフト管理
   { href: '/admin/employees', label: '従業員管理', icon: '', section: '管理' },
   { href: '/admin/shifts/manage', label: 'シフト管理', icon: '', section: '管理' },
+  { href: '/admin/billing-clients', label: '請求先企業管理', icon: '', section: '管理' },
   
   // 申請・レポート
   { href: '/admin/applications', label: '申請管理', icon: '', section: '申請・レポート' },
@@ -74,7 +76,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
   const isHamburgerMode = onClose !== undefined
   // ハンバーガーメニューモードではisOpenがtrueの時のみ表示
   const shouldShow = isHamburgerMode ? (isOpen === true) : true
-  const { data: session } = useSession()
+  const { data: session, update } = useSession()
   const router = useRouter()
   const pathname = usePathname()
   const [company, setCompany] = useState<Company | null>(null)
@@ -137,11 +139,30 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
 
   // スーパー管理者の場合、店舗切り替えメニューを先頭に追加
   if (isSuperAdmin) {
+    const handleStoreSwitch = async (e: React.MouseEvent) => {
+      e.preventDefault()
+      try {
+        // selectedCompanyIdをクリア
+        await update({
+          selectedCompanyId: null,
+        })
+        // セッションが更新されるまで少し待機
+        await new Promise(resolve => setTimeout(resolve, 300))
+        // ページを完全にリロードしてセッション更新を確実に反映
+        window.location.href = '/super-admin/select-company'
+      } catch (err) {
+        console.error('Failed to switch store:', err)
+        // エラーが発生しても遷移
+        window.location.href = '/super-admin/select-company'
+      }
+    }
+    
     const storeSwitchItem: MenuItem = {
       href: '/super-admin/select-company',
       label: '店舗切り替え',
       icon: '',
-      section: 'システム'
+      section: 'システム',
+      onClick: handleStoreSwitch
     }
     menuItems = [storeSwitchItem, ...menuItems]
   }
@@ -168,7 +189,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
       {/* オーバーレイ */}
       {isHamburgerMode && (
         <div
-          className={`fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity ${
+          className={`fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity no-print ${
             shouldShow ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
           onClick={onClose}
@@ -235,17 +256,33 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
                     const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
                     return (
                       <li key={item.href}>
-                        <Link
-                          href={item.href}
-                          onClick={isHamburgerMode ? onClose : undefined}
-                          className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${
-                            isActive
-                              ? 'bg-blue-600 text-white'
-                              : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                          }`}
-                        >
-                          <span className="font-medium text-sm">{item.label}</span>
-                        </Link>
+                        {item.onClick ? (
+                          <button
+                            onClick={(e) => {
+                              item.onClick?.(e)
+                              if (isHamburgerMode) onClose?.()
+                            }}
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${
+                              isActive
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                            }`}
+                          >
+                            <span className="font-medium text-sm">{item.label}</span>
+                          </button>
+                        ) : (
+                          <Link
+                            href={item.href}
+                            onClick={isHamburgerMode ? onClose : undefined}
+                            className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${
+                              isActive
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                            }`}
+                          >
+                            <span className="font-medium text-sm">{item.label}</span>
+                          </Link>
+                        )}
                       </li>
                     )
                   })}

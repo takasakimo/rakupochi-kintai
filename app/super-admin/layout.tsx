@@ -1,7 +1,7 @@
 'use client'
 
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 
@@ -12,7 +12,11 @@ export default function SuperAdminLayout({
 }) {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const pathname = usePathname()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  // select-companyページの場合はサイドバーを表示しない
+  const isSelectCompanyPage = pathname === '/super-admin/select-company'
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -60,12 +64,17 @@ export default function SuperAdminLayout({
     setIsSidebarOpen(false)
   }
 
+  // select-companyページの場合はサイドバーなしで表示
+  if (isSelectCompanyPage) {
+    return <>{children}</>
+  }
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* ハンバーガーメニューボタン */}
       <button
         onClick={toggleSidebar}
-        className="fixed top-4 left-4 z-50 bg-gray-800 text-white p-2 rounded-lg shadow-lg hover:bg-gray-700"
+        className="fixed top-4 left-4 z-50 bg-gray-800 text-white p-2 rounded-lg shadow-lg hover:bg-gray-700 no-print"
       >
         <svg
           className="w-6 h-6"

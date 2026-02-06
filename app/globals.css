@@ -90,7 +90,9 @@
   footer,
   [class*="sidebar"],
   [class*="Sidebar"],
-  div[class*="flex"][class*="min-h-screen"] > div:first-child {
+  div[class*="flex"][class*="min-h-screen"] > div:first-child,
+  button[class*="fixed"][class*="top-4"][class*="left-4"],
+  button.fixed.top-4.left-4 {
     display: none !important;
   }
 
@@ -286,5 +288,282 @@
   .timesheet-table th:nth-child(9),
   .timesheet-table td:nth-child(9) {
     width: 12% !important; /* 備考 */
+  }
+
+  /* タイムテーブル印刷用スタイル - A4横向き */
+  .timetable-container {
+    page-break-inside: avoid;
+  }
+
+  /* タイムテーブル表示用スタイル - スクロールなしで全体表示 */
+  .timetable-container {
+    overflow: visible !important;
+  }
+
+  .timetable-wrapper {
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+  }
+
+  .timetable-wrapper > div {
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+  }
+
+  .timetable-container .print-full-content {
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+  }
+
+  .timetable-print-header {
+    display: none;
+  }
+
+  .print-only {
+    display: none;
+  }
+
+  @media print {
+    .print-only {
+      display: block !important;
+    }
+
+    .timetable-print-header {
+      display: block !important;
+      margin-bottom: 3mm;
+      text-align: center;
+    }
+
+    .timetable-print-title {
+      font-size: 14pt !important;
+      font-weight: bold;
+      margin-bottom: 2mm;
+    }
+
+    .timetable-print-subtitle {
+      font-size: 10pt !important;
+      margin-bottom: 2mm;
+    }
+
+    /* A4横向き設定 - 余白を最小限に */
+    @page {
+      size: A4 landscape;
+      margin: 3mm 2mm;
+    }
+
+    /* タイムテーブルコンテナ - 印刷時に全体を1ページに収める */
+    .timetable-container {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      box-shadow: none !important;
+      border: 1px solid #000 !important;
+      /* 印刷時に全体が1ページに収まるようにスケール調整 */
+      transform: scale(0.6) !important;
+      transform-origin: top left !important;
+      width: 166.67% !important; /* 1/0.6 = 1.6667 で補正 */
+    }
+    
+    /* 印刷時にスクロール範囲も全て表示 */
+    .timetable-container .print-full-width {
+      overflow: visible !important;
+      overflow-x: visible !important;
+      overflow-y: visible !important;
+      width: 100% !important;
+      max-width: none !important;
+    }
+    
+    .timetable-container .print-full-content {
+      min-width: auto !important;
+      width: 100% !important;
+      overflow: visible !important;
+      max-width: none !important;
+    }
+
+    /* タイムテーブルの時間軸と従業員行 - 印刷時にスクロール範囲も全て表示 */
+    .timetable-container > div.overflow-x-auto,
+    .timetable-container > div.print-full-width {
+      width: 100% !important;
+      overflow: visible !important;
+      overflow-x: visible !important;
+      overflow-y: visible !important;
+      max-width: none !important;
+    }
+
+    .timetable-container .min-w-\\[1400px\\],
+    .timetable-container .print-full-content {
+      min-width: auto !important;
+      width: 100% !important;
+      display: flex !important;
+      flex-direction: column !important;
+      /* 印刷時に全体を表示 */
+      overflow: visible !important;
+      max-width: none !important;
+    }
+    
+    /* タイムテーブルの時間軸全体を表示 */
+    .timetable-container .overflow-x-auto > div > .flex.border-b:first-child,
+    .timetable-container .print-full-width > div > .flex.border-b:first-child {
+      width: 100% !important;
+      min-width: 100% !important;
+      overflow: visible !important;
+    }
+    
+    /* 時間スロットのコンテナ全体を表示 */
+    .timetable-container .overflow-x-auto > div > .flex.border-b:first-child > div:last-child,
+    .timetable-container .print-full-width > div > .flex.border-b:first-child > div:last-child {
+      width: 100% !important;
+      overflow: visible !important;
+    }
+    
+    .timetable-container .overflow-x-auto > div > .flex.border-b:first-child > div:last-child > div,
+    .timetable-container .print-full-width > div > .flex.border-b:first-child > div:last-child > div {
+      width: 100% !important;
+      overflow: visible !important;
+      display: flex !important;
+      flex-wrap: nowrap !important;
+    }
+
+    /* 時間軸ヘッダー */
+    .timetable-container .overflow-x-auto > div > .flex.border-b:first-child {
+      border: 1px solid #000 !important;
+      background: #f0f0f0 !important;
+      border-bottom: 2px solid #000 !important;
+      display: flex !important;
+      width: 100% !important;
+    }
+
+    .timetable-container .overflow-x-auto > div > .flex.border-b:first-child > div:first-child {
+      width: 50px !important;
+      min-width: 50px !important;
+      max-width: 50px !important;
+      padding: 1px !important;
+      font-size: 6pt !important;
+      font-weight: bold !important;
+      border-right: 1px solid #000 !important;
+      flex-shrink: 0 !important;
+      white-space: nowrap !important;
+    }
+
+    .timetable-container .overflow-x-auto > div > .flex.border-b:first-child > div:last-child {
+      border-left: 1px solid #000 !important;
+      flex: 1 !important;
+      min-width: 0 !important;
+      overflow: visible !important;
+    }
+
+    .timetable-container .overflow-x-auto > div > .flex.border-b:first-child > div:last-child > div {
+      display: flex !important;
+      width: 100% !important;
+      overflow: visible !important;
+    }
+
+    .timetable-container .overflow-x-auto > div > .flex.border-b:first-child > div:last-child > div > div {
+      padding: 1px !important;
+      font-size: 4.5pt !important;
+      border-right: 0.5px solid #ccc !important;
+      flex: 1 1 0 !important;
+      min-width: 0 !important;
+      text-align: center !important;
+      white-space: nowrap !important;
+      overflow: visible !important;
+      display: block !important;
+    }
+    
+    /* 時間スロットのテキストを確実に表示 */
+    .timetable-container .timetable-time-slot {
+      display: block !important;
+      text-align: center !important;
+      line-height: 1.2 !important;
+    }
+
+    /* 従業員行 */
+    .timetable-container .overflow-x-auto > div > .flex.border-b.border-gray-200 {
+      border-left: 1px solid #000 !important;
+      border-right: 1px solid #000 !important;
+      border-bottom: 1px solid #000 !important;
+      height: 12mm !important;
+      min-height: 12mm !important;
+      max-height: 12mm !important;
+      page-break-inside: avoid;
+      display: flex !important;
+      width: 100% !important;
+    }
+
+    .timetable-container .overflow-x-auto > div > .flex.border-b.border-gray-200 > div:first-child {
+      width: 50px !important;
+      min-width: 50px !important;
+      max-width: 50px !important;
+      padding: 1px !important;
+      font-size: 6pt !important;
+      border-right: 1px solid #000 !important;
+      background: #f9f9f9 !important;
+      flex-shrink: 0 !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+
+    .timetable-container .overflow-x-auto > div > .flex.border-b.border-gray-200 > div:last-child {
+      position: relative !important;
+      height: 12mm !important;
+      min-height: 12mm !important;
+      max-height: 12mm !important;
+      border-left: 1px solid #000 !important;
+      flex: 1 !important;
+      min-width: 0 !important;
+      overflow: visible !important;
+    }
+
+    /* 勤務ブロック（青色） */
+    .timetable-container .absolute.bg-blue-500 {
+      background-color: #3b82f6 !important;
+      border: 1px solid #1e40af !important;
+      color: white !important;
+      font-size: 4pt !important;
+      padding: 1px 2px !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .timetable-container .absolute.bg-blue-500 > div {
+      font-size: 4pt !important;
+      padding: 1px 2px !important;
+      background-color: #2563eb !important;
+      border-radius: 1px !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    /* 休憩ブロック（オレンジ色） */
+    .timetable-container .absolute.group {
+      background-color: #f97316 !important;
+      border: 1px solid #ea580c !important;
+      color: white !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .timetable-container .absolute.group > div:last-child {
+      display: none !important; /* 右端のドラッグハンドルを非表示 */
+    }
+
+    .timetable-container .absolute.group > div:nth-child(2) {
+      font-size: 4pt !important;
+      padding: 1px 2px !important;
+    }
+
+    .timetable-container .absolute.group button {
+      display: none !important; /* 削除ボタンを非表示 */
+    }
+
+    /* 不要な要素を非表示 */
+    .timetable-container .absolute.group > div:first-child {
+      display: none !important; /* 左端のドラッグハンドル */
+    }
   }
 }

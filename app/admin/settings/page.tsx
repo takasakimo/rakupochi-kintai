@@ -15,9 +15,6 @@ interface CompanySettings {
   overtimeThreshold60: number
   consecutiveWorkAlert: number
   leaveExpiryAlertDays: number
-  allowPreOvertime: boolean
-  enableSalesVisit: boolean
-  enableWakeUpDeparture: boolean
   paidLeaveFirstGrantMonths?: number
   paidLeaveGrantDays?: { year1?: number; year2?: number; year3?: number; year4?: number; year5?: number; year6?: number; year7?: number } | null
 }
@@ -39,9 +36,6 @@ export default function AdminSettingsPage() {
     overtimeThreshold60: 60,
     consecutiveWorkAlert: 6,
     leaveExpiryAlertDays: 30,
-    allowPreOvertime: false,
-    enableSalesVisit: true,
-    enableWakeUpDeparture: true,
     paidLeaveFirstGrantMonths: 6,
     paidLeaveGrantDays: {
       year1: 10,
@@ -86,9 +80,6 @@ export default function AdminSettingsPage() {
           overtimeThreshold60: data.settings.overtimeThreshold60,
           consecutiveWorkAlert: data.settings.consecutiveWorkAlert,
           leaveExpiryAlertDays: data.settings.leaveExpiryAlertDays,
-          allowPreOvertime: data.settings.allowPreOvertime ?? false,
-          enableSalesVisit: data.settings.enableSalesVisit ?? true,
-          enableWakeUpDeparture: data.settings.enableWakeUpDeparture ?? true,
           paidLeaveFirstGrantMonths: data.settings.paidLeaveFirstGrantMonths ?? 6,
           paidLeaveGrantDays: data.settings.paidLeaveGrantDays || {
             year1: 10,
@@ -127,9 +118,6 @@ export default function AdminSettingsPage() {
           overtimeThreshold60: parseInt(formData.overtimeThreshold60.toString()),
           consecutiveWorkAlert: parseInt(formData.consecutiveWorkAlert.toString()),
           leaveExpiryAlertDays: parseInt(formData.leaveExpiryAlertDays.toString()),
-          allowPreOvertime: formData.allowPreOvertime,
-          enableSalesVisit: formData.enableSalesVisit,
-          enableWakeUpDeparture: formData.enableWakeUpDeparture,
           paidLeaveFirstGrantMonths: parseInt(formData.paidLeaveFirstGrantMonths.toString()),
           paidLeaveGrantDays: formData.paidLeaveGrantDays,
         }),
@@ -244,73 +232,6 @@ export default function AdminSettingsPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
               />
               <p className="mt-1 text-sm text-gray-500">標準的な休憩時間（分）</p>
-            </div>
-
-            {/* 前残業設定 */}
-            <div className="border-t pt-6">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900">残業設定</h2>
-              <div className="mb-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.allowPreOvertime}
-                    onChange={(e) =>
-                      setFormData({ ...formData, allowPreOvertime: e.target.checked })
-                    }
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-sm font-medium text-gray-700">
-                    前残業を認める
-                  </span>
-                </label>
-                <p className="mt-1 text-sm text-gray-500">
-                  チェックを入れると、就業時間前の勤務も残業として計算します。
-                  チェックを外すと、就業時間後の時間のみを残業として計算します。
-                </p>
-              </div>
-            </div>
-
-            {/* 機能表示設定 */}
-            <div className="border-t pt-6">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900">機能表示設定</h2>
-              
-              <div className="mb-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.enableSalesVisit}
-                    onChange={(e) =>
-                      setFormData({ ...formData, enableSalesVisit: e.target.checked })
-                    }
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-sm font-medium text-gray-700">
-                    営業先入退店機能を表示する
-                  </span>
-                </label>
-                <p className="mt-1 text-sm text-gray-500 ml-6">
-                  チェックを入れると、従業員メニューに「営業先入退店」が表示されます。
-                </p>
-              </div>
-
-              <div className="mb-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.enableWakeUpDeparture}
-                    onChange={(e) =>
-                      setFormData({ ...formData, enableWakeUpDeparture: e.target.checked })
-                    }
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-sm font-medium text-gray-700">
-                    起床・出発報告機能を表示する
-                  </span>
-                </label>
-                <p className="mt-1 text-sm text-gray-500 ml-6">
-                  チェックを入れると、打刻ページに「起床」「出発」ボタンが表示されます。
-                </p>
-              </div>
             </div>
 
             {/* 有給付与設定 */}

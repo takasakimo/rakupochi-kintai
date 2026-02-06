@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, usePathname } from 'next/navigation'
-import { isHolidayOrSunday } from '@/lib/holidays'
+import { isHolidayOrSunday, isSaturday } from '@/lib/holidays'
 
 interface Shift {
   id?: number
@@ -439,9 +439,14 @@ export default function ShiftRegisterPage() {
   }
 
   const getRowClassName = (row: ShiftRow) => {
-    // 祝日または日曜日は赤色
-    if (isHolidayOrSunday(row.date)) return 'bg-red-50 text-red-700' // 祝日または日曜日
-    if (row.date.getDay() === 6) return 'bg-blue-50' // 土曜日
+    const isHolidayOrSun = isHolidayOrSunday(row.date)
+    const isSat = isSaturday(row.date)
+    if (isHolidayOrSun) {
+      return 'bg-red-50'
+    }
+    if (isSat) {
+      return 'bg-blue-50'
+    }
     return 'bg-white'
   }
 
@@ -675,12 +680,25 @@ export default function ShiftRegisterPage() {
                 <tbody>
                   {shiftRows.map((row, index) => {
                     const isHolidayOrSun = isHolidayOrSunday(row.date)
+                    const isSat = isSaturday(row.date)
                     return (
                       <tr key={index} className={getRowClassName(row)}>
-                        <td className={`px-3 py-2 text-sm border-r border-b ${isHolidayOrSun ? 'text-red-700' : 'text-gray-900'}`}>
+                        <td className={`px-3 py-2 text-sm border-r border-b ${
+                          isHolidayOrSun 
+                            ? 'text-red-700' 
+                            : isSat 
+                              ? 'text-blue-700' 
+                              : 'text-gray-900'
+                        }`}>
                           {row.date.getMonth() + 1}/{row.date.getDate()}
                         </td>
-                        <td className={`px-3 py-2 text-sm border-r border-b ${isHolidayOrSun ? 'text-red-700' : 'text-gray-900'}`}>
+                        <td className={`px-3 py-2 text-sm border-r border-b ${
+                          isHolidayOrSun 
+                            ? 'text-red-700' 
+                            : isSat 
+                              ? 'text-blue-700' 
+                              : 'text-gray-900'
+                        }`}>
                           {row.dayOfWeek}
                         </td>
                       <td className="px-3 py-2 border-r border-b">

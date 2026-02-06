@@ -316,6 +316,11 @@ export async function PATCH(
         ...(body.transportationRoutes !== undefined && { transportationRoutes: body.transportationRoutes }),
         ...(body.transportationCost !== undefined && { transportationCost: body.transportationCost ? parseInt(body.transportationCost) : null }),
         ...(body.isActive !== undefined && { isActive: body.isActive }),
+        ...(body.billingClientId !== undefined && { billingClientId: body.billingClientId ? parseInt(body.billingClientId) : null }),
+        ...(body.billingRate !== undefined && { billingRate: body.billingRate ? parseInt(body.billingRate) : null }),
+        ...(body.overtimeRate !== undefined && { overtimeRate: body.overtimeRate ? parseFloat(body.overtimeRate) : null }),
+        ...(body.hasOvertime !== undefined && { hasOvertime: body.hasOvertime }),
+        ...(body.baseWorkDays !== undefined && { baseWorkDays: body.baseWorkDays ? parseInt(body.baseWorkDays) : null }),
       },
       select: {
         id: true,
@@ -334,6 +339,11 @@ export async function PATCH(
         transportationRoutes: true,
         transportationCost: true,
         isActive: true,
+        billingClientId: true,
+        billingRate: true,
+        overtimeRate: true,
+        hasOvertime: true,
+        baseWorkDays: true,
       },
     })
 

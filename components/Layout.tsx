@@ -34,7 +34,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {/* ハンバーガーメニューボタン（全デバイス） */}
           <button
             onClick={toggleSidebar}
-            className="fixed top-4 left-4 z-50 bg-gray-800 text-white p-2 rounded-lg shadow-lg hover:bg-gray-700"
+            className="fixed top-4 left-4 z-50 bg-gray-800 text-white p-2 rounded-lg shadow-lg hover:bg-gray-700 no-print"
           >
             <svg
               className="w-6 h-6"

@@ -31,6 +31,8 @@ model Company {
   announcements Announcement[]
   attendanceModificationLogs AttendanceModificationLog[]
   salesVisits SalesVisit[]
+  billingClients BillingClient[]
+  invoices Invoice[]
 
   @@map("companies")
 }
@@ -70,6 +72,16 @@ model Employee {
   passwordResetTokens PasswordResetToken[]
   attendanceModificationLogs AttendanceModificationLog[] @relation("Modifier")
   salesVisits SalesVisit[]
+  invoiceDetails InvoiceDetail[]
+
+  // 請求関連フィールド
+  billingClientId Int?      // 請求先企業ID
+  billingRate     Int?      // 請求単価（時給または日給）
+  overtimeRate    Float?    @default(1.25) // 残業単価倍率
+  hasOvertime     Boolean   @default(false) // 残業の有無
+  baseWorkDays    Int?      @default(22) // 稼働日数のベース（月間）
+
+  billingClient   BillingClient? @relation(fields: [billingClientId], references: [id])
 
   @@unique([companyId, employeeNumber]) // 企業ごとに社員番号をユニークに
   @@map("employees")
@@ -307,4 +319,87 @@ model SalesVisit {
   @@index([employeeId])
   @@index([date])
   @@map("sales_visits")
+}
+
+// 請求先企業マスタ
+model BillingClient {
+  id              Int       @id @default(autoincrement())
+  companyId       Int       // 請求元企業（aimsなど）
+  name            String    // 請求先企業名
+  code            String?   // 請求先企業コード
+  address         String?   // 住所
+  phone           String?   // 電話番号
+  fax             String?   // FAX番号
+  contactPerson   String?   // 担当者名
+  bankName        String?   // 銀行名
+  bankBranch      String?   // 支店名
+  accountNumber   String?   // 口座番号
+  accountHolder   String?   // 口座名義
+  taxRate         Float     @default(0.1) // 消費税率（10% = 0.1）
+  invoiceNumberPrefix String? // 請求書番号プレフィックス
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employees       Employee[]
+  invoices        Invoice[]
+  
+  @@map("billing_clients")
+}
+
+// 請求書
+model Invoice {
+  id              Int       @id @default(autoincrement())
+  companyId       Int       // 請求元企業
+  billingClientId Int       // 請求先企業
+  invoiceNumber   String    @unique // 請求書番号
+  subject         String    // 件名
+  periodStart     DateTime  @db.Date // 請求期間開始
+  periodEnd       DateTime  @db.Date // 請求期間終了
+  paymentTerms    String    // 代金決済条件
+  dueDate         DateTime  @db.Date // お支払い期日
+  subtotal        Int       // 小計（税抜）
+  taxAmount       Int       // 消費税額
+  totalAmount     Int       // 合計金額（税込）
+  transportationCost Int?   @default(0) // 交通費
+  adjustmentAmount Int?     @default(0) // 調整金額
+  status          String    @default("draft") // draft, issued, billed, paid
+  issuedAt        DateTime? // 発行日
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  billingClient   BillingClient @relation(fields: [billingClientId], references: [id], onDelete: Cascade)
+  details         InvoiceDetail[]
+  
+  @@index([companyId])
+  @@index([billingClientId])
+  @@index([periodStart])
+  @@index([periodEnd])
+  @@map("invoices")
+}
+
+// 請求明細
+model InvoiceDetail {
+  id              Int       @id @default(autoincrement())
+  invoiceId       Int
+  employeeId      Int
+  workDays        Int       // 勤務日数
+  basicRate       Int       // 基本単価
+  basicAmount     Int       // 基本金額
+  overtimeHours   Float?    @default(0) // 残業時間
+  overtimeRate    Float?    // 残業単価
+  overtimeAmount  Int?      @default(0) // 残業金額
+  absenceDays     Int?      @default(0) // 欠勤日数
+  absenceDeduction Int?     @default(0) // 欠勤減算額
+  lateEarlyDeduction Int?   @default(0) // 遅刻・早退減算額
+  subtotal        Int       // 小計
+  
+  invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  employee        Employee  @relation(fields: [employeeId], references: [id])
+  
+  @@index([invoiceId])
+  @@index([employeeId])
+  @@map("invoice_details")
 }

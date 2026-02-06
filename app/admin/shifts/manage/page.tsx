@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, usePathname } from 'next/navigation'
-import { isHolidayOrSunday } from '@/lib/holidays'
+import { isHolidayOrSunday, isSaturday } from '@/lib/holidays'
 
 interface Shift {
   id: number
@@ -34,6 +34,7 @@ interface Employee {
   name: string
   employeeNumber: string
   department: string | null
+  workLocation: string | null
 }
 
 interface BreakPeriod {
@@ -64,7 +65,7 @@ export default function ShiftManagePage() {
   )
   const [loading, setLoading] = useState(true)
   const [shifts, setShifts] = useState<Shift[]>([])
-  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [viewMode, setViewMode] = useState<ViewMode>('timetable')
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [timetableShifts, setTimetableShifts] = useState<TimetableShift[]>([])
   const [draggingShift, setDraggingShift] = useState<{
@@ -72,6 +73,7 @@ export default function ShiftManagePage() {
     type: 'start' | 'end' | 'breakStart' | 'breakEnd' | string
     breakIndex?: number
     initialX: number
+    initialBreakStartTime?: string
   } | null>(null)
   const [editingShift, setEditingShift] = useState<Shift | null>(null)
   
@@ -148,12 +150,19 @@ export default function ShiftManagePage() {
     if (displayMode === 'department' && selectedDepartment) {
       filtered = filtered.filter(emp => emp.department === selectedDepartment)
     } else if (displayMode === 'location' && selectedLocation) {
+      // シフトまたは従業員の店舗情報から該当店舗の従業員を取得
+      const locationEmployeeIds = new Set<number>()
+      
       // シフトから該当店舗の従業員を取得
-      const locationEmployeeIds = new Set(
-        shifts
-          .filter(shift => shift.workLocation === selectedLocation)
-          .map(shift => shift.employee.id)
-      )
+      shifts
+        .filter(shift => shift.workLocation === selectedLocation)
+        .forEach(shift => locationEmployeeIds.add(shift.employee.id))
+      
+      // 従業員の店舗情報から該当店舗の従業員を取得
+      employees
+        .filter(emp => emp.workLocation === selectedLocation)
+        .forEach(emp => locationEmployeeIds.add(emp.id))
+      
       filtered = filtered.filter(emp => locationEmployeeIds.has(emp.id))
     }
 
@@ -171,7 +180,19 @@ export default function ShiftManagePage() {
     if (displayMode === 'department' && selectedDepartment) {
       filtered = filtered.filter(shift => shift.employee.department === selectedDepartment)
     } else if (displayMode === 'location' && selectedLocation) {
-      filtered = filtered.filter(shift => shift.workLocation === selectedLocation)
+      // シフトの店舗情報または従業員の店舗情報でフィルター
+      filtered = filtered.filter(shift => {
+        // シフトの店舗情報で一致
+        if (shift.workLocation === selectedLocation) {
+          return true
+        }
+        // 従業員の店舗情報で一致（employees配列から該当する従業員を探す）
+        const employee = employees.find(emp => emp.id === shift.employee.id)
+        if (employee && employee.workLocation === selectedLocation) {
+          return true
+        }
+        return false
+      })
     }
 
     // 同じ日付・同じ従業員のシフトを1つにまとめる（最新のシフトを優先）
@@ -198,14 +219,24 @@ export default function ShiftManagePage() {
     return Array.from(departments).sort()
   }
 
-  // 店舗の一覧を取得
+  // 店舗の一覧を取得（シフトと従業員の両方から取得）
   const getLocations = (): string[] => {
     const locations = new Set<string>()
+    
+    // シフトから店舗を取得
     shifts.forEach(shift => {
       if (shift.workLocation) {
         locations.add(shift.workLocation)
       }
     })
+    
+    // 従業員から店舗を取得
+    employees.forEach(employee => {
+      if (employee.workLocation) {
+        locations.add(employee.workLocation)
+      }
+    })
+    
     return Array.from(locations).sort()
   }
 
@@ -363,6 +394,9 @@ export default function ShiftManagePage() {
     const calendar: Array<Array<{ date: Date; shifts: Shift[] }>> = []
     let currentWeek: Array<{ date: Date; shifts: Shift[] }> = []
 
+    // フィルターされたシフトを取得（店舗フィルターも適用）
+    const filteredShifts = getFilteredShifts()
+
     // 前月の日付を埋める
     const prevMonthLastDay = new Date(year, month - 1, 0).getDate()
     for (let i = startDayOfWeek - 1; i >= 0; i--) {
@@ -374,7 +408,7 @@ export default function ShiftManagePage() {
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month - 1, day)
       const dateStr = formatLocalDateString(date)
-      const dayShiftsRaw = shifts.filter(shift => {
+      const dayShiftsRaw = filteredShifts.filter(shift => {
         const shiftDateStr = shift.date.split('T')[0]
         return shiftDateStr === dateStr && !shift.isPublicHoliday && shift.workType === '出勤'
       })
@@ -410,18 +444,84 @@ export default function ShiftManagePage() {
     return calendar
   }
 
+  // タイムテーブルの時間範囲を計算（シフト開始時間の1時間前から終了時間まで）
+  const getTimeRange = () => {
+    if (timetableShifts.length === 0) {
+      return { startHour: 6, endHour: 20, startMinutes: 6 * 60, endMinutes: 20 * 60 }
+    }
+
+    let earliestStart = 24 * 60 // 最大値
+    let latestEnd = 0 // 最小値
+
+    timetableShifts.forEach(shift => {
+      const [startHours, startMins] = shift.startTime.split(':').map(Number)
+      const [endHours, endMins] = shift.endTime.split(':').map(Number)
+      const startTotal = startHours * 60 + startMins
+      const endTotal = endHours * 60 + endMins
+
+      if (startTotal < earliestStart) {
+        earliestStart = startTotal
+      }
+      if (endTotal > latestEnd) {
+        latestEnd = endTotal
+      }
+
+      // 休憩時間も考慮
+      shift.breaks.forEach(breakPeriod => {
+        const [breakStartHours, breakStartMins] = breakPeriod.startTime.split(':').map(Number)
+        const [breakEndHours, breakEndMins] = breakPeriod.endTime.split(':').map(Number)
+        const breakStartTotal = breakStartHours * 60 + breakStartMins
+        const breakEndTotal = breakEndHours * 60 + breakEndMins
+
+        if (breakStartTotal < earliestStart) {
+          earliestStart = breakStartTotal
+        }
+        if (breakEndTotal > latestEnd) {
+          latestEnd = breakEndTotal
+        }
+      })
+    })
+
+    // 開始時間の1時間前から
+    const startMinutes = Math.max(0, earliestStart - 60)
+    // シフトの終了時間まで（終了時間を含めるため、分がある場合は次の時間まで）
+    let endMinutes = latestEnd % 60 === 0 
+      ? latestEnd  // 分が0の場合はその時間まで
+      : Math.ceil(latestEnd / 60) * 60  // 分がある場合は次の時間まで（例: 19:30 → 20:00）
+
+    // 印刷時は終了時間の1時間後まで余白を追加
+    if (isPrinting) {
+      endMinutes += 60 // 1時間（60分）を追加
+    }
+
+    const startHour = Math.floor(startMinutes / 60)
+    const endHour = Math.floor(endMinutes / 60)
+
+    // デバッグ用ログ
+    console.log('Time range calculation:', {
+      earliestStart: `${Math.floor(earliestStart / 60)}:${String(earliestStart % 60).padStart(2, '0')}`,
+      latestEnd: `${Math.floor(latestEnd / 60)}:${String(latestEnd % 60).padStart(2, '0')}`,
+      startMinutes,
+      endMinutes,
+      startHour,
+      endHour,
+      shifts: timetableShifts.map(s => ({ start: s.startTime, end: s.endTime }))
+    })
+
+    return { startHour, endHour, startMinutes, endMinutes }
+  }
+
   const timeToPosition = (time: string): number => {
+    const { startMinutes, endMinutes } = getTimeRange()
     const [hours, minutes] = time.split(':').map(Number)
     const totalMinutes = hours * 60 + minutes
-    const startMinutes = 6 * 60 // 06:00
-    const endMinutes = 20 * 60 // 20:00
     const range = endMinutes - startMinutes
+    if (range === 0) return 0
     return ((totalMinutes - startMinutes) / range) * 100
   }
 
   const positionToTime = (position: number, roundToMinutes: number = 5): string => {
-    const startMinutes = 6 * 60
-    const endMinutes = 20 * 60
+    const { startMinutes, endMinutes } = getTimeRange()
     const range = endMinutes - startMinutes
     const totalMinutes = Math.round(startMinutes + (position / 100) * range)
     
@@ -433,6 +533,97 @@ export default function ShiftManagePage() {
   }
 
   const timetableContainerRef = useRef<HTMLDivElement>(null)
+  const [timetableScale, setTimetableScale] = useState(1)
+  const [isPrinting, setIsPrinting] = useState(false)
+
+  // 印刷モードの検出と再レンダリングのトリガー
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    // beforeprintイベント（印刷開始時）
+    const handleBeforePrint = () => {
+      setIsPrinting(true)
+    }
+
+    // afterprintイベント（印刷終了時）
+    const handleAfterPrint = () => {
+      setIsPrinting(false)
+    }
+
+    // イベントリスナーを追加
+    window.addEventListener('beforeprint', handleBeforePrint)
+    window.addEventListener('afterprint', handleAfterPrint)
+
+    // 印刷ボタンクリック時にも検出（一部のブラウザではbeforeprintが発火しない場合があるため）
+    const handlePrintButtonClick = () => {
+      setIsPrinting(true)
+      // 少し遅延させてから印刷ダイアログを開く
+      setTimeout(() => {
+        window.print()
+      }, 100)
+    }
+
+    // 印刷ボタンを探してイベントリスナーを追加（DOMが完全にレンダリングされた後）
+    setTimeout(() => {
+      const printButtons = document.querySelectorAll('button')
+      printButtons.forEach(button => {
+        if (button.textContent?.includes('印刷')) {
+          button.addEventListener('click', handlePrintButtonClick)
+        }
+      })
+    }, 1000)
+
+    return () => {
+      window.removeEventListener('beforeprint', handleBeforePrint)
+      window.removeEventListener('afterprint', handleAfterPrint)
+    }
+  }, [])
+
+  // タイムテーブルのスケールを計算（画面サイズに合わせて全体を表示）
+  useEffect(() => {
+    if (viewMode !== 'timetable' || !selectedDate || timetableShifts.length === 0) {
+      setTimetableScale(1)
+      return
+    }
+
+    const calculateScale = () => {
+      if (!timetableContainerRef.current) return
+
+      const container = timetableContainerRef.current.closest('.timetable-container')
+      if (!container) return
+
+      // 画面幅を取得（パディングとマージンを考慮）
+      const viewportWidth = window.innerWidth
+      const containerWidth = Math.min(container.clientWidth, viewportWidth - 64) // パディングとマージンを考慮
+      
+      const { startHour, endHour } = getTimeRange()
+      const timeSlotCount = (endHour - startHour) * 2 + 1 // 30分スロットの数
+      const employeeNameWidth = 128 // 従業員名の幅
+      const minSlotWidth = 30 // 最小スロット幅
+      const requiredWidth = employeeNameWidth + (timeSlotCount * minSlotWidth)
+
+      if (requiredWidth > containerWidth) {
+        const scale = containerWidth / requiredWidth
+        setTimetableScale(Math.max(0.2, Math.min(1, scale))) // 0.2から1の範囲に制限（より小さくできるように）
+      } else {
+        setTimetableScale(1)
+      }
+    }
+
+    // DOMが完全にレンダリングされた後、複数回計算して確実に適用
+    const timeoutId1 = setTimeout(calculateScale, 100)
+    const timeoutId2 = setTimeout(calculateScale, 300)
+    const timeoutId3 = setTimeout(calculateScale, 500)
+    
+    window.addEventListener('resize', calculateScale)
+    return () => {
+      clearTimeout(timeoutId1)
+      clearTimeout(timeoutId2)
+      clearTimeout(timeoutId3)
+      window.removeEventListener('resize', calculateScale)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, selectedDate, timetableShifts, isPrinting])
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -542,6 +733,59 @@ export default function ShiftManagePage() {
               }
             : s
         ))
+      } else if (draggingShift.type.startsWith('breakMove-')) {
+        // 休憩時間帯全体を移動
+        const breakIndex = draggingShift.breakIndex ?? parseInt(draggingShift.type.split('-')[1])
+        if (breakIndex === undefined || !shift.breaks[breakIndex]) return
+        
+        const currentBreak = shift.breaks[breakIndex]
+        if (!draggingShift.initialBreakStartTime) return
+        
+        // 初期位置からの移動量を計算
+        const [initialStartHours, initialStartMins] = draggingShift.initialBreakStartTime.split(':').map(Number)
+        const [newHours, newMins] = newTime.split(':').map(Number)
+        const initialStartTotal = initialStartHours * 60 + initialStartMins
+        const newStartTotal = newHours * 60 + newMins
+        const offsetMinutes = newStartTotal - initialStartTotal
+        
+        // 現在の休憩時間の長さを計算
+        const [currentStartHours, currentStartMins] = currentBreak.startTime.split(':').map(Number)
+        const [currentEndHours, currentEndMins] = currentBreak.endTime.split(':').map(Number)
+        const currentStartTotal = currentStartHours * 60 + currentStartMins
+        const currentEndTotal = currentEndHours * 60 + currentEndMins
+        const breakDuration = currentEndTotal - currentStartTotal
+        
+        // 新しい開始時間と終了時間を計算
+        const newStartTotalMinutes = initialStartTotal + offsetMinutes
+        const newEndTotalMinutes = newStartTotalMinutes + breakDuration
+        
+        // 勤務時間内に収まるようにチェック
+        const [shiftStartHours, shiftStartMins] = shift.startTime.split(':').map(Number)
+        const [shiftEndHours, shiftEndMins] = shift.endTime.split(':').map(Number)
+        const shiftStartTotal = shiftStartHours * 60 + shiftStartMins
+        const shiftEndTotal = shiftEndHours * 60 + shiftEndMins
+        
+        if (newStartTotalMinutes < shiftStartTotal || newEndTotalMinutes > shiftEndTotal) return
+        
+        // 時間を文字列に変換
+        const newStartHours = Math.floor(newStartTotalMinutes / 60)
+        const newStartMins = newStartTotalMinutes % 60
+        const newEndHours = Math.floor(newEndTotalMinutes / 60)
+        const newEndMins = newEndTotalMinutes % 60
+        
+        const newStartTimeStr = `${String(newStartHours).padStart(2, '0')}:${String(newStartMins).padStart(2, '0')}`
+        const newEndTimeStr = `${String(newEndHours).padStart(2, '0')}:${String(newEndMins).padStart(2, '0')}`
+        
+        setTimetableShifts(prev => prev.map(s => 
+          s.shiftId === shift.shiftId
+            ? { 
+                ...s, 
+                breaks: s.breaks.map((b, idx) => 
+                  idx === breakIndex ? { ...b, startTime: newStartTimeStr, endTime: newEndTimeStr } : b
+                )
+              }
+            : s
+        ))
       }
     }
 
@@ -562,7 +806,7 @@ export default function ShiftManagePage() {
           updateData.startTime = timetableShift.startTime
         } else if (draggingShift.type === 'end') {
           updateData.endTime = timetableShift.endTime
-        } else if (draggingShift.type.startsWith('breakStart-') || draggingShift.type.startsWith('breakEnd-')) {
+        } else if (draggingShift.type.startsWith('breakStart-') || draggingShift.type.startsWith('breakEnd-') || draggingShift.type.startsWith('breakMove-')) {
           // 複数の休憩時間を更新（breakMinutesを合計し、notesに複数の休憩を保存）
           if (timetableShift.breaks.length > 0) {
             // 全休憩時間の合計を計算
@@ -631,10 +875,19 @@ export default function ShiftManagePage() {
   const handleMouseDown = (e: React.MouseEvent, shiftId: number, type: 'start' | 'end' | string) => {
     e.preventDefault()
     e.stopPropagation()
-    const breakIndex = type.startsWith('breakStart-') || type.startsWith('breakEnd-') 
+    const breakIndex = type.startsWith('breakStart-') || type.startsWith('breakEnd-') || type.startsWith('breakMove-')
       ? parseInt(type.split('-')[1]) 
       : undefined
-    setDraggingShift({ shiftId, type, breakIndex, initialX: e.clientX })
+    
+    let initialBreakStartTime: string | undefined
+    if (type.startsWith('breakMove-') && breakIndex !== undefined) {
+      const shift = timetableShifts.find(s => s.shiftId === shiftId)
+      if (shift && shift.breaks[breakIndex]) {
+        initialBreakStartTime = shift.breaks[breakIndex].startTime
+      }
+    }
+    
+    setDraggingShift({ shiftId, type, breakIndex, initialX: e.clientX, initialBreakStartTime })
   }
 
   const handleDeleteBreakPeriod = async (shiftId: number, breakIndex: number) => {
@@ -790,13 +1043,18 @@ export default function ShiftManagePage() {
   }
 
   const generateTimeSlots = () => {
+    const { startHour, endHour } = getTimeRange()
     const slots: string[] = []
-    for (let hour = 6; hour <= 20; hour++) {
+    // 開始時間から終了時間まで30分間隔でスロットを生成
+    console.log('generateTimeSlots:', { startHour, endHour })
+    for (let hour = startHour; hour <= endHour; hour++) {
       slots.push(`${String(hour).padStart(2, '0')}:00`)
-      if (hour < 20) {
+      // 終了時間の時間まで30分スロットも追加（終了時間がその時間の場合は追加しない）
+      if (hour < endHour) {
         slots.push(`${String(hour).padStart(2, '0')}:30`)
       }
     }
+    console.log('Generated slots:', slots)
     return slots
   }
 
@@ -816,32 +1074,61 @@ export default function ShiftManagePage() {
       <div className="p-4">
         <div className="max-w-7xl mx-auto">
           {/* ヘッダー */}
-          <div className="bg-blue-600 text-white p-4 rounded-t-lg flex items-center justify-between mb-4">
+          <div className="bg-blue-600 text-white p-4 rounded-t-lg flex items-center justify-between mb-4 no-print">
             <div className="flex items-center gap-3">
               <div>
                 <h2 className="text-xl font-bold">{month}月{day}日のシフト</h2>
                 <p className="text-sm text-blue-100">シフト登録者: {timetableShifts.length}名</p>
               </div>
             </div>
-            <button
-              onClick={() => setSelectedDate(null)}
-              className="text-white hover:text-gray-200 text-2xl font-bold"
-            >
-              ×
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setIsPrinting(true)
+                  // 少し遅延させてから印刷ダイアログを開く（状態更新を確実に反映）
+                  setTimeout(() => {
+                    window.print()
+                  }, 100)
+                }}
+                className="px-4 py-2 bg-white text-blue-600 rounded-md hover:bg-gray-100 font-medium"
+              >
+                印刷
+              </button>
+              <button
+                onClick={() => setSelectedDate(null)}
+                className="text-white hover:text-gray-200 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+          
+          {/* 印刷用ヘッダー */}
+          <div className="timetable-print-header print-only">
+            <h2 className="timetable-print-title">{month}月{day}日のシフト</h2>
+            <p className="timetable-print-subtitle">シフト登録者: {timetableShifts.length}名</p>
           </div>
 
           {/* タイムテーブル */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="bg-blue-600 text-white p-4">
+          <div className="bg-white rounded-lg shadow-md overflow-visible timetable-container">
+            <div className="bg-blue-600 text-white p-4 no-print">
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-bold">タイムテーブル - {displayMonth}月{displayDay}日 ({dayOfWeek})</h3>
               </div>
               <p className="text-sm text-blue-100 mt-1">シフト登録者: {timetableShifts.length}名</p>
             </div>
 
-            <div className="overflow-x-auto" ref={timetableContainerRef}>
-              <div className="min-w-[1400px]">
+            <div 
+              className="overflow-x-visible overflow-y-visible print-full-width timetable-wrapper" 
+              ref={timetableContainerRef}
+              style={{
+                transform: `scale(${timetableScale})`,
+                transformOrigin: 'top left',
+                width: `${100 / timetableScale}%`,
+                overflow: 'visible',
+              }}
+            >
+              <div className="print-full-content" style={{ minWidth: 'auto', width: '100%' }}>
                 {/* 時間軸ヘッダー */}
                 <div className="flex border-b">
                   <div className="w-32 p-2 font-semibold text-gray-900 bg-gray-50 border-r">
@@ -849,15 +1136,19 @@ export default function ShiftManagePage() {
                   </div>
                   <div className="flex-1 relative">
                     <div className="flex">
-                      {generateTimeSlots().map((time, index) => (
-                        <div
-                          key={index}
-                          className="flex-1 border-r border-gray-200 text-center text-xs text-gray-600 p-1 bg-gray-50"
-                          style={{ minWidth: '30px' }}
-                        >
-                          {time.split(':')[1] === '00' ? time : ''}
-                        </div>
-                      ))}
+                      {generateTimeSlots().map((time, index) => {
+                        const isHourMark = time.split(':')[1] === '00'
+                        return (
+                          <div
+                            key={index}
+                            className="flex-1 border-r border-gray-200 text-center text-xs text-gray-600 p-1 bg-gray-50 timetable-time-slot"
+                            style={{ minWidth: '30px' }}
+                            data-time={isHourMark ? time : ''}
+                          >
+                            {isHourMark ? time : ''}
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 </div>
@@ -911,7 +1202,7 @@ export default function ShiftManagePage() {
                           return (
                             <div
                               key={breakIndex}
-                              className="absolute bg-orange-500 h-full flex items-center justify-between px-2"
+                              className="absolute h-full group"
                               style={{
                                 left: `${breakLeft}%`,
                                 width: `${breakWidth}%`,
@@ -921,14 +1212,26 @@ export default function ShiftManagePage() {
                                 opacity: 1,
                               }}
                             >
+                              {/* 左端のドラッグハンドル（ホバー時のみ表示） */}
                               <div
-                                className="bg-orange-600 text-white text-xs px-2 py-1 rounded cursor-move hover:bg-orange-700 select-none"
+                                className="absolute left-0 top-0 w-3 h-full cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity bg-orange-600 hover:bg-orange-700"
                                 onMouseDown={(e) => handleMouseDown(e, timetableShift.shiftId, `breakStart-${breakIndex}` as any)}
+                                title="休憩開始時間をドラッグで変更"
+                              />
+                              
+                              {/* 中央の表示エリア（ドラッグで時間帯全体を移動） */}
+                              <div 
+                                className="h-full flex items-center justify-center gap-2 px-2 cursor-move"
+                                onMouseDown={(e) => {
+                                  // 削除ボタン以外の部分をクリックした場合のみドラッグ開始
+                                  if ((e.target as HTMLElement).closest('button')) {
+                                    return
+                                  }
+                                  handleMouseDown(e, timetableShift.shiftId, `breakMove-${breakIndex}` as any)
+                                }}
+                                title="休憩時間帯をドラッグで移動"
                               >
-                                休憩開始 {breakPeriod.startTime}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <div className="text-white text-xs">
+                                <div className="text-white text-xs whitespace-nowrap">
                                   休憩 {breakPeriod.startTime}-{breakPeriod.endTime}
                                 </div>
                                 <button
@@ -937,18 +1240,19 @@ export default function ShiftManagePage() {
                                     e.stopPropagation()
                                     handleDeleteBreakPeriod(timetableShift.shiftId, breakIndex)
                                   }}
-                                  className="bg-red-600 text-white text-xs px-2 py-1 rounded hover:bg-red-700 select-none"
+                                  className="bg-red-600 text-white text-xs px-2 py-1 rounded hover:bg-red-700 select-none whitespace-nowrap"
                                   title="休憩を削除"
                                 >
                                   ×
                                 </button>
                               </div>
+                              
+                              {/* 右端のドラッグハンドル（ホバー時のみ表示） */}
                               <div
-                                className="bg-orange-600 text-white text-xs px-2 py-1 rounded cursor-move hover:bg-orange-700 select-none"
+                                className="absolute right-0 top-0 w-3 h-full cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity bg-orange-600 hover:bg-orange-700"
                                 onMouseDown={(e) => handleMouseDown(e, timetableShift.shiftId, `breakEnd-${breakIndex}` as any)}
-                              >
-                                休憩終了 {breakPeriod.endTime}
-                              </div>
+                                title="休憩終了時間をドラッグで変更"
+                              />
                             </div>
                           )
                         })}
@@ -960,7 +1264,7 @@ export default function ShiftManagePage() {
                             e.stopPropagation()
                             handleAddBreak(timetableShift.shiftId)
                           }}
-                          className="absolute top-0 right-0 bg-green-600 text-white text-xs px-2 py-1 rounded hover:bg-green-700 z-20"
+                          className="absolute top-0 right-0 bg-green-600 text-white text-xs px-2 py-1 rounded hover:bg-green-700 z-20 no-print"
                           title="休憩を追加"
                           style={{ marginTop: '4px', marginRight: '4px' }}
                         >
@@ -973,7 +1277,7 @@ export default function ShiftManagePage() {
               </div>
             </div>
 
-            <div className="p-4 flex justify-end">
+            <div className="p-4 flex justify-end no-print">
               <button
                 onClick={() => setSelectedDate(null)}
                 className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
@@ -991,6 +1295,16 @@ export default function ShiftManagePage() {
   const renderViewTabs = () => (
     <div className="bg-white rounded-lg shadow-md p-4 mb-6">
       <div className="flex gap-2 border-b">
+        <button
+          onClick={() => setViewMode('timetable')}
+          className={`px-6 py-3 font-medium transition ${
+            viewMode === 'timetable'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          タイムテーブル
+        </button>
         <button
           onClick={() => setViewMode('list')}
           className={`px-6 py-3 font-medium transition ${
@@ -1010,16 +1324,6 @@ export default function ShiftManagePage() {
           }`}
         >
           シフト登録
-        </button>
-        <button
-          onClick={() => setViewMode('timetable')}
-          className={`px-6 py-3 font-medium transition ${
-            viewMode === 'timetable'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          タイムテーブル
         </button>
       </div>
     </div>
@@ -1286,6 +1590,10 @@ export default function ShiftManagePage() {
       // JSON形式の休憩時間情報を除外
       try {
         const parsed = JSON.parse(notes)
+        // breaksが含まれている場合（複数の休憩時間）は、originalNotesのみを表示
+        if (parsed.breaks && Array.isArray(parsed.breaks)) {
+          return parsed.originalNotes || '-'
+        }
         // breakStartTimeが含まれている場合は、originalNotesがあればそれを表示
         if (parsed.breakStartTime && parsed.originalNotes) {
           return parsed.originalNotes || '-'
@@ -1294,7 +1602,7 @@ export default function ShiftManagePage() {
         if (parsed.breakStartTime) {
           return '-'
         }
-        // JSON形式だがbreakStartTimeがない場合はそのまま表示（通常のJSONデータ）
+        // JSON形式だがbreakStartTimeやbreaksがない場合はそのまま表示（通常のJSONデータ）
         return notes
       } catch {
         // JSON形式でない場合はそのまま表示
@@ -1846,12 +2154,23 @@ export default function ShiftManagePage() {
                 {filteredShifts.map((shift) => {
                   const shiftDate = new Date(shift.date)
                   const isHolidayOrSun = isHolidayOrSunday(shiftDate)
-                  const rowClassName = isHolidayOrSun ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'
+                  const isSat = isSaturday(shiftDate)
+                  const rowClassName = isHolidayOrSun 
+                    ? 'bg-red-50 hover:bg-red-100' 
+                    : isSat 
+                      ? 'bg-blue-50 hover:bg-blue-100' 
+                      : 'hover:bg-gray-50'
                   
                   return (
                   <tr key={shift.id} className={rowClassName}>
                     <>
-                        <td className={`px-2 py-2 text-xs ${isHolidayOrSun ? 'text-red-700 font-semibold' : 'text-gray-900'}`}>{formatDate(shift.date)}</td>
+                        <td className={`px-2 py-2 text-xs ${
+                          isHolidayOrSun 
+                            ? 'text-red-700 font-semibold' 
+                            : isSat 
+                              ? 'text-blue-700 font-semibold' 
+                              : 'text-gray-900'
+                        }`}>{formatDate(shift.date)}</td>
                         <td className="px-2 py-2 text-xs text-gray-900">{shift.employee.name}</td>
                         {displayMode === 'all' && (
                           <td className="px-2 py-2 text-xs text-gray-900">{shift.employee.department || '-'}</td>
@@ -1953,6 +2272,7 @@ export default function ShiftManagePage() {
                     const dateStr = formatLocalDateString(day.date)
                     const isCurrentMonth = day.date.getMonth() + 1 === month
                     const isHolidayOrSun = isHolidayOrSunday(day.date)
+                    const isSat = isSaturday(day.date)
                     const todayStr = formatLocalDateString(new Date())
                     const isToday = dateStr === todayStr
 
@@ -1962,6 +2282,8 @@ export default function ShiftManagePage() {
                         className={`border p-2 align-top h-32 ${
                           !isCurrentMonth ? 'bg-gray-50 text-gray-400' : ''
                         } ${isHolidayOrSun ? 'bg-red-50' : ''} ${
+                          isSat && !isHolidayOrSun ? 'bg-blue-50' : ''
+                        } ${
                           isToday ? 'ring-2 ring-blue-500' : ''
                         } cursor-pointer hover:bg-blue-50`}
                         onClick={() => isCurrentMonth && handleDateClick(dateStr)}
@@ -2100,7 +2422,11 @@ export default function ShiftManagePage() {
                 onChange={(e) => setSelectedEmployeeId(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
               >
-                <option value="">全員</option>
+                <option value="">
+                  {displayMode === 'location' && selectedLocation 
+                    ? `全員（${selectedLocation}所属）` 
+                    : '全員'}
+                </option>
                 {getFilteredEmployees().map((emp) => (
                   <option key={emp.id} value={emp.id.toString()}>
                     {emp.name} ({emp.employeeNumber})

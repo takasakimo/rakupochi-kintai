@@ -157,15 +157,6 @@ export async function PATCH(request: NextRequest) {
         ...(body.leaveExpiryAlertDays !== undefined && {
           leaveExpiryAlertDays: body.leaveExpiryAlertDays,
         }),
-        ...(body.allowPreOvertime !== undefined && {
-          allowPreOvertime: body.allowPreOvertime,
-        }),
-        ...(body.enableSalesVisit !== undefined && {
-          enableSalesVisit: body.enableSalesVisit,
-        }),
-        ...(body.enableWakeUpDeparture !== undefined && {
-          enableWakeUpDeparture: body.enableWakeUpDeparture,
-        }),
         ...(body.paidLeaveFirstGrantMonths !== undefined && {
           paidLeaveFirstGrantMonths: body.paidLeaveFirstGrantMonths,
         }),
@@ -183,9 +174,6 @@ export async function PATCH(request: NextRequest) {
         overtimeThreshold60: body.overtimeThreshold60 || 60,
         consecutiveWorkAlert: body.consecutiveWorkAlert || 6,
         leaveExpiryAlertDays: body.leaveExpiryAlertDays || 30,
-        allowPreOvertime: body.allowPreOvertime ?? false,
-        enableSalesVisit: body.enableSalesVisit ?? true,
-        enableWakeUpDeparture: body.enableWakeUpDeparture ?? true,
         paidLeaveFirstGrantMonths: body.paidLeaveFirstGrantMonths ?? 6,
         paidLeaveGrantDays: body.paidLeaveGrantDays || {
           year1: 10,

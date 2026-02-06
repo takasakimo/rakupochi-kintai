@@ -95,6 +95,15 @@ export function isSunday(date: Date): boolean {
 }
 
 /**
+ * 指定された日付が土曜日かどうかを判定
+ * @param date 判定する日付
+ * @returns 土曜日の場合true
+ */
+export function isSaturday(date: Date): boolean {
+  return date.getDay() === 6
+}
+
+/**
  * 指定された日付が祝日または日曜日かどうかを判定
  * @param date 判定する日付
  * @returns 祝日または日曜日の場合true

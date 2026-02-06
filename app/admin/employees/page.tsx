@@ -26,6 +26,15 @@ interface Employee {
   yearsOfService: number | null
   paidLeaveBalance: number
   isActive: boolean
+  billingClientId: number | null
+  billingRate: number | null
+  overtimeRate: number | null
+  hasOvertime: boolean | null
+  baseWorkDays: number | null
+  billingClient?: {
+    id: number
+    name: string
+  } | null
 }
 
 interface Location {
@@ -63,6 +72,7 @@ export default function EmployeesPage() {
   const [locations, setLocations] = useState<{ id: number; name: string; type?: string; address?: string | null }[]>([])
   const [departments, setDepartments] = useState<{ id: number; name: string; type?: string; address?: string | null }[]>([])
   const [locationEmployeeIds, setLocationEmployeeIds] = useState<Set<number>>(new Set())
+  const [billingClients, setBillingClients] = useState<{ id: number; name: string }[]>([])
 
   // 勤務先登録用の状態
   const [workLocations, setWorkLocations] = useState<Location[]>([])
@@ -111,6 +121,7 @@ export default function EmployeesPage() {
         fetchEmployees()
         fetchLocations()
         fetchCompanyCode()
+        fetchBillingClients()
         if (activeTab === 'locations') {
           fetchWorkLocations()
         }
@@ -145,6 +156,18 @@ export default function EmployeesPage() {
       }
     } catch (err) {
       console.error('Failed to fetch locations:', err)
+    }
+  }
+
+  const fetchBillingClients = async () => {
+    try {
+      const response = await fetch('/api/admin/billing-clients')
+      if (response.ok) {
+        const data = await response.json()
+        setBillingClients(data.billingClients || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch billing clients:', err)
     }
   }
 
@@ -516,6 +539,13 @@ export default function EmployeesPage() {
           updateData.transportationRoutes = null
         }
         updateData.transportationCost = employee.transportationCost || null
+        
+        // 請求情報の処理
+        updateData.billingClientId = employee.billingClientId || null
+        updateData.billingRate = employee.billingRate || null
+        updateData.overtimeRate = employee.overtimeRate || null
+        updateData.hasOvertime = employee.hasOvertime || false
+        updateData.baseWorkDays = employee.baseWorkDays || null
       } else {
         // テーブルからの更新の場合（旧方式、互換性のため残す）
         const birthDateInput = document.getElementById(
@@ -1722,6 +1752,18 @@ export default function EmployeesPage() {
                         <span className="text-gray-900 ml-2">{employee.position}</span>
                       </div>
                     )}
+                    {employee.billingClient && (
+                      <div className="text-sm">
+                        <span className="text-gray-600">請求先企業:</span>
+                        <span className="text-gray-900 ml-2 font-semibold">{employee.billingClient.name}</span>
+                      </div>
+                    )}
+                    {employee.billingRate && (
+                      <div className="text-sm">
+                        <span className="text-gray-600">請求単価:</span>
+                        <span className="text-gray-900 ml-2">{employee.billingRate.toLocaleString()}円</span>
+                      </div>
+                    )}
                     {employee.yearsOfService !== null && (
                       <div className="text-sm">
                         <span className="text-gray-600">勤続年数:</span>
@@ -2368,6 +2410,121 @@ export default function EmployeesPage() {
                       min="0"
                       className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                     />
+                  </div>
+
+                  {/* 請求情報セクション */}
+                  <div className="border-t pt-4">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                      請求情報 <span className="text-gray-500 text-xs font-normal">(任意)</span>
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          請求先企業
+                        </label>
+                        <select
+                          value={selectedEmployee.billingClientId?.toString() || ''}
+                          onChange={(e) =>
+                            setSelectedEmployee({
+                              ...selectedEmployee,
+                              billingClientId: e.target.value ? parseInt(e.target.value) : null,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                        >
+                          <option value="">選択してください</option>
+                          {billingClients.map((client) => (
+                            <option key={client.id} value={client.id}>
+                              {client.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          請求単価（円）
+                        </label>
+                        <input
+                          type="number"
+                          value={selectedEmployee.billingRate?.toString() || ''}
+                          onChange={(e) =>
+                            setSelectedEmployee({
+                              ...selectedEmployee,
+                              billingRate: e.target.value ? parseInt(e.target.value) : null,
+                            })
+                          }
+                          placeholder="例: 3000"
+                          min="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">時給または日給</p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          残業の有無
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedEmployee.hasOvertime || false}
+                            onChange={(e) =>
+                              setSelectedEmployee({
+                                ...selectedEmployee,
+                                hasOvertime: e.target.checked,
+                              })
+                            }
+                            className="w-4 h-4"
+                          />
+                          <span className="text-sm text-gray-700">
+                            残業時間を請求に含める
+                          </span>
+                        </label>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          残業単価倍率
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={selectedEmployee.overtimeRate?.toString() || '1.25'}
+                          onChange={(e) =>
+                            setSelectedEmployee({
+                              ...selectedEmployee,
+                              overtimeRate: e.target.value ? parseFloat(e.target.value) : 1.25,
+                            })
+                          }
+                          placeholder="例: 1.25"
+                          min="1"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">基本単価に対する倍率（デフォルト: 1.25）</p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          稼働日数のベース（月間）
+                        </label>
+                        <input
+                          type="number"
+                          value={selectedEmployee.baseWorkDays?.toString() || '22'}
+                          onChange={(e) =>
+                            setSelectedEmployee({
+                              ...selectedEmployee,
+                              baseWorkDays: e.target.value ? parseInt(e.target.value) : 22,
+                            })
+                          }
+                          placeholder="例: 22"
+                          min="1"
+                          max="31"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">月間の標準稼働日数（デフォルト: 22日）</p>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex gap-2 pt-4 border-t">

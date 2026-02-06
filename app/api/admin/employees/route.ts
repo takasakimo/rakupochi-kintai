@@ -73,6 +73,17 @@ export async function GET() {
           transportationRoutes: true,
           transportationCost: true,
           isActive: true,
+          billingClientId: true,
+          billingRate: true,
+          overtimeRate: true,
+          hasOvertime: true,
+          baseWorkDays: true,
+          billingClient: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
         orderBy: {
           employeeNumber: 'asc',
