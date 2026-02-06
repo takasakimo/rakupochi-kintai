@@ -317,7 +317,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
             ]
             
             // セクションを順序付け
-            const orderedSections = sectionOrder
+            const orderedSections: [string, MenuItem[]][] = sectionOrder
               .filter(section => sections[section])
               .map(section => [section, sections[section]])
             
