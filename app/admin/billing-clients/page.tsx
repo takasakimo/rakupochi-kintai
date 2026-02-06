@@ -30,6 +30,7 @@ export default function BillingClientsPage() {
   const router = useRouter()
   const [billingClients, setBillingClients] = useState<BillingClient[]>([])
   const [loading, setLoading] = useState(true)
+  const [enableInvoice, setEnableInvoice] = useState<boolean>(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editingClient, setEditingClient] = useState<BillingClient | null>(null)
   const [formData, setFormData] = useState({
@@ -55,10 +56,29 @@ export default function BillingClientsPage() {
                           session?.user.email === 'superadmin@rakupochi.com'
       
       if (isAdmin || (isSuperAdmin && session?.user.selectedCompanyId)) {
-        fetchBillingClients()
+        fetchSettings()
       }
     }
   }, [status, session])
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch('/api/admin/settings')
+      if (response.ok) {
+        const data = await response.json()
+        const invoiceEnabled = data.settings?.enableInvoice ?? false
+        setEnableInvoice(invoiceEnabled)
+        if (invoiceEnabled) {
+          fetchBillingClients()
+        } else {
+          // enableInvoiceがfalseの場合はダッシュボードにリダイレクト
+          router.push('/admin/dashboard')
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch settings:', err)
+    }
+  }
 
   const fetchBillingClients = async () => {
     setLoading(true)

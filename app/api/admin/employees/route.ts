@@ -75,6 +75,7 @@ export async function GET() {
           isActive: true,
           billingClientId: true,
           billingRate: true,
+          billingRateType: true,
           overtimeRate: true,
           hasOvertime: true,
           baseWorkDays: true,

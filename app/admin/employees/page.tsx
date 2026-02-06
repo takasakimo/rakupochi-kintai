@@ -28,6 +28,7 @@ interface Employee {
   isActive: boolean
   billingClientId: number | null
   billingRate: number | null
+  billingRateType: string | null
   overtimeRate: number | null
   hasOvertime: boolean | null
   baseWorkDays: number | null
@@ -73,6 +74,7 @@ export default function EmployeesPage() {
   const [departments, setDepartments] = useState<{ id: number; name: string; type?: string; address?: string | null }[]>([])
   const [locationEmployeeIds, setLocationEmployeeIds] = useState<Set<number>>(new Set())
   const [billingClients, setBillingClients] = useState<{ id: number; name: string }[]>([])
+  const [enableInvoice, setEnableInvoice] = useState<boolean>(false)
 
   // 勤務先登録用の状態
   const [workLocations, setWorkLocations] = useState<Location[]>([])
@@ -121,7 +123,7 @@ export default function EmployeesPage() {
         fetchEmployees()
         fetchLocations()
         fetchCompanyCode()
-        fetchBillingClients()
+        fetchSettings()
         if (activeTab === 'locations') {
           fetchWorkLocations()
         }
@@ -156,6 +158,23 @@ export default function EmployeesPage() {
       }
     } catch (err) {
       console.error('Failed to fetch locations:', err)
+    }
+  }
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch('/api/admin/settings')
+      if (response.ok) {
+        const data = await response.json()
+        const invoiceEnabled = data.settings?.enableInvoice ?? false
+        setEnableInvoice(invoiceEnabled)
+        // enableInvoiceがtrueの場合のみ請求先企業を取得
+        if (invoiceEnabled) {
+          fetchBillingClients()
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch settings:', err)
     }
   }
 
@@ -543,6 +562,7 @@ export default function EmployeesPage() {
         // 請求情報の処理
         updateData.billingClientId = employee.billingClientId || null
         updateData.billingRate = employee.billingRate || null
+        updateData.billingRateType = employee.billingRateType || 'daily'
         updateData.overtimeRate = employee.overtimeRate || null
         updateData.hasOvertime = employee.hasOvertime || false
         updateData.baseWorkDays = employee.baseWorkDays || null
@@ -1752,16 +1772,21 @@ export default function EmployeesPage() {
                         <span className="text-gray-900 ml-2">{employee.position}</span>
                       </div>
                     )}
-                    {employee.billingClient && (
+                    {enableInvoice && employee.billingClient && (
                       <div className="text-sm">
                         <span className="text-gray-600">請求先企業:</span>
                         <span className="text-gray-900 ml-2 font-semibold">{employee.billingClient.name}</span>
                       </div>
                     )}
-                    {employee.billingRate && (
+                    {enableInvoice && employee.billingRate && (
                       <div className="text-sm">
                         <span className="text-gray-600">請求単価:</span>
-                        <span className="text-gray-900 ml-2">{employee.billingRate.toLocaleString()}円</span>
+                        <span className="text-gray-900 ml-2">
+                          {employee.billingRate.toLocaleString()}円
+                          {employee.billingRateType === 'hourly' && '（時間）'}
+                          {employee.billingRateType === 'daily' && '（日額）'}
+                          {employee.billingRateType === 'monthly' && '（月額）'}
+                        </span>
                       </div>
                     )}
                     {employee.yearsOfService !== null && (
@@ -2413,6 +2438,7 @@ export default function EmployeesPage() {
                   </div>
 
                   {/* 請求情報セクション */}
+                  {enableInvoice && (
                   <div className="border-t pt-4">
                     <h3 className="text-sm font-semibold text-gray-900 mb-3">
                       請求情報 <span className="text-gray-500 text-xs font-normal">(任意)</span>
@@ -2443,6 +2469,26 @@ export default function EmployeesPage() {
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
+                          請求単価タイプ
+                        </label>
+                        <select
+                          value={selectedEmployee.billingRateType || 'daily'}
+                          onChange={(e) =>
+                            setSelectedEmployee({
+                              ...selectedEmployee,
+                              billingRateType: e.target.value,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                        >
+                          <option value="hourly">時間</option>
+                          <option value="daily">日額</option>
+                          <option value="monthly">月額</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
                           請求単価（円）
                         </label>
                         <input
@@ -2454,11 +2500,23 @@ export default function EmployeesPage() {
                               billingRate: e.target.value ? parseInt(e.target.value) : null,
                             })
                           }
-                          placeholder="例: 3000"
+                          placeholder={
+                            selectedEmployee.billingRateType === 'hourly' 
+                              ? '例: 1500（時間）'
+                              : selectedEmployee.billingRateType === 'daily'
+                              ? '例: 12000（日額）'
+                              : '例: 300000（月額）'
+                          }
                           min="0"
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                         />
-                        <p className="mt-1 text-xs text-gray-500">時給または日給</p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {selectedEmployee.billingRateType === 'hourly' 
+                            ? '1時間あたりの単価'
+                            : selectedEmployee.billingRateType === 'daily'
+                            ? '1日あたりの単価'
+                            : '1ヶ月あたりの単価'}
+                        </p>
                       </div>
                       
                       <div>
@@ -2526,6 +2584,7 @@ export default function EmployeesPage() {
                       </div>
                     </div>
                   </div>
+                  )}
 
                   <div className="flex gap-2 pt-4 border-t">
                     <button

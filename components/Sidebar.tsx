@@ -26,7 +26,6 @@ const adminMenuItems: MenuItem[] = [
   // 従業員・シフト管理
   { href: '/admin/employees', label: '従業員管理', icon: '', section: '管理' },
   { href: '/admin/shifts/manage', label: 'シフト管理', icon: '', section: '管理' },
-  { href: '/admin/billing-clients', label: '請求先企業管理', icon: '', section: '管理' },
   
   // 申請・レポート
   { href: '/admin/applications', label: '申請管理', icon: '', section: '申請・レポート' },
@@ -80,28 +79,49 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
   const router = useRouter()
   const pathname = usePathname()
   const [company, setCompany] = useState<Company | null>(null)
-  const [settings, setSettings] = useState<{ enableSalesVisit?: boolean } | null>(null)
+  const [settings, setSettings] = useState<{ enableSalesVisit?: boolean; enableInvoice?: boolean } | null>(null)
 
   useEffect(() => {
-    if (session?.user?.companyId) {
-      fetch('/api/user/company')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.company) {
-            setCompany(data.company)
-          }
-        })
-        .catch((err) => {
-          console.error('Failed to fetch company:', err)
-        })
+    const isSuperAdmin = session?.user?.role === 'super_admin' || 
+                        session?.user?.email === 'superadmin@rakupochi.com'
+    const effectiveCompanyId = isSuperAdmin 
+      ? session?.user?.selectedCompanyId 
+      : session?.user?.companyId
+    
+    if (effectiveCompanyId) {
+      // 企業情報を取得（通常の管理者の場合のみ）
+      if (session?.user?.companyId) {
+        fetch('/api/user/company')
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.company) {
+              setCompany(data.company)
+            }
+          })
+          .catch((err) => {
+            console.error('Failed to fetch company:', err)
+          })
+      }
       
-      // 設定を取得（従業員の場合のみ）
-      if (session.user.role === 'employee') {
+      // 設定を取得
+      if (session?.user?.role === 'employee') {
         fetch('/api/settings/display')
           .then((res) => res.json())
           .then((data) => {
             if (data.enableSalesVisit !== undefined) {
               setSettings({ enableSalesVisit: data.enableSalesVisit })
+            }
+          })
+          .catch((err) => {
+            console.error('Failed to fetch settings:', err)
+          })
+      } else if (session?.user?.role === 'admin' || isSuperAdmin) {
+        // 管理者の場合はenableInvoice設定を取得
+        fetch('/api/admin/settings')
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.settings) {
+              setSettings({ enableInvoice: data.settings.enableInvoice })
             }
           })
           .catch((err) => {
@@ -124,16 +144,40 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
   // スーパー管理者がテナントの管理者画面に入っている場合（selectedCompanyIdが設定されている場合）
   // は通常の管理者メニューを表示
   if (isSuperAdmin && session.user.selectedCompanyId) {
-    menuItems = adminMenuItems
+    menuItems = [...adminMenuItems]
   } else if (isSuperAdmin) {
     menuItems = superAdminMenuItems
   } else if (isAdmin) {
-    menuItems = adminMenuItems
+    menuItems = [...adminMenuItems]
   } else {
     menuItems = employeeMenuItems
     // 営業先入退店機能が無効の場合はメニューから除外
     if (settings && settings.enableSalesVisit === false) {
       menuItems = menuItems.filter(item => item.href !== '/employee/sales-visit')
+    }
+  }
+
+  // 管理者メニューの場合、enableInvoiceがtrueの場合のみ請求書関連メニューを追加
+  if ((isAdmin || (isSuperAdmin && session.user.selectedCompanyId)) && settings?.enableInvoice) {
+    // 請求書設定と請求書管理のメニューを「管理」セクションに追加
+    const invoiceSettingsMenuItem: MenuItem = {
+      href: '/admin/invoice-settings',
+      label: '請求書設定',
+      icon: '',
+      section: '管理',
+    }
+    const invoiceMenuItem: MenuItem = {
+      href: '/admin/invoices',
+      label: '請求書管理',
+      icon: '',
+      section: '管理',
+    }
+    // シフト管理の後に追加
+    const shiftsIndex = menuItems.findIndex(item => item.href === '/admin/shifts/manage')
+    if (shiftsIndex >= 0) {
+      menuItems.splice(shiftsIndex + 1, 0, invoiceSettingsMenuItem, invoiceMenuItem)
+    } else {
+      menuItems.push(invoiceSettingsMenuItem, invoiceMenuItem)
     }
   }
 

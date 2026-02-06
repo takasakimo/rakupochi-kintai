@@ -18,6 +18,13 @@ model Company {
   email       String?
   phone       String?
   address     String?
+  // 請求書関連フィールド
+  issuerName  String?   // 発行者名（請求書に表示）
+  taxId       String?   // 適格番号
+  bankName    String?   // 振込先銀行名
+  bankBranch  String?   // 振込先支店名
+  accountNumber String? // 振込先口座番号
+  accountHolder String? // 振込先口座名義
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -76,7 +83,8 @@ model Employee {
 
   // 請求関連フィールド
   billingClientId Int?      // 請求先企業ID
-  billingRate     Int?      // 請求単価（時給または日給）
+  billingRate     Int?      // 請求単価
+  billingRateType String?  @default("daily") // 請求単価タイプ: "hourly"（時給）, "daily"（日給）, "monthly"（月給）
   overtimeRate    Float?    @default(1.25) // 残業単価倍率
   hasOvertime     Boolean   @default(false) // 残業の有無
   baseWorkDays    Int?      @default(22) // 稼働日数のベース（月間）

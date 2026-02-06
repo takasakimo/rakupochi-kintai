@@ -57,6 +57,12 @@ export async function GET(
             address: true,
             phone: true,
             email: true,
+            issuerName: true,
+            taxId: true,
+            bankName: true,
+            bankBranch: true,
+            accountNumber: true,
+            accountHolder: true,
           },
         },
         billingClient: {
@@ -238,11 +244,12 @@ export async function GET(
     doc.text(formatDate(invoice.dueDate), 50, yPos)
     yPos += 12
 
-    // 請求番号（適格番号は後で追加可能）
+    // 請求番号と適格番号
     doc.setFontSize(9)
     doc.text(`請求番号: ${invoice.invoiceNumber}`, 20, yPos)
-    // TODO: 適格番号を追加する場合は、Companyテーブルに適格番号フィールドを追加
-    // doc.text(`適格番号: ${invoice.company.taxId || ''}`, 120, yPos)
+    if (invoice.company.taxId) {
+      doc.text(`適格番号: ${invoice.company.taxId}`, 120, yPos)
+    }
     yPos += 10
 
     // 明細テーブル（費目、単価(税抜)、数量、金額(税抜)、適用税率、補足）
@@ -454,12 +461,8 @@ export async function GET(
       doc.text(`Email: ${invoice.company.email}`, 20, yPos)
       yPos += 5
     }
-    if (invoice.billingClient.fax) {
-      doc.text(`FAX: ${invoice.billingClient.fax}`, 20, yPos)
-      yPos += 5
-    }
-    if (invoice.billingClient.contactPerson) {
-      doc.text(`担当: ${invoice.billingClient.contactPerson}`, 20, yPos)
+    if (invoice.company.issuerName) {
+      doc.text(`担当: ${invoice.company.issuerName}`, 20, yPos)
     }
 
     // PDFを生成

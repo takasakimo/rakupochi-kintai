@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
           allowPreOvertime: false,
           enableSalesVisit: true,
           enableWakeUpDeparture: true,
+          enableInvoice: false,
           paidLeaveFirstGrantMonths: 6,
           paidLeaveGrantDays: {
             year1: 10,
