@@ -44,6 +44,7 @@ export async function GET(
           allowPreOvertime: false,
           enableSalesVisit: true,
           enableWakeUpDeparture: true,
+          enableInvoice: false,
           paidLeaveFirstGrantMonths: 6,
           paidLeaveGrantDays: {
             year1: 10,
@@ -91,11 +92,12 @@ export async function PATCH(
     const companyId = parseInt(params.id)
     const body = await request.json()
 
-    // スーパー管理者が更新できるのは以下の3つの設定のみ
+    // スーパー管理者が更新できるのは以下の4つの設定のみ
     const updateData: {
       allowPreOvertime?: boolean
       enableSalesVisit?: boolean
       enableWakeUpDeparture?: boolean
+      enableInvoice?: boolean
     } = {}
 
     if (body.allowPreOvertime !== undefined) {
@@ -106,6 +108,9 @@ export async function PATCH(
     }
     if (body.enableWakeUpDeparture !== undefined) {
       updateData.enableWakeUpDeparture = body.enableWakeUpDeparture
+    }
+    if (body.enableInvoice !== undefined) {
+      updateData.enableInvoice = body.enableInvoice
     }
 
     const settings = await prisma.companySetting.upsert({
@@ -122,6 +127,7 @@ export async function PATCH(
         allowPreOvertime: body.allowPreOvertime ?? false,
         enableSalesVisit: body.enableSalesVisit ?? true,
         enableWakeUpDeparture: body.enableWakeUpDeparture ?? true,
+        enableInvoice: body.enableInvoice ?? false,
         paidLeaveFirstGrantMonths: 6,
         paidLeaveGrantDays: {
           year1: 10,

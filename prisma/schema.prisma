@@ -222,6 +222,7 @@ model CompanySetting {
   allowPreOvertime     Boolean @default(false) // 前残業を認めるかどうか
   enableSalesVisit      Boolean @default(true) // 営業先入退店機能を有効にするかどうか
   enableWakeUpDeparture Boolean @default(true) // 起床・出発報告機能を有効にするかどうか
+  enableInvoice         Boolean @default(false) // 請求書作成機能を有効にするかどうか
   // 有給付与設定
   paidLeaveFirstGrantMonths Int @default(6) // 初回有給付与までの月数（例：6ヶ月）
   paidLeaveGrantDays Json? // 年次ごとの付与日数 {year1: 10, year2: 11, year3: 12, year4: 14, year5: 16, year6: 18, year7: 20}

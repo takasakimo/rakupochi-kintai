@@ -23,6 +23,7 @@ interface CompanySettings {
   allowPreOvertime: boolean
   enableSalesVisit: boolean
   enableWakeUpDeparture: boolean
+  enableInvoice: boolean
 }
 
 export default function SuperAdminCompaniesPage() {
@@ -191,6 +192,7 @@ export default function SuperAdminCompaniesPage() {
           allowPreOvertime: data.settings.allowPreOvertime ?? false,
           enableSalesVisit: data.settings.enableSalesVisit ?? true,
           enableWakeUpDeparture: data.settings.enableWakeUpDeparture ?? true,
+          enableInvoice: data.settings.enableInvoice ?? false,
         })
       }
     } catch (err) {
@@ -501,6 +503,28 @@ export default function SuperAdminCompaniesPage() {
                       </label>
                       <p className="mt-1 text-xs text-gray-500 ml-6">
                         チェックを入れると、打刻ページに「起床」「出発」ボタンが表示されます。
+                      </p>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={companySettings.enableInvoice}
+                          onChange={(e) =>
+                            setCompanySettings({
+                              ...companySettings,
+                              enableInvoice: e.target.checked,
+                            })
+                          }
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="ml-2 text-sm font-medium text-gray-700">
+                          請求書作成機能を表示する
+                        </span>
+                      </label>
+                      <p className="mt-1 text-xs text-gray-500 ml-6">
+                        チェックを入れると、管理者メニューに「請求先企業管理」や「請求書管理」が表示されます。
                       </p>
                     </div>
                   </div>
