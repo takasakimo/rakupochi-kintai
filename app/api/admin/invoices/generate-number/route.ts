@@ -70,8 +70,10 @@ export async function GET(request: NextRequest) {
     const prefix = billingClient.invoiceNumberPrefix || 'INV'
 
     // 同じプレフィックスと年の請求書を検索して、最大の連番を取得
+    // companyIdも含めて検索することで、企業ごとに独立した連番を管理
     const existingInvoices = await prisma.invoice.findMany({
       where: {
+        companyId: effectiveCompanyId,
         billingClientId: parseInt(billingClientId),
         invoiceNumber: {
           startsWith: `${prefix}-${year}-`,
@@ -94,7 +96,32 @@ export async function GET(request: NextRequest) {
     }
 
     // 請求書番号を生成（例: INV-2026-001）
-    const invoiceNumber = `${prefix}-${year}-${String(nextNumber).padStart(3, '0')}`
+    let invoiceNumber = `${prefix}-${year}-${String(nextNumber).padStart(3, '0')}`
+
+    // 生成された請求書番号が既に存在する場合、次の番号を試す（最大10回まで）
+    let attempts = 0
+    while (attempts < 10) {
+      const existingInvoice = await prisma.invoice.findUnique({
+        where: { invoiceNumber },
+      })
+      
+      if (!existingInvoice) {
+        // 使用可能な番号が見つかった
+        break
+      }
+      
+      // 次の番号を試す
+      nextNumber++
+      invoiceNumber = `${prefix}-${year}-${String(nextNumber).padStart(3, '0')}`
+      attempts++
+    }
+
+    if (attempts >= 10) {
+      return NextResponse.json(
+        { error: '請求書番号の生成に失敗しました。管理者にお問い合わせください。' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({ invoiceNumber })
   } catch (error) {

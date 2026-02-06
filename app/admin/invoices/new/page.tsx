@@ -188,8 +188,8 @@ export default function NewInvoicePage() {
       return
     }
 
-    if (!invoiceNumber) {
-      alert('請求書番号を生成してください')
+    if (!invoiceNumber || invoiceNumber.trim() === '') {
+      alert('請求書番号を入力してください')
       return
     }
 
@@ -346,22 +346,38 @@ export default function NewInvoicePage() {
           </div>
 
           {/* 請求書番号 */}
-          {invoiceNumber && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                請求書番号
-              </label>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              請求書番号 <span className="text-red-500">*</span>
+            </label>
+            <div className="flex gap-2">
               <input
                 type="text"
                 value={invoiceNumber}
-                readOnly
-                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-900"
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                required
+                placeholder="請求先企業と期間を選択すると自動生成されます"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                請求先企業のプレフィックスと請求期間から自動生成されます
-              </p>
+              {selectedBillingClientId && formData.periodStart && formData.periodEnd && (
+                <button
+                  type="button"
+                  onClick={generateInvoiceNumber}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium whitespace-nowrap"
+                >
+                  再生成
+                </button>
+              )}
             </div>
-          )}
+            {selectedBillingClientId && formData.periodStart && formData.periodEnd && !invoiceNumber && (
+              <p className="text-xs text-gray-500 mt-1">「再生成」ボタンをクリックして請求書番号を自動生成できます</p>
+            )}
+            {invoiceNumber && (
+              <p className="text-xs text-gray-500 mt-1">
+                請求先企業のプレフィックスと請求期間から自動生成されます。手動で変更することもできます。
+              </p>
+            )}
+          </div>
 
           {/* 件名 */}
           <div>
