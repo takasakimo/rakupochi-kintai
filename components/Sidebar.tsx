@@ -13,47 +13,51 @@ interface MenuItem {
   onClick?: (e: React.MouseEvent) => void // カスタムクリックハンドラ（オプション）
 }
 
-// 管理者メニュー（使いやすい順番に整理）
+// 管理者メニュー（カテゴリごとに整理）
 const adminMenuItems: MenuItem[] = [
-  // 概要・ダッシュボード
-  { href: '/admin/dashboard', label: 'ダッシュボード', icon: '', section: '概要' },
+  // ダッシュボード
+  { href: '/admin/dashboard', label: 'ダッシュボード', icon: '', section: 'ダッシュボード' },
   
-  // 打刻関連
-  { href: '/employee/clock', label: '打刻', icon: '', section: '打刻' },
-  { href: '/admin/attendances', label: '打刻管理', icon: '', section: '打刻' },
-  { href: '/admin/sales-visit', label: '営業先入退店管理', icon: '', section: '打刻' },
+  // 勤怠管理
+  { href: '/employee/clock', label: '打刻', icon: '', section: '勤怠管理' },
+  { href: '/admin/attendances', label: '打刻管理', icon: '', section: '勤怠管理' },
+  { href: '/admin/sales-visit', label: '営業先入退店管理', icon: '', section: '勤怠管理' },
   
-  // 従業員・シフト管理
-  { href: '/admin/employees', label: '従業員管理', icon: '', section: '管理' },
-  { href: '/admin/shifts/manage', label: 'シフト管理', icon: '', section: '管理' },
+  // マスタ管理
+  { href: '/admin/employees', label: '従業員管理', icon: '', section: 'マスタ管理' },
+  { href: '/admin/shifts/manage', label: 'シフト管理', icon: '', section: 'マスタ管理' },
   
-  // 申請・レポート
-  { href: '/admin/applications', label: '申請管理', icon: '', section: '申請・レポート' },
-  { href: '/admin/reports', label: 'レポート', icon: '', section: '申請・レポート' },
+  // 申請・承認
+  { href: '/admin/applications', label: '申請管理', icon: '', section: '申請・承認' },
   
-  // 情報・設定
-  { href: '/admin/announcements', label: 'お知らせ管理', icon: '', section: '情報・設定' },
-  { href: '/admin/notifications', label: '通知管理', icon: '', section: '情報・設定' },
-  { href: '/admin/settings', label: '設定', icon: '', section: '情報・設定' },
+  // レポート・分析
+  { href: '/admin/reports', label: 'レポート', icon: '', section: 'レポート・分析' },
+  
+  // お知らせ・通知
+  { href: '/admin/announcements', label: 'お知らせ管理', icon: '', section: 'お知らせ・通知' },
+  { href: '/admin/notifications', label: '通知管理', icon: '', section: 'お知らせ・通知' },
+  
+  // システム設定
+  { href: '/admin/settings', label: '設定', icon: '', section: 'システム設定' },
 ]
 
 const superAdminMenuItems: MenuItem[] = [
   { href: '/super-admin/companies', label: '企業管理', icon: '' },
 ]
 
-// 従業員メニュー（使いやすい順番に整理）
+// 従業員メニュー（カテゴリごとに整理）
 const employeeMenuItems: MenuItem[] = [
-  // 打刻関連（最も頻繁に使う機能）
-  { href: '/employee/clock', label: '打刻', icon: '', section: '打刻' },
-  { href: '/employee/sales-visit', label: '営業先入退店', icon: '', section: '打刻' },
-  { href: '/employee/history', label: '打刻履歴', icon: '', section: '打刻' },
-  
-  // 個人情報
-  { href: '/employee/mypage', label: 'マイページ', icon: '', section: '個人情報' },
+  // 勤怠
+  { href: '/employee/clock', label: '打刻', icon: '', section: '勤怠' },
+  { href: '/employee/sales-visit', label: '営業先入退店', icon: '', section: '勤怠' },
+  { href: '/employee/history', label: '打刻履歴', icon: '', section: '勤怠' },
   
   // シフト・申請
   { href: '/employee/shifts', label: 'シフト確認', icon: '', section: 'シフト・申請' },
   { href: '/employee/applications', label: '申請一覧', icon: '', section: 'シフト・申請' },
+  
+  // マイページ
+  { href: '/employee/mypage', label: 'マイページ', icon: '', section: 'マイページ' },
   
   // 通知
   { href: '/employee/notifications', label: '通知', icon: '', section: '通知' },
@@ -159,18 +163,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
 
   // 管理者メニューの場合、enableInvoiceがtrueの場合のみ請求書関連メニューを追加
   if ((isAdmin || (isSuperAdmin && session.user.selectedCompanyId)) && settings?.enableInvoice) {
-    // 請求書設定と請求書管理のメニューを「管理」セクションに追加
+    // 請求書設定と請求書管理のメニューを「マスタ管理」セクションに追加
     const invoiceSettingsMenuItem: MenuItem = {
       href: '/admin/invoice-settings',
       label: '請求書設定',
       icon: '',
-      section: '管理',
+      section: 'マスタ管理',
     }
     const invoiceMenuItem: MenuItem = {
       href: '/admin/invoices',
       label: '請求書管理',
       icon: '',
-      section: '管理',
+      section: 'マスタ管理',
     }
     // シフト管理の後に追加
     const shiftsIndex = menuItems.findIndex(item => item.href === '/admin/shifts/manage')
@@ -205,7 +209,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
       href: '/super-admin/select-company',
       label: '店舗切り替え',
       icon: '',
-      section: 'システム',
+      section: 'システム管理',
       onClick: handleStoreSwitch
     }
     menuItems = [storeSwitchItem, ...menuItems]
@@ -272,7 +276,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
 
       {/* メニュー */}
       <nav className="flex-1 p-4 overflow-y-auto">
-        <ul className="space-y-4">
+        <ul className="space-y-2">
           {(() => {
             // セクションごとにグループ化
             const sections: { [key: string]: MenuItem[] } = {}
@@ -286,15 +290,50 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
               sections[section].push(item)
             })
             
-            // セクションごとにレンダリング
-            return Object.entries(sections).map(([sectionName, items]) => (
-              <li key={sectionName}>
-                {/* セクション見出し（最初のセクション以外に表示） */}
-                {sectionName !== 'その他' && (
-                  <div className="text-xs text-gray-400 uppercase tracking-wider mb-2 px-2">
-                    {sectionName}
-                  </div>
-                )}
+            // 各セクション内の項目を元の順序で保持
+            Object.keys(sections).forEach(section => {
+              sections[section] = sections[section].sort((a, b) => {
+                const indexA = menuItems.findIndex(item => item.href === a.href)
+                const indexB = menuItems.findIndex(item => item.href === b.href)
+                return indexA - indexB
+              })
+            })
+            
+            // セクションごとにレンダリング（順序を保持）
+            const sectionOrder = [
+              'ダッシュボード',
+              '勤怠管理',
+              'マスタ管理',
+              '申請・承認',
+              'レポート・分析',
+              'お知らせ・通知',
+              'システム設定',
+              'システム管理',
+              '勤怠',
+              'シフト・申請',
+              'マイページ',
+              '通知',
+              'その他'
+            ]
+            
+            // セクションを順序付け
+            const orderedSections = sectionOrder
+              .filter(section => sections[section])
+              .map(section => [section, sections[section]])
+            
+            // 順序にないセクションも追加
+            Object.entries(sections).forEach(([sectionName, items]) => {
+              if (!sectionOrder.includes(sectionName)) {
+                orderedSections.push([sectionName, items])
+              }
+            })
+            
+            return orderedSections.map(([sectionName, items]) => (
+              <li key={sectionName} className="mb-4">
+                {/* セクション見出し */}
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2 border-b border-gray-700 pb-1">
+                  {sectionName}
+                </div>
                 <ul className="space-y-1">
                   {items.map((item) => {
                     const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
