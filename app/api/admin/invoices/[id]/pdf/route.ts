@@ -69,6 +69,10 @@ export async function GET(
             contactPerson: true,
             code: true,
             taxRate: true,
+            bankName: true,
+            bankBranch: true,
+            accountNumber: true,
+            accountHolder: true,
           },
         },
         details: {
