@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
       let totalBasicMinutes = 0
       let totalOvertimeMinutes = 0
       let absenceDays = 0
-      let lateEarlyDeduction = 0
+      let totalLateEarlyMinutes = 0 // 遅刻・早退の合計時間（分）
 
       // 請求期間内の各日をチェック
       const currentDate = new Date(startDate)
@@ -284,14 +284,16 @@ export async function POST(request: NextRequest) {
               totalOvertimeMinutes += overtimeMinutes
             }
 
-            // 遅刻・早退の判定（簡易版：シフト開始時刻より15分以上遅刻、シフト終了時刻より15分以上早退）
+            // 遅刻・早退の判定（15分単位で計算）
             const lateMinutes = Math.max(0, Math.floor((clockInTime.getTime() - shiftStartTime.getTime()) / (1000 * 60)))
             const earlyLeaveMinutes = Math.max(0, Math.floor((shiftEndTime.getTime() - clockOutTime.getTime()) / (1000 * 60)))
             
-            if (lateMinutes > 15 || earlyLeaveMinutes > 15) {
-              // 遅刻・早退の減算（1回あたり1000円と仮定、実際の減算額は設定可能にする）
-              lateEarlyDeduction += 1000
-            }
+            // 15分単位に切り上げ（15分未満は0、15分以上は15分単位で切り上げ）
+            const lateMinutesRounded = lateMinutes >= 15 ? Math.ceil(lateMinutes / 15) * 15 : 0
+            const earlyLeaveMinutesRounded = earlyLeaveMinutes >= 15 ? Math.ceil(earlyLeaveMinutes / 15) * 15 : 0
+            
+            // 遅刻・早退の合計時間（15分単位）を累積
+            totalLateEarlyMinutes += lateMinutesRounded + earlyLeaveMinutesRounded
           } else {
             // シフトがあるが打刻がない場合：欠勤
             absenceDays++
@@ -351,6 +353,28 @@ export async function POST(request: NextRequest) {
 
       // 欠勤減算額を計算（欠勤1日あたり日額換算を減算）
       const absenceDeduction = Math.round(absenceDays * dailyRate)
+
+      // 遅刻・早退減算額を計算（15分単位、請求単価タイプに応じて）
+      let lateEarlyDeduction = 0
+      if (totalLateEarlyMinutes > 0) {
+        // 15分単位の時間を時間に変換
+        const lateEarlyHours = totalLateEarlyMinutes / 60
+        
+        if (billingRateType === 'hourly') {
+          // 時給の場合：遅刻・早退時間 × 時給
+          lateEarlyDeduction = Math.round(lateEarlyHours * billingRate)
+        } else if (billingRateType === 'daily') {
+          // 日給の場合：遅刻・早退時間 × (日給 / 8時間)
+          lateEarlyDeduction = Math.round(lateEarlyHours * (billingRate / 8))
+        } else if (billingRateType === 'monthly') {
+          // 月給の場合：遅刻・早退時間 × (月給 / 標準稼働日数 / 8時間)
+          const standardWorkDays = employee.baseWorkDays || 22
+          lateEarlyDeduction = Math.round(lateEarlyHours * (billingRate / standardWorkDays / 8))
+        } else {
+          // デフォルトは日給として計算
+          lateEarlyDeduction = Math.round(lateEarlyHours * (billingRate / 8))
+        }
+      }
 
       // 小計を計算
       const subtotal = basicAmount + overtimeAmount - absenceDeduction - lateEarlyDeduction

@@ -15,6 +15,8 @@ interface Employee {
   id: number
   name: string
   employeeNumber: string
+  billingRateType?: string | null
+  baseWorkDays?: number | null
 }
 
 interface InvoiceDetail {
@@ -72,6 +74,7 @@ export default function EditInvoicePage() {
     adjustmentAmount: '0',
   })
   const [details, setDetails] = useState<InvoiceDetail[]>([])
+  const [employeeInfo, setEmployeeInfo] = useState<Map<number, { billingRateType: string | null, baseWorkDays: number | null }>>(new Map())
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -128,6 +131,12 @@ export default function EditInvoicePage() {
           adjustmentAmount: String(invoiceData.adjustmentAmount || 0),
         })
         setDetails(invoiceData.details || [])
+        
+        // 従業員情報を取得（請求単価タイプと標準稼働日数）
+        const employeeIds = invoiceData.details.map(d => d.employeeId)
+        if (employeeIds.length > 0) {
+          fetchEmployeeInfo(employeeIds)
+        }
       } else {
         alert('請求書の取得に失敗しました')
         router.push('/admin/invoices')
@@ -141,18 +150,62 @@ export default function EditInvoicePage() {
     }
   }
 
+  const fetchEmployeeInfo = async (employeeIds: number[]) => {
+    try {
+      const response = await fetch('/api/admin/employees')
+      if (response.ok) {
+        const data = await response.json()
+        const employees = data.employees || []
+        const infoMap = new Map<number, { billingRateType: string | null, baseWorkDays: number | null }>()
+        
+        employees.forEach((emp: any) => {
+          if (employeeIds.includes(emp.id)) {
+            infoMap.set(emp.id, {
+              billingRateType: emp.billingRateType || 'daily',
+              baseWorkDays: emp.baseWorkDays || 22,
+            })
+          }
+        })
+        
+        setEmployeeInfo(infoMap)
+      }
+    } catch (err) {
+      console.error('Failed to fetch employee info:', err)
+    }
+  }
+
   const handleDetailChange = (index: number, field: string, value: string | number) => {
     const updatedDetails = [...details]
     const detail = updatedDetails[index]
     
     if (field === 'workDays') {
       detail.workDays = parseInt(String(value)) || 0
-      // 基本金額を再計算
-      detail.basicAmount = detail.workDays * detail.basicRate
+      // 基本金額を再計算（請求単価タイプに応じて）
+      const empInfo = employeeInfo.get(detail.employeeId)
+      const billingRateType = empInfo?.billingRateType || 'daily'
+      const baseWorkDays = empInfo?.baseWorkDays || 22
+      
+      if (billingRateType === 'monthly') {
+        // 月給の場合：実際の勤務日数で按分
+        detail.basicAmount = Math.round((detail.basicRate / baseWorkDays) * detail.workDays)
+      } else {
+        // 日給・時給の場合：勤務日数 × 単価
+        detail.basicAmount = detail.workDays * detail.basicRate
+      }
     } else if (field === 'basicRate') {
       detail.basicRate = parseInt(String(value)) || 0
-      // 基本金額を再計算
-      detail.basicAmount = detail.workDays * detail.basicRate
+      // 基本金額を再計算（請求単価タイプに応じて）
+      const empInfo = employeeInfo.get(detail.employeeId)
+      const billingRateType = empInfo?.billingRateType || 'daily'
+      const baseWorkDays = empInfo?.baseWorkDays || 22
+      
+      if (billingRateType === 'monthly') {
+        // 月給の場合：実際の勤務日数で按分
+        detail.basicAmount = Math.round((detail.basicRate / baseWorkDays) * detail.workDays)
+      } else {
+        // 日給・時給の場合：勤務日数 × 単価
+        detail.basicAmount = detail.workDays * detail.basicRate
+      }
     } else if (field === 'basicAmount') {
       detail.basicAmount = parseInt(String(value)) || 0
     } else if (field === 'overtimeHours') {
@@ -165,8 +218,27 @@ export default function EditInvoicePage() {
       detail.overtimeAmount = parseInt(String(value)) || 0
     } else if (field === 'absenceDays') {
       detail.absenceDays = parseInt(String(value)) || 0
-      // 欠勤減算額を再計算
-      detail.absenceDeduction = detail.absenceDays * detail.basicRate
+      // 欠勤減算額を再計算（請求単価タイプに応じて）
+      const empInfo = employeeInfo.get(detail.employeeId)
+      const billingRateType = empInfo?.billingRateType || 'daily'
+      const baseWorkDays = empInfo?.baseWorkDays || 22
+      
+      let dailyRate = 0
+      if (billingRateType === 'hourly') {
+        // 時給の場合：1日8時間として日額を計算
+        dailyRate = detail.basicRate * 8
+      } else if (billingRateType === 'daily') {
+        // 日給の場合：基本単価そのまま
+        dailyRate = detail.basicRate
+      } else if (billingRateType === 'monthly') {
+        // 月給の場合：月給を標準稼働日数で割った日額
+        dailyRate = detail.basicRate / baseWorkDays
+      } else {
+        // デフォルトは日給
+        dailyRate = detail.basicRate
+      }
+      
+      detail.absenceDeduction = Math.round(detail.absenceDays * dailyRate)
     } else if (field === 'absenceDeduction') {
       detail.absenceDeduction = parseInt(String(value)) || 0
     } else if (field === 'lateEarlyDeduction') {
