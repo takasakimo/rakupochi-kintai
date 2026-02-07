@@ -281,15 +281,15 @@ export async function GET(
       }
       
       // 基本請求金額行を追加（減算前の基本金額 + 残業金額）
-      // basicAmountは減算後の金額なので、減算額を加算して減算前の金額を計算
-      // 残業金額も含める
+      // basicAmountは減算後の金額なので、減算額を加算して減算前の基本金額を計算
       const basicAmountBeforeDeduction = detail.basicAmount + (detail.absenceDeduction || 0) + (detail.lateEarlyDeduction || 0)
-      const totalAmountBeforeDeduction = basicAmountBeforeDeduction + (detail.overtimeAmount || 0)
+      // 基本請求金額 = 基本金額（減算前）+ 残業金額
+      const basicInvoiceAmount = basicAmountBeforeDeduction + (detail.overtimeAmount || 0)
       tableData.push([
         itemName, // 費目
         formatAmountNoSymbol(detail.basicRate), // 単価(税抜)
         '1', // 数量
-        formatAmountNoSymbol(totalAmountBeforeDeduction), // 金額(税抜) - 減算前の金額（残業含む）
+        formatAmountNoSymbol(basicInvoiceAmount), // 金額(税抜) - 基本金額（減算前）+ 残業金額
         `${taxRate}%`, // 適用税率
         employeeNote, // 補足（従業員情報）
       ])
@@ -430,22 +430,22 @@ export async function GET(
     // A4サイズの高さ（297mm）から、上部の余白と下部の余白を考慮
     const pageHeight = 297
     const topMargin = yPos // テーブル開始位置
-    const bottomMargin = 60 // 下部の余白（振込先情報など）
+    const bottomMargin = 55 // 下部の余白（振込先情報など）- 少し小さく
     const availableHeight = pageHeight - topMargin - bottomMargin
     
-    // 1行あたりの高さを推定（フォントサイズ9、セルパディング1.5を考慮）
-    const estimatedRowHeight = 5.5 // mm（フォント9pt + パディング1.5mm）
-    const headerHeight = 7 // ヘッダー行の高さ
+    // 1行あたりの高さを推定（フォントサイズ8、セルパディング1を考慮）
+    const estimatedRowHeight = 4.5 // mm（フォント8pt + パディング1mm）
+    const headerHeight = 6 // ヘッダー行の高さ
     const estimatedTableHeight = headerHeight + (totalRows * estimatedRowHeight)
     
-    // 空行の数を動的に計算
+    // 空行の数を動的に計算（より保守的に）
     let emptyRows = 0
-    if (estimatedTableHeight < availableHeight) {
+    if (estimatedTableHeight < availableHeight - 10) { // 10mmの余裕を持たせる
       // テーブルが1枚に収まる場合、空行を追加して見た目を整える
-      const maxRows = Math.floor((availableHeight - headerHeight) / estimatedRowHeight)
+      const maxRows = Math.floor((availableHeight - headerHeight - 10) / estimatedRowHeight)
       emptyRows = Math.max(0, maxRows - totalRows)
-      // ただし、空行は最大10行まで（余裕を持たせる）
-      emptyRows = Math.min(emptyRows, 10)
+      // ただし、空行は最大8行まで（余裕を持たせすぎない）
+      emptyRows = Math.min(emptyRows, 8)
     } else {
       // テーブルが1枚に収まらない場合、空行は追加しない
       emptyRows = 0
@@ -471,19 +471,19 @@ export async function GET(
       theme: 'grid',
       styles: {
         font: currentFont,
-        fontSize: 9,
+        fontSize: 8, // フォントサイズを8ptに縮小
         overflow: 'linebreak', // セル内の改行を有効にする
-        cellPadding: 1.5, // セルのパディングを少し小さくして1枚に収めやすくする
+        cellPadding: 1, // セルのパディングを1mmに縮小
       },
       headStyles: {
         fillColor: [66, 139, 202],
         textColor: 255,
         fontStyle: 'normal', // boldフォントがない場合はnormalを使用
-        fontSize: 9,
+        fontSize: 8, // フォントサイズを8ptに縮小
         font: currentFont,
       },
       bodyStyles: {
-        fontSize: 9,
+        fontSize: 8, // フォントサイズを8ptに縮小
         font: currentFont,
         overflow: 'linebreak', // セル内の改行を有効にする
       },
@@ -509,7 +509,7 @@ export async function GET(
           const lines = text.split('\n').length
           if (lines > 1) {
             // 複数行の場合はセルの高さを調整
-            data.cell.styles.minCellHeight = lines * 4.5 // 1行あたり4.5mm（少し小さく）
+            data.cell.styles.minCellHeight = lines * 4 // 1行あたり4mm（小さく）
           }
         }
       },
