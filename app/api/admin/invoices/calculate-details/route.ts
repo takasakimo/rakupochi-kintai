@@ -212,7 +212,11 @@ export async function POST(request: NextRequest) {
             let shiftEndTime: Date
 
             if (!shift.startTime || !shift.endTime) {
-              // シフト時間が設定されていない場合はスキップ
+              // シフト時間が設定されていない場合でも、打刻があれば勤務日としてカウント
+              // 基本時間は打刻時間から計算（残業時間や遅刻・早退の計算はスキップ）
+              totalBasicMinutes += netWorkMinutes
+              // 次の日に進む
+              currentDate.setDate(currentDate.getDate() + 1)
               continue
             }
 
