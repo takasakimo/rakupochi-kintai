@@ -337,11 +337,9 @@ export async function GET(
       }
     })
 
-    // 空行を追加（PDFサンプルに合わせて）
-    for (let i = 0; i < Math.max(0, 8 - invoice.details.length); i++) {
-      tableData.push(['', '', '', '', '', ''])
-    }
-
+    // 明細行の数を記録（固定行を追加する前）
+    const detailRowCount = tableData.length
+    
     // 小計行を追加（10%対象小計）
     const taxRatePercent = Math.round((invoice.billingClient.taxRate || 0.1) * 100)
     tableData.push([
@@ -425,8 +423,45 @@ export async function GET(
       '',
     ])
 
+    // 空行を動的に追加（1枚に収まるように調整）
+    // 現在の総行数（明細行 + 固定行）
+    const totalRows = tableData.length
+    
+    // A4サイズの高さ（297mm）から、上部の余白と下部の余白を考慮
+    const pageHeight = 297
+    const topMargin = yPos // テーブル開始位置
+    const bottomMargin = 60 // 下部の余白（振込先情報など）
+    const availableHeight = pageHeight - topMargin - bottomMargin
+    
+    // 1行あたりの高さを推定（フォントサイズ9、セルパディング1.5を考慮）
+    const estimatedRowHeight = 5.5 // mm（フォント9pt + パディング1.5mm）
+    const headerHeight = 7 // ヘッダー行の高さ
+    const estimatedTableHeight = headerHeight + (totalRows * estimatedRowHeight)
+    
+    // 空行の数を動的に計算
+    let emptyRows = 0
+    if (estimatedTableHeight < availableHeight) {
+      // テーブルが1枚に収まる場合、空行を追加して見た目を整える
+      const maxRows = Math.floor((availableHeight - headerHeight) / estimatedRowHeight)
+      emptyRows = Math.max(0, maxRows - totalRows)
+      // ただし、空行は最大10行まで（余裕を持たせる）
+      emptyRows = Math.min(emptyRows, 10)
+    } else {
+      // テーブルが1枚に収まらない場合、空行は追加しない
+      emptyRows = 0
+    }
+    
+    // 空行を固定行の前に挿入（小計行の前、明細行の後）
+    const insertIndex = detailRowCount // 明細行の後、固定行の前
+    for (let i = 0; i < emptyRows; i++) {
+      tableData.splice(insertIndex, 0, ['', '', '', '', '', ''])
+    }
+
     // autoTableでも日本語フォントを使用
     const currentFont = japaneseFontLoaded ? 'NotoSansJP' : 'helvetica'
+    
+    // ページ分割を検出するためのフラグ
+    let pageSplitDetected = false
     
     // autoTableの設定でフォントを明示的に指定
     autoTable(doc, {
@@ -438,7 +473,7 @@ export async function GET(
         font: currentFont,
         fontSize: 9,
         overflow: 'linebreak', // セル内の改行を有効にする
-        cellPadding: 2, // セルのパディング
+        cellPadding: 1.5, // セルのパディングを少し小さくして1枚に収めやすくする
       },
       headStyles: {
         fillColor: [66, 139, 202],
@@ -461,6 +496,12 @@ export async function GET(
         5: { cellWidth: 50, valign: 'top' }, // 補足（上揃え）
       },
       margin: { left: 20, right: 20 },
+      didDrawPage: (data: any) => {
+        // ページが分割された場合を検出
+        if (data.pageNumber > 1) {
+          pageSplitDetected = true
+        }
+      },
       didParseCell: (data: any) => {
         // 費目欄（0列目）のセル高さを自動調整
         if (data.column.index === 0 && data.cell.text && data.cell.text.length > 0) {
@@ -468,11 +509,14 @@ export async function GET(
           const lines = text.split('\n').length
           if (lines > 1) {
             // 複数行の場合はセルの高さを調整
-            data.cell.styles.minCellHeight = lines * 5 // 1行あたり5mm
+            data.cell.styles.minCellHeight = lines * 4.5 // 1行あたり4.5mm（少し小さく）
           }
         }
       },
     })
+    
+    // ページ分割が検出された場合、空行を減らして再生成（簡易的な対応）
+    // 実際には、この時点で再生成するのは複雑なので、空行の計算をより保守的に行う
 
     // 合計金額の行を強調
     const finalY = (doc as any).lastAutoTable?.finalY || yPos + 50
