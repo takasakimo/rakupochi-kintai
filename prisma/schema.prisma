@@ -25,6 +25,7 @@ model Company {
   bankBranch  String?   // 振込先支店名
   accountNumber String? // 振込先口座番号
   accountHolder String? // 振込先口座名義
+  invoiceItemNameTemplate String? // 請求書費目テンプレート（{employeeName}で従業員名を埋め込み可能）
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -88,6 +89,7 @@ model Employee {
   overtimeRate    Float?    @default(1.25) // 残業単価倍率
   hasOvertime     Boolean   @default(false) // 残業の有無
   baseWorkDays    Int?      @default(22) // 稼働日数のベース（月間）
+  invoiceItemName String?   // 請求書費目（設定がない場合はテンプレートを使用）
 
   billingClient   BillingClient? @relation(fields: [billingClientId], references: [id])
 
@@ -404,6 +406,7 @@ model InvoiceDetail {
   absenceDeduction Int?     @default(0) // 欠勤減算額
   lateEarlyDeduction Int?   @default(0) // 遅刻・早退減算額
   subtotal        Int       // 小計
+  notes           String?   // 備考（減算が発生した日付など）
   
   invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   employee        Employee  @relation(fields: [employeeId], references: [id])

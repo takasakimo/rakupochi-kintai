@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
         bankBranch: true,
         accountNumber: true,
         accountHolder: true,
+        invoiceItemNameTemplate: true,
       },
     })
 
@@ -105,6 +106,7 @@ export async function PUT(request: NextRequest) {
       bankBranch,
       accountNumber,
       accountHolder,
+      invoiceItemNameTemplate,
     } = body
 
     const company = await prisma.company.update({
@@ -116,6 +118,7 @@ export async function PUT(request: NextRequest) {
         bankBranch: bankBranch || null,
         accountNumber: accountNumber || null,
         accountHolder: accountHolder || null,
+        invoiceItemNameTemplate: invoiceItemNameTemplate || null,
       },
       select: {
         id: true,
@@ -129,6 +132,7 @@ export async function PUT(request: NextRequest) {
         bankBranch: true,
         accountNumber: true,
         accountHolder: true,
+        invoiceItemNameTemplate: true,
       },
     })
 

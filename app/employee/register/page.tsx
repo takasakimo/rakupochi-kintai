@@ -181,7 +181,6 @@ export default function EmployeeRegisterPage() {
                 required
                 pattern="[A-Z0-9]+"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                placeholder="例: COMPANY001"
               />
               <p className="mt-1 text-xs text-gray-500">
                 管理者から提供された企業コードを入力してください

@@ -206,6 +206,7 @@ export async function POST(request: NextRequest) {
             absenceDeduction: detail.absenceDeduction || 0,
             lateEarlyDeduction: detail.lateEarlyDeduction || 0,
             subtotal: detail.subtotal || 0,
+            notes: detail.notes || null,
           })),
         } : undefined,
       },

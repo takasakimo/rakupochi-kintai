@@ -79,6 +79,7 @@ export async function GET() {
           overtimeRate: true,
           hasOvertime: true,
           baseWorkDays: true,
+          invoiceItemName: true,
           billingClient: {
             select: {
               id: true,

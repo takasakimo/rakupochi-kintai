@@ -322,6 +322,7 @@ export async function PATCH(
         ...(body.overtimeRate !== undefined && { overtimeRate: body.overtimeRate ? parseFloat(body.overtimeRate) : null }),
         ...(body.hasOvertime !== undefined && { hasOvertime: body.hasOvertime }),
         ...(body.baseWorkDays !== undefined && { baseWorkDays: body.baseWorkDays ? parseInt(body.baseWorkDays) : null }),
+        ...(body.invoiceItemName !== undefined && { invoiceItemName: body.invoiceItemName || null }),
       },
       select: {
         id: true,
@@ -346,6 +347,7 @@ export async function PATCH(
         overtimeRate: true,
         hasOvertime: true,
         baseWorkDays: true,
+        invoiceItemName: true,
       },
     })
 

@@ -32,6 +32,7 @@ interface InvoiceDetail {
   absenceDeduction: number | null
   lateEarlyDeduction: number | null
   subtotal: number
+  notes?: string | null // 備考
   employee: Employee
 }
 
@@ -243,6 +244,8 @@ export default function EditInvoicePage() {
       detail.absenceDeduction = parseInt(String(value)) || 0
     } else if (field === 'lateEarlyDeduction') {
       detail.lateEarlyDeduction = parseInt(String(value)) || 0
+    } else if (field === 'notes') {
+      detail.notes = String(value) || null
     }
 
     // 小計を再計算
@@ -336,6 +339,7 @@ export default function EditInvoicePage() {
         absenceDeduction: detail.absenceDeduction || 0,
         lateEarlyDeduction: detail.lateEarlyDeduction || 0,
         subtotal: detail.subtotal,
+        notes: detail.notes || null,
       }))
 
       // 請求書を更新
@@ -432,6 +436,7 @@ export default function EditInvoicePage() {
         absenceDeduction: detail.absenceDeduction || 0,
         lateEarlyDeduction: detail.lateEarlyDeduction || 0,
         subtotal: detail.subtotal,
+        notes: detail.notes || null,
       }))
 
       // 請求書を発行済みに更新
@@ -623,8 +628,11 @@ export default function EditInvoicePage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-r border-gray-300">
                       遅刻・早退減算
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-r border-gray-300">
                       小計
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      備考
                     </th>
                   </tr>
                 </thead>
@@ -711,8 +719,17 @@ export default function EditInvoicePage() {
                           className="w-28 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
                         />
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-300">
                         {detail.subtotal.toLocaleString()}円
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        <textarea
+                          value={detail.notes || ''}
+                          onChange={(e) => handleDetailChange(index, 'notes', e.target.value)}
+                          placeholder="備考を入力"
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white min-h-[60px]"
+                          rows={2}
+                        />
                       </td>
                     </tr>
                   ))}

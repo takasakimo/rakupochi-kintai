@@ -144,6 +144,8 @@ export async function POST(request: NextRequest) {
       let totalOvertimeMinutes = 0
       let absenceDays = 0
       let totalLateEarlyMinutes = 0 // 遅刻・早退の合計時間（分）
+      const absenceDates: string[] = [] // 欠勤日付のリスト
+      const lateEarlyDetails: Array<{ date: string, minutes: number }> = [] // 遅刻・早退の詳細（日付と分数）
 
       // 請求期間内の各日をチェック
       const currentDate = new Date(startDate)
@@ -293,10 +295,22 @@ export async function POST(request: NextRequest) {
             const earlyLeaveMinutesRounded = earlyLeaveMinutes >= 15 ? Math.ceil(earlyLeaveMinutes / 15) * 15 : 0
             
             // 遅刻・早退の合計時間（15分単位）を累積
-            totalLateEarlyMinutes += lateMinutesRounded + earlyLeaveMinutesRounded
+            const dayLateEarlyMinutes = lateMinutesRounded + earlyLeaveMinutesRounded
+            if (dayLateEarlyMinutes > 0) {
+              totalLateEarlyMinutes += dayLateEarlyMinutes
+              // 遅刻・早退の詳細（日付と分数）を記録
+              const formattedDate = new Date(dateStr).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })
+              lateEarlyDetails.push({
+                date: formattedDate,
+                minutes: dayLateEarlyMinutes
+              })
+            }
           } else {
             // シフトがあるが打刻がない場合：欠勤
             absenceDays++
+            // 欠勤日付を記録
+            const formattedDate = new Date(dateStr).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })
+            absenceDates.push(formattedDate)
           }
         }
 
@@ -379,6 +393,18 @@ export async function POST(request: NextRequest) {
       // 小計を計算
       const subtotal = basicAmount + overtimeAmount - absenceDeduction - lateEarlyDeduction
 
+      // 備考を生成（減算が発生した日付と詳細を記載）
+      const notes: string[] = []
+      if (absenceDates.length > 0) {
+        notes.push(`欠勤: ${absenceDates.join(', ')}`)
+      }
+      if (lateEarlyDetails.length > 0) {
+        // 遅刻・早退の詳細を「日付 分数分」の形式で記録
+        const lateEarlyText = lateEarlyDetails.map(d => `${d.date} ${d.minutes}分`).join(', ')
+        notes.push(`遅刻・早退: ${lateEarlyText}`)
+      }
+      const notesText = notes.length > 0 ? notes.join(' / ') : ''
+
       details.push({
         employeeId: employee.id,
         workDays,
@@ -391,6 +417,7 @@ export async function POST(request: NextRequest) {
         absenceDeduction: absenceDeduction > 0 ? absenceDeduction : 0,
         lateEarlyDeduction: lateEarlyDeduction > 0 ? lateEarlyDeduction : 0,
         subtotal: Math.max(0, subtotal), // マイナスにならないように
+        notes: notesText, // 備考
       })
     }
 

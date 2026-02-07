@@ -821,7 +821,6 @@ export default function AdminSalesVisitPage() {
                       type="text"
                       value={myCompanyName}
                       onChange={(e) => setMyCompanyName(e.target.value)}
-                      placeholder="例: 株式会社サンプル"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       disabled={loading}
                     />
@@ -834,7 +833,6 @@ export default function AdminSalesVisitPage() {
                       type="text"
                       value={myContactPersonName}
                       onChange={(e) => setMyContactPersonName(e.target.value)}
-                      placeholder="例: 山田太郎"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       disabled={loading}
                     />
@@ -1154,7 +1152,6 @@ export default function AdminSalesVisitPage() {
                   type="text"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="例: 株式会社サンプル"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   disabled={loading}
                 />
@@ -1167,7 +1164,6 @@ export default function AdminSalesVisitPage() {
                   type="text"
                   value={contactPersonName}
                   onChange={(e) => setContactPersonName(e.target.value)}
-                  placeholder="例: 山田太郎"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   disabled={loading}
                 />

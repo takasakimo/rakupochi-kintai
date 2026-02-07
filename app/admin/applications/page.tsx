@@ -785,7 +785,6 @@ export default function AdminApplicationsPage() {
                   setSearchFilters({ ...searchFilters, employee: e.target.value })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                placeholder="例）山田 / 0001"
               />
             </div>
             <div>
@@ -2017,7 +2016,6 @@ function NewApplicationModal({
                               }}
                               required
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white text-sm"
-                              placeholder="例: 東京駅"
                             />
                           </div>
                           <div>
@@ -2032,7 +2030,6 @@ function NewApplicationModal({
                               }}
                               required
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white text-sm"
-                              placeholder="例: 新宿駅"
                             />
                           </div>
                         </div>

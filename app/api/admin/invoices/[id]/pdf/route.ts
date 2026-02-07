@@ -63,6 +63,7 @@ export async function GET(
             bankBranch: true,
             accountNumber: true,
             accountHolder: true,
+            invoiceItemNameTemplate: true,
           },
         },
         billingClient: {
@@ -89,6 +90,9 @@ export async function GET(
                 name: true,
                 employeeNumber: true,
                 workLocation: true,
+                invoiceItemName: true,
+                billingRate: true,
+                billingRateType: true,
               },
             },
           },
@@ -253,29 +257,84 @@ export async function GET(
     yPos += 10
 
     // 明細テーブル（費目、単価(税抜)、数量、金額(税抜)、適用税率、補足）
-    // 従業員ごとの明細を費目として表示
+    // 従業員ごとに基本請求金額、遅刻早退減算、欠勤減算を別行で表示
     const tableData: any[] = []
+    
+    // 費目テンプレートを取得（デフォルトは「{employeeName}委託費用」）
+    const itemNameTemplate = invoice.company.invoiceItemNameTemplate || '{employeeName}委託費用'
+    const taxRate = Math.round((invoice.billingClient.taxRate || 0.1) * 100)
     
     invoice.details.forEach((detail) => {
       // 従業員名と店舗情報を補足に含める
-      const note = detail.employee.workLocation 
+      const employeeNote = detail.employee.workLocation 
         ? `${detail.employee.workLocation} ${detail.employee.name}`
         : detail.employee.name
       
-      // 基本金額を費目として表示
-      const unitPrice = detail.basicAmount
-      const quantity = 1
-      const amount = detail.basicAmount
-      const taxRate = Math.round((invoice.billingClient.taxRate || 0.1) * 100)
+      // 費目を決定（従業員の設定 > テンプレート）
+      let itemName: string
+      if (detail.employee.invoiceItemName) {
+        // 従業員に設定された費目を使用
+        itemName = detail.employee.invoiceItemName
+      } else {
+        // テンプレートから生成
+        itemName = itemNameTemplate.replace(/{employeeName}/g, detail.employee.name)
+      }
       
+      // 基本請求金額行を追加（減算前の基本金額 + 残業金額）
+      // basicAmountは減算後の金額なので、減算額を加算して減算前の金額を計算
+      // 残業金額も含める
+      const basicAmountBeforeDeduction = detail.basicAmount + (detail.absenceDeduction || 0) + (detail.lateEarlyDeduction || 0)
+      const totalAmountBeforeDeduction = basicAmountBeforeDeduction + (detail.overtimeAmount || 0)
       tableData.push([
-        `${detail.employee.name}委託費用`, // 費目
-        formatAmountNoSymbol(unitPrice), // 単価(税抜)
-        quantity.toString(), // 数量
-        formatAmountNoSymbol(amount), // 金額(税抜)
+        itemName, // 費目
+        formatAmountNoSymbol(detail.basicRate), // 単価(税抜)
+        '1', // 数量
+        formatAmountNoSymbol(totalAmountBeforeDeduction), // 金額(税抜) - 減算前の金額（残業含む）
         `${taxRate}%`, // 適用税率
-        note, // 補足
+        employeeNote, // 補足（従業員情報）
       ])
+      
+      // 遅刻早退減算がある場合は別行で追加
+      if (detail.lateEarlyDeduction && detail.lateEarlyDeduction > 0) {
+        // 備考から遅刻・早退の詳細を抽出
+        let lateEarlyNote = employeeNote
+        if (detail.notes) {
+          const lateEarlyMatch = detail.notes.match(/遅刻・早退: ([^/]+)/)
+          if (lateEarlyMatch) {
+            lateEarlyNote = `${employeeNote} ${lateEarlyMatch[1]}`
+          }
+        }
+        
+        tableData.push([
+          '遅刻早退', // 費目
+          '', // 単価(税抜) - 空欄
+          '', // 数量 - 空欄
+          `-${formatAmountNoSymbol(detail.lateEarlyDeduction)}`, // 金額(税抜) - 減算額（マイナス表示）
+          `${taxRate}%`, // 適用税率
+          lateEarlyNote, // 補足（従業員情報 + 詳細）
+        ])
+      }
+      
+      // 欠勤減算がある場合は別行で追加
+      if (detail.absenceDeduction && detail.absenceDeduction > 0) {
+        // 備考から欠勤の詳細を抽出
+        let absenceNote = employeeNote
+        if (detail.notes) {
+          const absenceMatch = detail.notes.match(/欠勤: ([^/]+)/)
+          if (absenceMatch) {
+            absenceNote = `${employeeNote} ${absenceMatch[1]}`
+          }
+        }
+        
+        tableData.push([
+          '欠勤', // 費目
+          '', // 単価(税抜) - 空欄
+          '', // 数量 - 空欄
+          `-${formatAmountNoSymbol(detail.absenceDeduction)}`, // 金額(税抜) - 減算額（マイナス表示）
+          `${taxRate}%`, // 適用税率
+          absenceNote, // 補足（従業員情報 + 詳細）
+        ])
+      }
     })
 
     // 空行を追加（PDFサンプルに合わせて）
@@ -378,6 +437,8 @@ export async function GET(
       styles: {
         font: currentFont,
         fontSize: 9,
+        overflow: 'linebreak', // セル内の改行を有効にする
+        cellPadding: 2, // セルのパディング
       },
       headStyles: {
         fillColor: [66, 139, 202],
@@ -389,16 +450,28 @@ export async function GET(
       bodyStyles: {
         fontSize: 9,
         font: currentFont,
+        overflow: 'linebreak', // セル内の改行を有効にする
       },
       columnStyles: {
-        0: { cellWidth: 50 }, // 費目
-        1: { cellWidth: 25, halign: 'right' }, // 単価(税抜)
-        2: { cellWidth: 15, halign: 'center' }, // 数量
-        3: { cellWidth: 30, halign: 'right' }, // 金額(税抜)
-        4: { cellWidth: 20, halign: 'center' }, // 適用税率
-        5: { cellWidth: 50 }, // 補足
+        0: { cellWidth: 50, valign: 'top' }, // 費目（上揃え）
+        1: { cellWidth: 25, halign: 'right', valign: 'middle' }, // 単価(税抜)
+        2: { cellWidth: 15, halign: 'center', valign: 'middle' }, // 数量
+        3: { cellWidth: 30, halign: 'right', valign: 'middle' }, // 金額(税抜)
+        4: { cellWidth: 20, halign: 'center', valign: 'middle' }, // 適用税率
+        5: { cellWidth: 50, valign: 'top' }, // 補足（上揃え）
       },
       margin: { left: 20, right: 20 },
+      didParseCell: (data: any) => {
+        // 費目欄（0列目）のセル高さを自動調整
+        if (data.column.index === 0 && data.cell.text && data.cell.text.length > 0) {
+          const text = Array.isArray(data.cell.text) ? data.cell.text.join('\n') : data.cell.text
+          const lines = text.split('\n').length
+          if (lines > 1) {
+            // 複数行の場合はセルの高さを調整
+            data.cell.styles.minCellHeight = lines * 5 // 1行あたり5mm
+          }
+        }
+      },
     })
 
     // 合計金額の行を強調

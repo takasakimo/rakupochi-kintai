@@ -383,7 +383,6 @@ export default function MyPage() {
                     value={formData.bankAccount}
                     onChange={(e) => setFormData({ ...formData, bankAccount: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    placeholder="例: 三菱UFJ銀行 1234567"
                   />
                 </div>
 
@@ -457,7 +456,6 @@ export default function MyPage() {
                     value={formData.transportationCost}
                     onChange={(e) => setFormData({ ...formData, transportationCost: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    placeholder="例: 10000"
                   />
                   <p className="mt-1 text-xs text-gray-500">円単位で入力してください</p>
                 </div>

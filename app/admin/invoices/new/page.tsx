@@ -33,6 +33,8 @@ export default function NewInvoicePage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [invoiceNumber, setInvoiceNumber] = useState('')
+  const [selectedYear, setSelectedYear] = useState<string>('')
+  const [selectedMonth, setSelectedMonth] = useState<string>('')
   const [formData, setFormData] = useState({
     subject: '',
     periodStart: '',
@@ -154,11 +156,11 @@ export default function NewInvoicePage() {
   }
 
   const handleSelectAll = () => {
-    if (selectedEmployeeIds.size === filteredEmployees.length) {
-      setSelectedEmployeeIds(new Set())
-    } else {
-      setSelectedEmployeeIds(new Set(filteredEmployees.map(emp => emp.id)))
-    }
+    setSelectedEmployeeIds(new Set(filteredEmployees.map(emp => emp.id)))
+  }
+
+  const handleDeselectAll = () => {
+    setSelectedEmployeeIds(new Set())
   }
 
   const calculateDueDate = () => {
@@ -178,6 +180,74 @@ export default function NewInvoicePage() {
       calculateDueDate()
     }
   }, [formData.periodEnd])
+
+  // 年月選択から期間を自動設定
+  useEffect(() => {
+    if (selectedYear && selectedMonth) {
+      const year = parseInt(selectedYear)
+      const month = parseInt(selectedMonth)
+      
+      // その月の1日（ローカル時間で日付文字列を生成）
+      const startDate = new Date(year, month - 1, 1)
+      const periodStart = `${year}-${String(month).padStart(2, '0')}-01`
+      
+      // その月の最終日（ローカル時間で日付文字列を生成）
+      const endDate = new Date(year, month, 0)
+      const lastDay = endDate.getDate()
+      const periodEnd = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+      
+      setFormData(prev => ({
+        ...prev,
+        periodStart,
+        periodEnd,
+      }))
+    }
+  }, [selectedYear, selectedMonth])
+
+  // 年月の選択肢を生成
+  const generateYearOptions = () => {
+    const currentYear = new Date().getFullYear()
+    const years = []
+    // 過去3年から未来1年まで
+    for (let i = -3; i <= 1; i++) {
+      years.push(currentYear + i)
+    }
+    return years
+  }
+
+  const generateMonthOptions = () => {
+    return Array.from({ length: 12 }, (_, i) => i + 1)
+  }
+
+  const handleYearChange = (year: string) => {
+    setSelectedYear(year)
+    // 年だけ選択した場合は月をクリアしない（月が既に選択されている場合は保持）
+  }
+
+  const handleMonthChange = (month: string) => {
+    setSelectedMonth(month)
+    // 月だけ選択した場合は年をクリアしない（年が既に選択されている場合は保持）
+  }
+
+  const handlePeriodStartChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setFormData({ ...formData, periodStart: value })
+    // 手動で日付を変更した場合は年月選択をクリア
+    if (value) {
+      setSelectedYear('')
+      setSelectedMonth('')
+    }
+  }
+
+  const handlePeriodEndChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setFormData({ ...formData, periodEnd: value })
+    // 手動で日付を変更した場合は年月選択をクリア
+    if (value) {
+      setSelectedYear('')
+      setSelectedMonth('')
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -394,30 +464,73 @@ export default function NewInvoicePage() {
           </div>
 
           {/* 請求期間 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4">
+            {/* 年月選択 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                請求期間開始 <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                請求月を選択
               </label>
-              <input
-                type="date"
-                value={formData.periodStart}
-                onChange={(e) => setFormData({ ...formData, periodStart: e.target.value })}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => handleYearChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  >
+                    <option value="">年を選択</option>
+                    {generateYearOptions().map((year) => (
+                      <option key={year} value={year.toString()}>
+                        {year}年
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => handleMonthChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  >
+                    <option value="">月を選択</option>
+                    {generateMonthOptions().map((month) => (
+                      <option key={month} value={month.toString()}>
+                        {month}月
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                年月を選択すると、その月の1日から最終日までが自動的に設定されます
+              </p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                請求期間終了 <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={formData.periodEnd}
-                onChange={(e) => setFormData({ ...formData, periodEnd: e.target.value })}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-              />
+
+            {/* 日付選択（手動入力も可能） */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  請求期間開始 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={formData.periodStart}
+                  onChange={handlePeriodStartChange}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  請求期間終了 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={formData.periodEnd}
+                  onChange={handlePeriodEndChange}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                />
+              </div>
             </div>
           </div>
 
@@ -456,13 +569,24 @@ export default function NewInvoicePage() {
                   対象従業員 <span className="text-red-500">*</span>
                 </label>
                 {filteredEmployees.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleSelectAll}
-                    className="text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    {selectedEmployeeIds.size === filteredEmployees.length ? 'すべて解除' : 'すべて選択'}
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleSelectAll}
+                      disabled={selectedEmployeeIds.size === filteredEmployees.length}
+                      className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+                    >
+                      全員を選択
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeselectAll}
+                      disabled={selectedEmployeeIds.size === 0}
+                      className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+                    >
+                      すべて解除
+                    </button>
+                  </div>
                 )}
               </div>
               {filteredEmployees.length === 0 ? (

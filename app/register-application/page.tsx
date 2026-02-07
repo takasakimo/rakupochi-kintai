@@ -176,7 +176,6 @@ function RegisterApplicationForm() {
                 required
                 pattern="[A-Z0-9]+"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                placeholder="例: COMPANY001"
                 readOnly={!!companyCode}
               />
               <p className="mt-1 text-xs text-gray-500">
@@ -306,7 +305,6 @@ function RegisterApplicationForm() {
                         updateTransportationRoute(index, 'from', e.target.value)
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                      placeholder="例: 自宅"
                     />
                   </div>
                   <div>
@@ -320,7 +318,6 @@ function RegisterApplicationForm() {
                         updateTransportationRoute(index, 'to', e.target.value)
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                      placeholder="例: 本社"
                     />
                   </div>
                   <div>
@@ -334,7 +331,6 @@ function RegisterApplicationForm() {
                         updateTransportationRoute(index, 'method', e.target.value)
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                      placeholder="例: 電車"
                     />
                   </div>
                   <div>
@@ -348,7 +344,6 @@ function RegisterApplicationForm() {
                         updateTransportationRoute(index, 'amount', e.target.value)
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                      placeholder="例: 500"
                     />
                   </div>
                 </div>

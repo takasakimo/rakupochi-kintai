@@ -200,6 +200,7 @@ export async function PATCH(
           absenceDeduction: detail.absenceDeduction || 0,
           lateEarlyDeduction: detail.lateEarlyDeduction || 0,
           subtotal: detail.subtotal || 0,
+          notes: detail.notes || null,
         })),
       }
     }

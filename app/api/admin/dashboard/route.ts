@@ -37,14 +37,25 @@ export async function GET() {
     }
 
     console.log('[Dashboard] Session valid, companyId:', effectiveCompanyId)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    
+    // ローカル時間で今日の日付を取得
+    const now = new Date()
+    const todayYear = now.getFullYear()
+    const todayMonth = now.getMonth()
+    const todayDay = now.getDate()
+    
+    // UTC日付として今日の開始と終了を設定
+    const todayStartUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 0, 0, 0, 0))
+    const todayEndUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 23, 59, 59, 999))
 
     // 本日の出勤者数（重複を避けるため、従業員IDでユニークにカウント）
     const todayAttendances = await prisma.attendance.findMany({
       where: {
         companyId: effectiveCompanyId,
-        date: today,
+        date: {
+          gte: todayStartUTC,
+          lte: todayEndUTC,
+        },
         clockIn: { not: null },
         isDeleted: { not: true },
       },
@@ -58,18 +69,7 @@ export async function GET() {
     // 未打刻者数（シフトが登録されていて、シフト開始時間を過ぎているが打刻していない従業員）
     let missingAttendanceCount = 0
     try {
-      const now = new Date()
       const currentTime = now.getHours() * 60 + now.getMinutes() // 現在時刻を分単位で取得（ローカル時間）
-      
-      // 本日の日付をYYYY-MM-DD形式で取得（ローカル時間）
-      const todayYear = today.getFullYear()
-      const todayMonth = today.getMonth()
-      const todayDay = today.getDate()
-      
-      // Prismaのdateフィールドは@db.Date型なので、UTC日付として扱う
-      // ローカル日付をUTC日付に変換（正午を基準にすることでタイムゾーン問題を回避）
-      const todayStartUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 0, 0, 0, 0))
-      const todayEndUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 23, 59, 59, 999))
       
       console.log('[Dashboard] Today date range:', {
         local: `${todayYear}-${todayMonth + 1}-${todayDay}`,

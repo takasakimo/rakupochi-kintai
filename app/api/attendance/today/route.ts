@@ -25,15 +25,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    // ローカル時間で今日の日付を取得
+    const now = new Date()
+    const todayYear = now.getFullYear()
+    const todayMonth = now.getMonth()
+    const todayDay = now.getDate()
+    
+    // UTC日付として今日の開始と終了を設定
+    const todayStartUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 0, 0, 0, 0))
+    const todayEndUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 23, 59, 59, 999))
 
     // 削除されていない打刻データを取得
     const attendance = await prisma.attendance.findFirst({
       where: {
         companyId: session.user.companyId!,
         employeeId,
-        date: today,
+        date: {
+          gte: todayStartUTC,
+          lte: todayEndUTC,
+        },
         isDeleted: { not: true },
       },
     })

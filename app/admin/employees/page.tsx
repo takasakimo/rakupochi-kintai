@@ -32,6 +32,7 @@ interface Employee {
   overtimeRate: number | null
   hasOvertime: boolean | null
   baseWorkDays: number | null
+  invoiceItemName: string | null
   billingClient?: {
     id: number
     name: string
@@ -566,6 +567,7 @@ export default function EmployeesPage() {
         updateData.overtimeRate = employee.overtimeRate || null
         updateData.hasOvertime = employee.hasOvertime || false
         updateData.baseWorkDays = employee.baseWorkDays || null
+        updateData.invoiceItemName = employee.invoiceItemName || null
       } else {
         // テーブルからの更新の場合（旧方式、互換性のため残す）
         const birthDateInput = document.getElementById(
@@ -1413,7 +1415,6 @@ export default function EmployeesPage() {
                       setFormData({ ...formData, bankAccount: e.target.value })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    placeholder="例: 三菱UFJ銀行 1234567"
                   />
                 </div>
                 <div>
@@ -1461,7 +1462,6 @@ export default function EmployeesPage() {
                       }
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    placeholder="例: 2.5"
                   />
                   <p className="mt-1 text-xs text-gray-500">入社日から自動計算されます</p>
                 </div>
@@ -1513,7 +1513,6 @@ export default function EmployeesPage() {
                           newRoutes[index].from = e.target.value
                           setFormData({ ...formData, transportationRoutes: newRoutes })
                         }}
-                        placeholder="例: 自宅"
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
                       />
                     </div>
@@ -1527,7 +1526,6 @@ export default function EmployeesPage() {
                           newRoutes[index].to = e.target.value
                           setFormData({ ...formData, transportationRoutes: newRoutes })
                         }}
-                        placeholder="例: 本社"
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
                       />
                     </div>
@@ -1611,7 +1609,6 @@ export default function EmployeesPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, transportationCost: e.target.value })
                     }
-                    placeholder="例: 15000"
                     min="0"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                   />
@@ -2136,7 +2133,6 @@ export default function EmployeesPage() {
                           })
                         }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                        placeholder="例: 三菱UFJ銀行 1234567"
                       />
                     </div>
                     
@@ -2207,7 +2203,6 @@ export default function EmployeesPage() {
                           }
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                        placeholder="例: 2.5"
                       />
                       <p className="mt-1 text-xs text-gray-500">入社日から自動計算されます</p>
                     </div>
@@ -2431,7 +2426,6 @@ export default function EmployeesPage() {
                           transportationCost: e.target.value ? parseInt(e.target.value) : null,
                         })
                       }
-                      placeholder="例: 15000"
                       min="0"
                       className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                     />
@@ -2521,6 +2515,26 @@ export default function EmployeesPage() {
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
+                          請求書費目
+                        </label>
+                        <input
+                          type="text"
+                          value={selectedEmployee.invoiceItemName || ''}
+                          onChange={(e) =>
+                            setSelectedEmployee({
+                              ...selectedEmployee,
+                              invoiceItemName: e.target.value || null,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                          請求書PDFの費目欄に表示されます。空欄の場合は請求書設定のテンプレートを使用します。
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
                           残業の有無
                         </label>
                         <label className="flex items-center gap-2">
@@ -2555,7 +2569,6 @@ export default function EmployeesPage() {
                               overtimeRate: e.target.value ? parseFloat(e.target.value) : 1.25,
                             })
                           }
-                          placeholder="例: 1.25"
                           min="1"
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                         />
@@ -2575,7 +2588,6 @@ export default function EmployeesPage() {
                               baseWorkDays: e.target.value ? parseInt(e.target.value) : 22,
                             })
                           }
-                          placeholder="例: 22"
                           min="1"
                           max="31"
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"

@@ -16,6 +16,7 @@ interface CompanyInfo {
   bankBranch: string | null
   accountNumber: string | null
   accountHolder: string | null
+  invoiceItemNameTemplate: string | null
 }
 
 interface BillingClient {
@@ -55,6 +56,7 @@ export default function InvoiceSettingsPage() {
     bankBranch: '',
     accountNumber: '',
     accountHolder: '',
+    invoiceItemNameTemplate: '{employeeName}委託費用',
   })
   const [savingCompany, setSavingCompany] = useState(false)
   
@@ -125,6 +127,7 @@ export default function InvoiceSettingsPage() {
             bankBranch: data.company.bankBranch || '',
             accountNumber: data.company.accountNumber || '',
             accountHolder: data.company.accountHolder || '',
+            invoiceItemNameTemplate: data.company.invoiceItemNameTemplate || '{employeeName}委託費用',
           })
         }
       }
@@ -354,7 +357,6 @@ export default function InvoiceSettingsPage() {
                 value={companyFormData.issuerName}
                 onChange={(e) => setCompanyFormData({ ...companyFormData, issuerName: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="例: 高崎 元伸"
               />
               <p className="mt-1 text-sm text-gray-500">請求書に表示される発行者名</p>
             </div>
@@ -368,8 +370,22 @@ export default function InvoiceSettingsPage() {
                 value={companyFormData.taxId}
                 onChange={(e) => setCompanyFormData({ ...companyFormData, taxId: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="例: T8180001154472"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                請求書費目テンプレート
+              </label>
+              <input
+                type="text"
+                value={companyFormData.invoiceItemNameTemplate}
+                onChange={(e) => setCompanyFormData({ ...companyFormData, invoiceItemNameTemplate: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                {'{employeeName}'}で従業員名を埋め込みます。例: 「{'{employeeName}'}委託費用」→「山田太郎委託費用」
+              </p>
             </div>
 
             <div className="border-t pt-6">
@@ -385,7 +401,6 @@ export default function InvoiceSettingsPage() {
                     value={companyFormData.bankName}
                     onChange={(e) => setCompanyFormData({ ...companyFormData, bankName: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="例: 愛知信用金庫"
                   />
                 </div>
 
@@ -398,7 +413,6 @@ export default function InvoiceSettingsPage() {
                     value={companyFormData.bankBranch}
                     onChange={(e) => setCompanyFormData({ ...companyFormData, bankBranch: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="例: 中村支店"
                   />
                 </div>
 
@@ -411,7 +425,6 @@ export default function InvoiceSettingsPage() {
                     value={companyFormData.accountNumber}
                     onChange={(e) => setCompanyFormData({ ...companyFormData, accountNumber: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="例: 1138761"
                   />
                 </div>
 
@@ -424,7 +437,6 @@ export default function InvoiceSettingsPage() {
                     value={companyFormData.accountHolder}
                     onChange={(e) => setCompanyFormData({ ...companyFormData, accountHolder: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="例: 株式会社aims カ）エイムス"
                   />
                 </div>
               </div>
@@ -553,7 +565,6 @@ export default function InvoiceSettingsPage() {
                       value={clientFormData.invoiceNumberPrefix}
                       onChange={(e) => setClientFormData({ ...clientFormData, invoiceNumberPrefix: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      placeholder="例: INV"
                     />
                   </div>
                 </div>
@@ -688,7 +699,6 @@ export default function InvoiceSettingsPage() {
                       value={clientFormData.invoiceNumberPrefix}
                       onChange={(e) => setClientFormData({ ...clientFormData, invoiceNumberPrefix: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      placeholder="例: INV"
                     />
                   </div>
                 </div>
