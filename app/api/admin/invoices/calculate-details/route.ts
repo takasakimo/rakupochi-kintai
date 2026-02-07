@@ -324,8 +324,25 @@ export async function POST(request: NextRequest) {
         currentDate.setDate(currentDate.getDate() + 1)
       }
 
-      // 実際の勤務日数 = シフト登録日数 - 欠勤日数
-      const workDays = expectedWorkDays - absenceDays
+      // 勤務日数は従業員管理で設定されているbaseWorkDaysをベースとする
+      // 請求期間の日数を計算
+      const periodStartDate = new Date(periodStart)
+      const periodEndDate = new Date(periodEnd)
+      const periodDays = Math.ceil((periodEndDate.getTime() - periodStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+      
+      // baseWorkDaysを取得（デフォルトは22日）
+      const baseWorkDays = employee.baseWorkDays || 22
+      
+      // 請求期間が1ヶ月（28-31日の範囲）の場合、baseWorkDaysをそのまま使用
+      // それ以外の場合は請求期間の日数に応じて按分（1ヶ月を30日として計算）
+      let workDays: number
+      if (periodDays >= 28 && periodDays <= 31) {
+        // 1ヶ月の場合：baseWorkDaysをそのまま使用
+        workDays = baseWorkDays
+      } else {
+        // 1ヶ月でない場合：請求期間に応じて按分（1ヶ月を30日として計算）
+        workDays = Math.round((baseWorkDays / 30) * periodDays)
+      }
 
       // 従業員の請求単価を取得
       const billingRate = employee.billingRate || 0
@@ -346,12 +363,11 @@ export async function POST(request: NextRequest) {
         basicAmount = Math.round(workDays * billingRate)
         dailyRate = billingRate
       } else if (billingRateType === 'monthly') {
-        // 月給の場合：実際の勤務日数で按分（月間の標準稼働日数で割る）
-        // baseWorkDaysが設定されている場合はそれを使用、なければ22日をデフォルトとする
-        const standardWorkDays = employee.baseWorkDays || 22
-        basicAmount = Math.round((billingRate / standardWorkDays) * workDays)
-        // 欠勤減算用：月給を標準稼働日数で割った日額
-        dailyRate = billingRate / standardWorkDays
+        // 月給の場合：baseWorkDaysを基準に按分
+        // workDaysは既に請求期間に応じて按分済みなので、そのまま使用
+        basicAmount = Math.round((billingRate / baseWorkDays) * workDays)
+        // 欠勤減算用：月給をbaseWorkDaysで割った日額
+        dailyRate = billingRate / baseWorkDays
       } else {
         // デフォルトは日給として計算
         basicAmount = Math.round(workDays * billingRate)
