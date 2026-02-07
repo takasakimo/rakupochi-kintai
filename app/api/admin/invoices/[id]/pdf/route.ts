@@ -528,7 +528,7 @@ export async function GET(
     doc.text('※お手数ですが、お支払いは下記の銀行口座へお振込みくださいます様、お願い申し上げます。', 20, yPos)
     yPos += 8
 
-    // 振込先情報（BillingClientから取得、なければCompanyから取得）
+    // 振込先情報（請求元企業のCompanyから取得）
     doc.setFontSize(10)
     doc.setFont(fontName, 'normal') // boldフォントがない場合はnormalを使用
     doc.text('お振込み先', 20, yPos)
@@ -537,25 +537,23 @@ export async function GET(
     doc.setFontSize(9)
     doc.setFont(fontName, 'normal')
     
-    // 振込先情報はBillingClientに保存されている（請求先企業の振込先）
-    // ただし、PDFサンプルでは請求元企業の振込先が表示されている
-    // ここではBillingClientの振込先情報を使用（必要に応じてCompanyから取得可能）
-    const bankInfo = invoice.billingClient
+    // 振込先情報は請求元企業（Company）から取得
+    const bankInfo = invoice.company
     if (bankInfo.bankName) {
-      doc.text(`- 銀行名: ${bankInfo.bankName}`, 20, yPos)
-      yPos += 6
+      doc.text(bankInfo.bankName, 20, yPos)
+      yPos += 5
     }
     if (bankInfo.bankBranch) {
-      doc.text(`- 支店名: ${bankInfo.bankBranch}`, 20, yPos)
-      yPos += 6
+      doc.text(bankInfo.bankBranch, 20, yPos)
+      yPos += 5
     }
     if (bankInfo.accountNumber) {
-      doc.text(`- 普通口座: ${bankInfo.accountNumber}`, 20, yPos)
-      yPos += 6
+      doc.text(bankInfo.accountNumber, 20, yPos)
+      yPos += 5
     }
     if (bankInfo.accountHolder) {
-      doc.text(`- 口座名義: ${bankInfo.accountHolder}`, 20, yPos)
-      yPos += 6
+      doc.text(bankInfo.accountHolder, 20, yPos)
+      yPos += 5
     }
 
     // 請求元企業情報（下部）
