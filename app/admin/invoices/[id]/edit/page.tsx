@@ -381,6 +381,64 @@ export default function EditInvoicePage() {
     }
   }
 
+  const handlePreviewPDF = async () => {
+    if (!invoice) return
+
+    // まず現在の変更を保存
+    const { subtotal, taxAmount, totalAmount } = calculateTotals()
+    const detailsData = details.map(detail => ({
+      employeeId: detail.employeeId,
+      workDays: detail.workDays,
+      basicRate: detail.basicRate,
+      basicAmount: detail.basicAmount,
+      overtimeHours: detail.overtimeHours || 0,
+      overtimeRate: detail.overtimeRate,
+      overtimeAmount: detail.overtimeAmount || 0,
+      absenceDays: detail.absenceDays || 0,
+      absenceDeduction: detail.absenceDeduction || 0,
+      lateEarlyDeduction: detail.lateEarlyDeduction || 0,
+      subtotal: detail.subtotal,
+      notes: detail.notes || null,
+    }))
+
+    try {
+      // 一時的に保存（プレビュー用）
+      const saveResponse = await fetch(`/api/admin/invoices/${invoiceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: formData.subject,
+          periodStart: formData.periodStart,
+          periodEnd: formData.periodEnd,
+          paymentTerms: formData.paymentTerms,
+          dueDate: formData.dueDate,
+          subtotal,
+          taxAmount,
+          totalAmount,
+          transportationCost: parseInt(formData.transportationCost) || 0,
+          adjustmentAmount: parseInt(formData.adjustmentAmount) || 0,
+          status: invoice.status, // ステータスは変更しない
+          details: detailsData,
+        }),
+      })
+
+      if (!saveResponse.ok) {
+        const errorData = await saveResponse.json().catch(() => ({}))
+        const errorMessage = errorData.error || 'データの保存に失敗しました'
+        alert(errorMessage)
+        return
+      }
+
+      // PDFを新しいウィンドウで開く
+      const pdfUrl = `/api/admin/invoices/${invoiceId}/pdf`
+      window.open(pdfUrl, '_blank')
+    } catch (err: any) {
+      console.error('Failed to preview PDF:', err)
+      const errorMessage = err?.message || 'ネットワークエラーが発生しました。接続を確認してください。'
+      alert(`PDFのプレビューに失敗しました: ${errorMessage}`)
+    }
+  }
+
   const handleDownloadPDF = async () => {
     if (!invoice) return
 
@@ -822,6 +880,13 @@ export default function EditInvoicePage() {
                 {issuing ? '発行中...' : '発行する'}
               </button>
             )}
+            <button
+              type="button"
+              onClick={handlePreviewPDF}
+              className="px-6 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 font-medium"
+            >
+              PDFプレビュー
+            </button>
             <button
               type="button"
               onClick={handleDownloadPDF}

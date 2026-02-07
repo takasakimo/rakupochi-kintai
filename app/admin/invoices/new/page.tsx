@@ -32,6 +32,7 @@ export default function NewInvoicePage() {
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<number>>(new Set())
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [previewing, setPreviewing] = useState(false)
   const [invoiceNumber, setInvoiceNumber] = useState('')
   const [selectedYear, setSelectedYear] = useState<string>('')
   const [selectedMonth, setSelectedMonth] = useState<string>('')
@@ -371,6 +372,129 @@ export default function NewInvoicePage() {
     }
   }
 
+  const handlePreviewPDF = async () => {
+    // バリデーション
+    if (!selectedBillingClientId) {
+      alert('請求先企業を選択してください')
+      return
+    }
+
+    if (!invoiceNumber || invoiceNumber.trim() === '') {
+      alert('請求書番号を入力してください')
+      return
+    }
+
+    if (selectedEmployeeIds.size === 0) {
+      alert('対象従業員を選択してください')
+      return
+    }
+
+    if (!formData.periodStart || !formData.periodEnd || !formData.dueDate) {
+      alert('請求期間とお支払い期日を入力してください')
+      return
+    }
+
+    // 日付の妥当性チェック
+    const periodStart = new Date(formData.periodStart)
+    const periodEnd = new Date(formData.periodEnd)
+    const dueDate = new Date(formData.dueDate)
+
+    if (periodStart > periodEnd) {
+      alert('請求期間開始日は請求期間終了日より前である必要があります')
+      return
+    }
+
+    if (dueDate < periodEnd) {
+      alert('お支払い期日は請求期間終了日以降である必要があります')
+      return
+    }
+
+    // 交通費・調整金額の妥当性チェック
+    const transportationCost = parseInt(formData.transportationCost) || 0
+    const adjustmentAmount = parseInt(formData.adjustmentAmount) || 0
+
+    if (transportationCost < 0) {
+      alert('交通費は0以上の値を入力してください')
+      return
+    }
+
+    setPreviewing(true)
+    try {
+      // 明細を自動計算
+      const calculateResponse = await fetch('/api/admin/invoices/calculate-details', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeIds: Array.from(selectedEmployeeIds),
+          periodStart: formData.periodStart,
+          periodEnd: formData.periodEnd,
+          billingClientId: parseInt(selectedBillingClientId),
+        }),
+      })
+
+      if (!calculateResponse.ok) {
+        const errorData = await calculateResponse.json()
+        alert(errorData.error || '明細の計算に失敗しました')
+        setPreviewing(false)
+        return
+      }
+
+      const calculateData = await calculateResponse.json()
+      const { details, subtotal, taxAmount, totalAmount } = calculateData
+
+      // 交通費と調整金額を加算
+      const selectedBillingClient = billingClients.find(
+        client => client.id === parseInt(selectedBillingClientId)
+      )
+      const taxRate = selectedBillingClient?.taxRate || 0.1
+
+      const finalSubtotal = subtotal + transportationCost + adjustmentAmount
+      const finalTaxAmount = Math.round(finalSubtotal * taxRate)
+      const finalTotalAmount = finalSubtotal + finalTaxAmount
+
+      // 請求書を下書きとして作成
+      const response = await fetch('/api/admin/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          billingClientId: parseInt(selectedBillingClientId),
+          invoiceNumber,
+          subject: formData.subject || `請求書 ${formData.periodStart} ～ ${formData.periodEnd}`,
+          periodStart: formData.periodStart,
+          periodEnd: formData.periodEnd,
+          paymentTerms: formData.paymentTerms,
+          dueDate: formData.dueDate,
+          subtotal: finalSubtotal,
+          taxAmount: finalTaxAmount,
+          totalAmount: finalTotalAmount,
+          transportationCost,
+          adjustmentAmount,
+          status: 'draft',
+          details,
+        }),
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        // PDFを新しいウィンドウで開く
+        const pdfUrl = `/api/admin/invoices/${data.invoice.id}/pdf`
+        window.open(pdfUrl, '_blank')
+        // 編集ページに遷移
+        router.push(`/admin/invoices/${data.invoice.id}/edit`)
+      } else {
+        const errorMessage = data.error || '請求書の作成に失敗しました'
+        console.error('Failed to create invoice:', errorMessage)
+        alert(errorMessage)
+      }
+    } catch (err: any) {
+      console.error('Failed to preview PDF:', err)
+      const errorMessage = err?.message || 'ネットワークエラーが発生しました。接続を確認してください。'
+      alert(`PDFのプレビューに失敗しました: ${errorMessage}`)
+    } finally {
+      setPreviewing(false)
+    }
+  }
+
   const selectedBillingClient = billingClients.find(
     client => client.id === parseInt(selectedBillingClientId)
   )
@@ -662,10 +786,18 @@ export default function NewInvoicePage() {
           <div className="flex gap-4 pt-4 border-t">
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || previewing}
               className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? '作成中...' : '請求書を作成'}
+            </button>
+            <button
+              type="button"
+              onClick={handlePreviewPDF}
+              disabled={previewing || submitting}
+              className="px-6 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {previewing ? 'プレビュー中...' : 'PDFプレビュー'}
             </button>
             <Link
               href="/admin/invoices"
