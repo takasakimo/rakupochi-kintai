@@ -139,7 +139,8 @@ export async function POST(request: NextRequest) {
     for (const employee of employees) {
       const employeeAttendances = attendances.filter(a => a.employeeId === employee.id)
       
-      let workDays = 0
+      // まず、シフトが登録されている日数をカウント（期待される勤務日数）
+      let expectedWorkDays = 0
       let totalBasicMinutes = 0
       let totalOvertimeMinutes = 0
       let absenceDays = 0
@@ -162,9 +163,11 @@ export async function POST(request: NextRequest) {
 
         // シフトがある日のみカウント
         if (shift) {
+          // シフトが登録されている日数をカウント（期待される勤務日数）
+          expectedWorkDays++
+          
           if (attendance && attendance.clockIn && attendance.clockOut) {
-            // 打刻がある場合：勤務日としてカウント
-            workDays++
+            // 打刻がある場合：実際に勤務した日として処理
 
             // 打刻時刻を取得
             let clockInTime: Date
@@ -212,10 +215,10 @@ export async function POST(request: NextRequest) {
             let shiftEndTime: Date
 
             if (!shift.startTime || !shift.endTime) {
-              // シフト時間が設定されていない場合でも、打刻があれば勤務日としてカウント
+              // シフト時間が設定されていない場合でも、打刻があれば基本時間を計算
               // 基本時間は打刻時間から計算（残業時間や遅刻・早退の計算はスキップ）
               totalBasicMinutes += netWorkMinutes
-              // 次の日に進む
+              // 次の日に進む（期待される勤務日数は既にカウント済み）
               currentDate.setDate(currentDate.getDate() + 1)
               continue
             }
@@ -320,6 +323,9 @@ export async function POST(request: NextRequest) {
 
         currentDate.setDate(currentDate.getDate() + 1)
       }
+
+      // 実際の勤務日数 = シフト登録日数 - 欠勤日数
+      const workDays = expectedWorkDays - absenceDays
 
       // 従業員の請求単価を取得
       const billingRate = employee.billingRate || 0
