@@ -90,6 +90,7 @@ model Employee {
   hasOvertime     Boolean   @default(false) // 残業の有無
   baseWorkDays    Int?      @default(22) // 稼働日数のベース（月間）
   invoiceItemName String?   // 請求書費目（設定がない場合はテンプレートを使用）
+  businessName    String?   // 業務名（費目名の「〇〇委託費用」の「〇〇」部分）
 
   billingClient   BillingClient? @relation(fields: [billingClientId], references: [id])
 

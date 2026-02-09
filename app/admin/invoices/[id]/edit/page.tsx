@@ -19,6 +19,7 @@ interface Employee {
   baseWorkDays?: number | null
   workLocation?: string | null
   invoiceItemName?: string | null
+  businessName?: string | null
 }
 
 interface InvoiceDetail {
@@ -642,7 +643,7 @@ export default function EditInvoicePage() {
     const taxRate = parseInt(formData.taxRate) || Math.round((invoice.billingClient.taxRate || 0.1) * 100)
 
     details.forEach((detail, detailIndex) => {
-      // 費目を決定（手動追加の費目項目 > 従業員の設定 > テンプレート）
+      // 費目を決定（手動追加の費目項目 > 従業員の設定 > 業務名 > テンプレート）
       let itemName: string
       if (detail.itemName) {
         // 手動で追加された費目名を使用
@@ -651,6 +652,9 @@ export default function EditInvoicePage() {
         // 従業員の設定から取得
         if (detail.employee.invoiceItemName) {
           itemName = detail.employee.invoiceItemName
+        } else if (detail.employee.businessName) {
+          // 業務名を使用して「{業務名}委託費用」という形式で生成
+          itemName = `${detail.employee.businessName}委託費用`
         } else {
           // テンプレートから生成
           itemName = itemNameTemplate.replace(/{employeeName}/g, detail.employee.name)

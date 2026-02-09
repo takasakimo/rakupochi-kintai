@@ -108,6 +108,7 @@ export async function GET(
                 employeeNumber: true,
                 workLocation: true,
                 invoiceItemName: true,
+                businessName: true,
                 billingRate: true,
                 billingRateType: true,
                 baseWorkDays: true,
@@ -287,7 +288,7 @@ export async function GET(
     const taxRate = Math.round((invoice.billingClient.taxRate || 0.1) * 100)
     
     invoice.details.forEach((detail) => {
-      // 費目を決定（手動追加の費目項目 > 従業員の設定 > テンプレート）
+      // 費目を決定（手動追加の費目項目 > 従業員の設定 > 業務名 > テンプレート）
       let itemName: string
       if (detail.itemName) {
         // 手動で追加された費目名を使用
@@ -296,6 +297,9 @@ export async function GET(
         // 従業員の設定から取得
         if (detail.employee.invoiceItemName) {
           itemName = detail.employee.invoiceItemName
+        } else if (detail.employee.businessName) {
+          // 業務名を使用して「{業務名}委託費用」という形式で生成
+          itemName = `${detail.employee.businessName}委託費用`
         } else {
           // テンプレートから生成
           itemName = itemNameTemplate.replace(/{employeeName}/g, detail.employee.name)

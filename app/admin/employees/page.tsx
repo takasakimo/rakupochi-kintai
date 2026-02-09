@@ -33,6 +33,7 @@ interface Employee {
   hasOvertime: boolean | null
   baseWorkDays: number | null
   invoiceItemName: string | null
+  businessName: string | null
   billingClient?: {
     id: number
     name: string
@@ -568,6 +569,7 @@ export default function EmployeesPage() {
         updateData.hasOvertime = employee.hasOvertime || false
         updateData.baseWorkDays = employee.baseWorkDays || null
         updateData.invoiceItemName = employee.invoiceItemName || null
+        updateData.businessName = employee.businessName || null
       } else {
         // テーブルからの更新の場合（旧方式、互換性のため残す）
         const birthDateInput = document.getElementById(
@@ -2515,6 +2517,27 @@ export default function EmployeesPage() {
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
+                          業務
+                        </label>
+                        <input
+                          type="text"
+                          value={selectedEmployee.businessName || ''}
+                          onChange={(e) =>
+                            setSelectedEmployee({
+                              ...selectedEmployee,
+                              businessName: e.target.value || null,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                          placeholder="例: 並河達也"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                          請求書の費目名に使用されます。「{業務名}委託費用」という形式で表示されます。
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
                           請求書費目
                         </label>
                         <input
@@ -2529,7 +2552,7 @@ export default function EmployeesPage() {
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                         />
                         <p className="mt-1 text-xs text-gray-500">
-                          請求書PDFの費目欄に表示されます。空欄の場合は請求書設定のテンプレートを使用します。
+                          請求書PDFの費目欄に表示されます。空欄の場合は業務名を使用して「{業務名}委託費用」として表示されます。
                         </p>
                       </div>
                       
