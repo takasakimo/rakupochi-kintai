@@ -2532,7 +2532,7 @@ export default function EmployeesPage() {
                           placeholder="例: 並河達也"
                         />
                         <p className="mt-1 text-xs text-gray-500">
-                          請求書の費目名に使用されます。「{業務名}委託費用」という形式で表示されます。
+                          請求書の費目名に使用されます。「{'{業務名}'}委託費用」という形式で表示されます。
                         </p>
                       </div>
                       
