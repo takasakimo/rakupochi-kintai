@@ -149,7 +149,9 @@ export default function EditInvoicePage() {
         setDetails(invoiceData.details || [])
         
         // 従業員情報を取得（請求単価タイプと標準稼働日数）
-        const employeeIds = invoiceData.details.map(d => d.employeeId)
+        const employeeIds = invoiceData.details
+          .map(d => d.employeeId)
+          .filter((id): id is number => id !== null)
         if (employeeIds.length > 0) {
           fetchEmployeeInfo(employeeIds)
         }
