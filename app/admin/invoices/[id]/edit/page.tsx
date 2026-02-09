@@ -61,6 +61,7 @@ interface Invoice {
   adjustmentAmount: number | null
   billingClientName: string | null
   status: string
+  issuedAt: string | null
   createdAt: string
   company: Company
   billingClient: BillingClient
