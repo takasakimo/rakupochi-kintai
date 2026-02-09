@@ -842,7 +842,16 @@ export default function EditInvoicePage() {
             {/* 明細テーブル（費目、単価、数量、金額、適用税率、補足） */}
             <div className="mb-6">
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse border border-gray-300 text-sm">
+                <table className="w-full border-collapse border border-gray-300 text-sm table-fixed">
+                  <colgroup>
+                    <col className="w-[25%]" /> {/* 費目 */}
+                    <col className="w-[12%]" /> {/* 単価(税抜) */}
+                    <col className="w-[6%]" /> {/* 数量 */}
+                    <col className="w-[12%]" /> {/* 金額(税抜) */}
+                    <col className="w-[8%]" /> {/* 適用税率 */}
+                    <col className="w-[30%]" /> {/* 補足 */}
+                    <col className="w-[7%]" /> {/* 削除ボタン */}
+                  </colgroup>
                   <thead>
                     <tr className="bg-blue-600 text-white">
                       <th className="border border-gray-300 px-2 py-2 text-left">費目</th>
@@ -851,7 +860,7 @@ export default function EditInvoicePage() {
                       <th className="border border-gray-300 px-2 py-2 text-right">金額(税抜)</th>
                       <th className="border border-gray-300 px-2 py-2 text-center">適用税率</th>
                       <th className="border border-gray-300 px-2 py-2 text-left">補足</th>
-                      <th className="border border-gray-300 px-2 py-2 w-16"></th>
+                      <th className="border border-gray-300 px-2 py-2"></th>
                     </tr>
                   </thead>
                   <tbody>
