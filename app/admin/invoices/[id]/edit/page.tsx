@@ -88,6 +88,7 @@ export default function EditInvoicePage() {
     transportationCost: '0',
     adjustmentAmount: '0',
     billingClientName: '',
+    taxRate: '10', // 税率（%）
   })
   const [details, setDetails] = useState<InvoiceDetail[]>([])
   const [employeeInfo, setEmployeeInfo] = useState<Map<number, { billingRateType: string | null, baseWorkDays: number | null }>>(new Map())
@@ -146,6 +147,7 @@ export default function EditInvoicePage() {
           transportationCost: String(invoiceData.transportationCost || 0),
           adjustmentAmount: String(invoiceData.adjustmentAmount || 0),
           billingClientName: invoiceData.billingClientName || invoiceData.billingClient.name || '',
+          taxRate: String(Math.round((invoiceData.billingClient.taxRate || 0.1) * 100)),
         })
         setDetails(invoiceData.details || [])
         
@@ -335,8 +337,8 @@ export default function EditInvoicePage() {
     const adjustmentAmount = parseInt(formData.adjustmentAmount) || 0
     const subtotal = detailsSubtotal + transportationCost + adjustmentAmount
 
-    // 消費税を計算
-    const taxRate = invoice.billingClient.taxRate || 0.1
+    // 消費税を計算（フォームの税率を使用）
+    const taxRate = (parseInt(formData.taxRate) || 10) / 100
     const taxAmount = Math.round(subtotal * taxRate)
     const totalAmount = subtotal + taxAmount
 
@@ -637,7 +639,7 @@ export default function EditInvoicePage() {
     }> = []
 
     const itemNameTemplate = invoice.company.invoiceItemNameTemplate || '{employeeName}委託費用'
-    const taxRate = Math.round((invoice.billingClient.taxRate || 0.1) * 100)
+    const taxRate = parseInt(formData.taxRate) || Math.round((invoice.billingClient.taxRate || 0.1) * 100)
 
     details.forEach((detail, detailIndex) => {
       // 費目を決定（手動追加の費目項目 > 従業員の設定 > テンプレート）
@@ -654,8 +656,8 @@ export default function EditInvoicePage() {
           itemName = itemNameTemplate.replace(/{employeeName}/g, detail.employee.name)
         }
       } else {
-        // 従業員がnullの場合は費目名が必須
-        itemName = detail.itemName || '未設定'
+        // 従業員がnullの場合は費目名を使用（空文字列も許可）
+        itemName = detail.itemName || ''
       }
 
       // 従業員名と店舗情報を補足に含める
@@ -859,7 +861,7 @@ export default function EditInvoicePage() {
                           {item.type === 'manual' ? (
                             <input
                               type="text"
-                              value={item.itemName}
+                              value={item.itemName || ''}
                               onChange={(e) => {
                                 const detail = details[item.detailIndex]
                                 handleDetailChange(item.detailIndex, 'itemName', e.target.value)
@@ -932,8 +934,25 @@ export default function EditInvoicePage() {
                             />
                           )}
                         </td>
-                        <td className="border border-gray-300 px-2 py-2 text-center text-gray-900">
-                          {item.taxRate}%
+                        <td className="border border-gray-300 px-2 py-2 text-center">
+                          {item.type === 'manual' ? (
+                            <input
+                              type="number"
+                              value={item.taxRate}
+                              onChange={(e) => {
+                                const newTaxRate = parseInt(e.target.value) || 0
+                                // 税率を更新するために、formDataのtaxRateを更新
+                                // ただし、各明細行ごとに税率を変更できるようにするには、detailに税率フィールドが必要
+                                // 今回は請求先企業の税率を編集可能にする
+                                setFormData({ ...formData, taxRate: String(newTaxRate) })
+                              }}
+                              className="w-full border-none focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent text-center text-gray-900"
+                              min="0"
+                              max="100"
+                            />
+                          ) : (
+                            <span className="text-gray-900">{item.taxRate}%</span>
+                          )}
                         </td>
                         <td className="border border-gray-300 px-2 py-2">
                           <input
@@ -963,7 +982,7 @@ export default function EditInvoicePage() {
                     {/* 小計行 */}
                     <tr className="bg-gray-100 font-medium">
                       <td colSpan={3} className="border border-gray-300 px-2 py-2 text-right text-gray-900">
-                        {Math.round((invoice.billingClient.taxRate || 0.1) * 100)}%対象小計
+                        {parseInt(formData.taxRate) || Math.round((invoice.billingClient.taxRate || 0.1) * 100)}%対象小計
                       </td>
                       <td className="border border-gray-300 px-2 py-2 text-right text-gray-900">
                         {subtotal.toLocaleString()}
@@ -1004,7 +1023,7 @@ export default function EditInvoicePage() {
                     {/* 消費税 */}
                     <tr>
                       <td colSpan={3} className="border border-gray-300 px-2 py-2 text-gray-900">
-                        消費税({Math.round((invoice.billingClient.taxRate || 0.1) * 100)}%対象)
+                        消費税({parseInt(formData.taxRate) || Math.round((invoice.billingClient.taxRate || 0.1) * 100)}%対象)
                       </td>
                       <td className="border border-gray-300 px-2 py-2 text-right text-gray-900">
                         {taxAmount.toLocaleString()}
