@@ -982,15 +982,26 @@ export default function EditInvoicePage() {
                           )}
                         </td>
                         <td className="border border-gray-300 px-2 py-2">
-                          <input
-                            type="text"
+                          <textarea
                             value={item.note}
                             onChange={(e) => {
                               const detail = details[item.detailIndex]
                               handleDetailChange(item.detailIndex, 'notes', e.target.value)
                             }}
-                            className="w-full border-none focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent text-gray-900"
+                            className="w-full border-none focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent text-gray-900 resize-none overflow-hidden"
                             placeholder="補足を入力"
+                            rows={1}
+                            style={{ 
+                              minHeight: '1.5rem',
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                              lineHeight: '1.5'
+                            }}
+                            onInput={(e) => {
+                              const target = e.target as HTMLTextAreaElement
+                              target.style.height = 'auto'
+                              target.style.height = `${target.scrollHeight}px`
+                            }}
                           />
                         </td>
                         <td className="border border-gray-300 px-2 py-2 text-center">
