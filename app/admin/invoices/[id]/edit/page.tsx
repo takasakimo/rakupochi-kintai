@@ -700,6 +700,15 @@ export default function EditInvoicePage() {
 
         // 遅刻早退減算がある場合は別行で追加
         if (detail.lateEarlyDeduction && detail.lateEarlyDeduction > 0) {
+          // 備考から遅刻・早退の詳細を抽出
+          let lateEarlyNote = employeeNote
+          if (detail.notes) {
+            const lateEarlyMatch = detail.notes.match(/遅刻・早退: ([^/]+)/)
+            if (lateEarlyMatch) {
+              lateEarlyNote = `${employeeNote} ${lateEarlyMatch[1]}`
+            }
+          }
+          
           items.push({
             id: detail.id * 1000 + 2,
             detailIndex,
@@ -709,13 +718,22 @@ export default function EditInvoicePage() {
             quantity: 0,
             amount: -detail.lateEarlyDeduction,
             taxRate,
-            note: employeeNote,
+            note: lateEarlyNote,
             detail,
           })
         }
 
         // 欠勤減算がある場合は別行で追加
         if (detail.absenceDeduction && detail.absenceDeduction > 0) {
+          // 備考から欠勤の詳細を抽出
+          let absenceNote = employeeNote
+          if (detail.notes) {
+            const absenceMatch = detail.notes.match(/欠勤: ([^/]+)/)
+            if (absenceMatch) {
+              absenceNote = `${employeeNote} ${absenceMatch[1]}`
+            }
+          }
+          
           items.push({
             id: detail.id * 1000 + 3,
             detailIndex,
@@ -725,7 +743,7 @@ export default function EditInvoicePage() {
             quantity: 0,
             amount: -detail.absenceDeduction,
             taxRate,
-            note: employeeNote,
+            note: absenceNote,
             detail,
           })
         }
