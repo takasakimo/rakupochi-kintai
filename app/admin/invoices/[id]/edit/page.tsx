@@ -17,11 +17,14 @@ interface Employee {
   employeeNumber: string
   billingRateType?: string | null
   baseWorkDays?: number | null
+  workLocation?: string | null
+  invoiceItemName?: string | null
 }
 
 interface InvoiceDetail {
   id: number
-  employeeId: number
+  employeeId: number | null
+  itemName?: string | null // 費目名（手動追加の費目項目の場合）
   workDays: number
   basicRate: number
   basicAmount: number
@@ -33,7 +36,14 @@ interface InvoiceDetail {
   lateEarlyDeduction: number | null
   subtotal: number
   notes?: string | null // 備考
-  employee: Employee
+  employee?: Employee | null
+}
+
+interface Company {
+  id: number
+  name: string
+  taxId: string | null
+  invoiceItemNameTemplate: string | null
 }
 
 interface Invoice {
@@ -49,7 +59,10 @@ interface Invoice {
   totalAmount: number
   transportationCost: number | null
   adjustmentAmount: number | null
+  billingClientName: string | null
   status: string
+  createdAt: string
+  company: Company
   billingClient: BillingClient
   details: InvoiceDetail[]
 }
@@ -73,6 +86,7 @@ export default function EditInvoicePage() {
     dueDate: '',
     transportationCost: '0',
     adjustmentAmount: '0',
+    billingClientName: '',
   })
   const [details, setDetails] = useState<InvoiceDetail[]>([])
   const [employeeInfo, setEmployeeInfo] = useState<Map<number, { billingRateType: string | null, baseWorkDays: number | null }>>(new Map())
@@ -130,6 +144,7 @@ export default function EditInvoicePage() {
           dueDate: formatDate(invoiceData.dueDate),
           transportationCost: String(invoiceData.transportationCost || 0),
           adjustmentAmount: String(invoiceData.adjustmentAmount || 0),
+          billingClientName: invoiceData.billingClientName || invoiceData.billingClient.name || '',
         })
         setDetails(invoiceData.details || [])
         
@@ -179,32 +194,45 @@ export default function EditInvoicePage() {
     const updatedDetails = [...details]
     const detail = updatedDetails[index]
     
-    if (field === 'workDays') {
+    // 手動追加の費目項目（employeeIdがnull）の場合の処理
+    if (field === 'itemName') {
+      detail.itemName = String(value) || null
+    } else if (field === 'workDays') {
       detail.workDays = parseInt(String(value)) || 0
       // 基本金額を再計算（請求単価タイプに応じて）
-      const empInfo = employeeInfo.get(detail.employeeId)
-      const billingRateType = empInfo?.billingRateType || 'daily'
-      const baseWorkDays = empInfo?.baseWorkDays || 22
-      
-      if (billingRateType === 'monthly') {
-        // 月給の場合：実際の勤務日数で按分
-        detail.basicAmount = Math.round((detail.basicRate / baseWorkDays) * detail.workDays)
+      if (detail.employeeId && detail.employeeId !== null) {
+        const empInfo = employeeInfo.get(detail.employeeId)
+        const billingRateType = empInfo?.billingRateType || 'daily'
+        const baseWorkDays = empInfo?.baseWorkDays || 22
+        
+        if (billingRateType === 'monthly') {
+          // 月給の場合：実際の勤務日数で按分
+          detail.basicAmount = Math.round((detail.basicRate / baseWorkDays) * detail.workDays)
+        } else {
+          // 日給・時給の場合：勤務日数 × 単価
+          detail.basicAmount = detail.workDays * detail.basicRate
+        }
       } else {
-        // 日給・時給の場合：勤務日数 × 単価
+        // 手動追加の費目項目の場合：数量 × 単価
         detail.basicAmount = detail.workDays * detail.basicRate
       }
     } else if (field === 'basicRate') {
       detail.basicRate = parseInt(String(value)) || 0
       // 基本金額を再計算（請求単価タイプに応じて）
-      const empInfo = employeeInfo.get(detail.employeeId)
-      const billingRateType = empInfo?.billingRateType || 'daily'
-      const baseWorkDays = empInfo?.baseWorkDays || 22
-      
-      if (billingRateType === 'monthly') {
-        // 月給の場合：実際の勤務日数で按分
-        detail.basicAmount = Math.round((detail.basicRate / baseWorkDays) * detail.workDays)
+      if (detail.employeeId && detail.employeeId !== null) {
+        const empInfo = employeeInfo.get(detail.employeeId)
+        const billingRateType = empInfo?.billingRateType || 'daily'
+        const baseWorkDays = empInfo?.baseWorkDays || 22
+        
+        if (billingRateType === 'monthly') {
+          // 月給の場合：実際の勤務日数で按分
+          detail.basicAmount = Math.round((detail.basicRate / baseWorkDays) * detail.workDays)
+        } else {
+          // 日給・時給の場合：勤務日数 × 単価
+          detail.basicAmount = detail.workDays * detail.basicRate
+        }
       } else {
-        // 日給・時給の場合：勤務日数 × 単価
+        // 手動追加の費目項目の場合：数量 × 単価
         detail.basicAmount = detail.workDays * detail.basicRate
       }
     } else if (field === 'basicAmount') {
@@ -220,26 +248,28 @@ export default function EditInvoicePage() {
     } else if (field === 'absenceDays') {
       detail.absenceDays = parseInt(String(value)) || 0
       // 欠勤減算額を再計算（請求単価タイプに応じて）
-      const empInfo = employeeInfo.get(detail.employeeId)
-      const billingRateType = empInfo?.billingRateType || 'daily'
-      const baseWorkDays = empInfo?.baseWorkDays || 22
-      
-      let dailyRate = 0
-      if (billingRateType === 'hourly') {
-        // 時給の場合：1日8時間として日額を計算
-        dailyRate = detail.basicRate * 8
-      } else if (billingRateType === 'daily') {
-        // 日給の場合：基本単価そのまま
-        dailyRate = detail.basicRate
-      } else if (billingRateType === 'monthly') {
-        // 月給の場合：月給を標準稼働日数で割った日額
-        dailyRate = detail.basicRate / baseWorkDays
-      } else {
-        // デフォルトは日給
-        dailyRate = detail.basicRate
+      if (detail.employeeId && detail.employeeId !== null) {
+        const empInfo = employeeInfo.get(detail.employeeId)
+        const billingRateType = empInfo?.billingRateType || 'daily'
+        const baseWorkDays = empInfo?.baseWorkDays || 22
+        
+        let dailyRate = 0
+        if (billingRateType === 'hourly') {
+          // 時給の場合：1日8時間として日額を計算
+          dailyRate = detail.basicRate * 8
+        } else if (billingRateType === 'daily') {
+          // 日給の場合：基本単価そのまま
+          dailyRate = detail.basicRate
+        } else if (billingRateType === 'monthly') {
+          // 月給の場合：月給を標準稼働日数で割った日額
+          dailyRate = detail.basicRate / baseWorkDays
+        } else {
+          // デフォルトは日給
+          dailyRate = detail.basicRate
+        }
+        
+        detail.absenceDeduction = Math.round(detail.absenceDays * dailyRate)
       }
-      
-      detail.absenceDeduction = Math.round(detail.absenceDays * dailyRate)
     } else if (field === 'absenceDeduction') {
       detail.absenceDeduction = parseInt(String(value)) || 0
     } else if (field === 'lateEarlyDeduction') {
@@ -258,6 +288,37 @@ export default function EditInvoicePage() {
 
     updatedDetails[index] = detail
     setDetails(updatedDetails)
+  }
+
+  // 費目項目を手動で追加
+  const handleAddManualItem = () => {
+    const newItem: InvoiceDetail = {
+      id: Date.now(), // 一時的なID
+      employeeId: null,
+      itemName: '',
+      workDays: 1, // 数量として使用
+      basicRate: 0,
+      basicAmount: 0,
+      overtimeHours: null,
+      overtimeRate: null,
+      overtimeAmount: null,
+      absenceDays: null,
+      absenceDeduction: null,
+      lateEarlyDeduction: null,
+      subtotal: 0,
+      notes: null,
+      employee: null,
+    }
+    setDetails([...details, newItem])
+  }
+
+  // 費目項目を削除
+  const handleDeleteItem = (index: number) => {
+    if (confirm('この費目項目を削除しますか？')) {
+      const updatedDetails = [...details]
+      updatedDetails.splice(index, 1)
+      setDetails(updatedDetails)
+    }
   }
 
   const calculateTotals = () => {
@@ -313,11 +374,18 @@ export default function EditInvoicePage() {
 
     for (const detail of details) {
       if (detail.workDays < 0) {
-        alert(`${detail.employee.name}の勤務日数が不正です`)
+        const itemName = detail.itemName || detail.employee?.name || '費目項目'
+        alert(`${itemName}の数量が不正です`)
         return
       }
       if (detail.basicRate < 0) {
-        alert(`${detail.employee.name}の基本単価が不正です`)
+        const itemName = detail.itemName || detail.employee?.name || '費目項目'
+        alert(`${itemName}の単価が不正です`)
+        return
+      }
+      // 手動追加の費目項目の場合、費目名が必須
+      if (!detail.employeeId && !detail.itemName) {
+        alert('費目名を入力してください')
         return
       }
     }
@@ -328,7 +396,8 @@ export default function EditInvoicePage() {
 
       // 明細データを準備
       const detailsData = details.map(detail => ({
-        employeeId: detail.employeeId,
+        employeeId: detail.employeeId || null,
+        itemName: detail.itemName || null,
         workDays: detail.workDays,
         basicRate: detail.basicRate,
         basicAmount: detail.basicAmount,
@@ -357,6 +426,7 @@ export default function EditInvoicePage() {
           totalAmount,
           transportationCost: parseInt(formData.transportationCost) || 0,
           adjustmentAmount: parseInt(formData.adjustmentAmount) || 0,
+          billingClientName: formData.billingClientName || null,
           status: invoice.status, // 現在のステータスを維持
           details: detailsData,
         }),
@@ -548,303 +618,450 @@ export default function EditInvoicePage() {
     return <div className="p-8 text-center text-gray-900">請求書が見つかりません</div>
   }
 
+  // PDFと同じ形式で明細データを生成する関数
+  const getInvoiceItems = () => {
+    const items: Array<{
+      id: number
+      detailIndex: number
+      type: 'basic' | 'lateEarly' | 'absence' | 'manual'
+      itemName: string
+      unitPrice: number
+      quantity: number
+      amount: number
+      taxRate: number
+      note: string
+      detail: InvoiceDetail
+    }> = []
+
+    const itemNameTemplate = invoice.company.invoiceItemNameTemplate || '{employeeName}委託費用'
+    const taxRate = Math.round((invoice.billingClient.taxRate || 0.1) * 100)
+
+    details.forEach((detail, detailIndex) => {
+      // 費目を決定（手動追加の費目項目 > 従業員の設定 > テンプレート）
+      let itemName: string
+      if (detail.itemName) {
+        // 手動で追加された費目名を使用
+        itemName = detail.itemName
+      } else if (detail.employee) {
+        // 従業員の設定から取得
+        if (detail.employee.invoiceItemName) {
+          itemName = detail.employee.invoiceItemName
+        } else {
+          // テンプレートから生成
+          itemName = itemNameTemplate.replace(/{employeeName}/g, detail.employee.name)
+        }
+      } else {
+        // 従業員がnullの場合は費目名が必須
+        itemName = detail.itemName || '未設定'
+      }
+
+      // 従業員名と店舗情報を補足に含める
+      const employeeNote = detail.employee 
+        ? (detail.employee.workLocation 
+          ? `${detail.employee.workLocation} ${detail.employee.name}`
+          : detail.employee.name)
+        : detail.notes || ''
+
+      // 手動追加の費目項目の場合
+      if (!detail.employeeId) {
+        const basicInvoiceAmount = detail.basicAmount + (detail.overtimeAmount || 0)
+        items.push({
+          id: detail.id,
+          detailIndex,
+          type: 'manual',
+          itemName: itemName,
+          unitPrice: detail.basicRate,
+          quantity: detail.workDays,
+          amount: basicInvoiceAmount,
+          taxRate,
+          note: detail.notes || '',
+          detail,
+        })
+      } else {
+        // 基本請求金額行を追加（基本単価 × 勤務日数 + 残業金額）
+        const basicInvoiceAmount = detail.basicAmount + (detail.overtimeAmount || 0)
+        items.push({
+          id: detail.id * 1000 + 1, // 一意のIDを生成
+          detailIndex,
+          type: 'basic',
+          itemName: itemName,
+          unitPrice: detail.basicRate,
+          quantity: 1,
+          amount: basicInvoiceAmount,
+          taxRate,
+          note: employeeNote,
+          detail,
+        })
+
+        // 遅刻早退減算がある場合は別行で追加
+        if (detail.lateEarlyDeduction && detail.lateEarlyDeduction > 0) {
+          items.push({
+            id: detail.id * 1000 + 2,
+            detailIndex,
+            type: 'lateEarly',
+            itemName: '遅刻早退',
+            unitPrice: 0,
+            quantity: 0,
+            amount: -detail.lateEarlyDeduction,
+            taxRate,
+            note: employeeNote,
+            detail,
+          })
+        }
+
+        // 欠勤減算がある場合は別行で追加
+        if (detail.absenceDeduction && detail.absenceDeduction > 0) {
+          items.push({
+            id: detail.id * 1000 + 3,
+            detailIndex,
+            type: 'absence',
+            itemName: '欠勤',
+            unitPrice: 0,
+            quantity: 0,
+            amount: -detail.absenceDeduction,
+            taxRate,
+            note: employeeNote,
+            detail,
+          })
+        }
+      }
+    })
+
+    return items
+  }
+
+  const invoiceItems = getInvoiceItems()
+
+  // 日付フォーマット関数
+  const formatDate = (dateStr: string | Date) => {
+    if (!dateStr) return ''
+    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}/${month}/${day}`
+  }
+
+  const createdDate = invoice.issuedAt ? new Date(invoice.issuedAt) : new Date(invoice.createdAt)
+  const billingClientName = formData.billingClientName || invoice.billingClient.name || ''
+
   return (
-    <div className="p-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">請求書編集</h1>
+    <div className="p-4 bg-gray-100 min-h-screen">
+      <div className="max-w-4xl mx-auto">
+        {/* ヘッダー（編集用） */}
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-xl font-bold text-gray-900">請求書編集</h1>
           <Link
             href="/admin/invoices"
-            className="px-4 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-medium"
+            className="px-4 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-medium text-sm"
           >
             一覧に戻る
           </Link>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6 space-y-6">
-          {/* 請求書基本情報 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                請求書番号
-              </label>
+        <form onSubmit={handleSubmit}>
+          {/* 請求書フォーマット（PDFと同じレイアウト） */}
+          <div className="bg-white shadow-lg p-8 mb-6" style={{ minHeight: '297mm' }}>
+            {/* 作成日（右上） */}
+            <div className="text-right text-sm text-gray-600 mb-4">
+              作成日: {formatDate(createdDate)}
+            </div>
+
+            {/* タイトル「請求書」（中央、大きめ） */}
+            <h1 className="text-4xl font-bold text-center mb-8 text-gray-900">請求書</h1>
+
+            {/* 請求先企業名 + 「御中」 */}
+            <div className="mb-4">
               <input
                 type="text"
-                value={invoice.invoiceNumber}
-                readOnly
-                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-900"
+                value={billingClientName}
+                onChange={(e) => setFormData({ ...formData, billingClientName: e.target.value })}
+                placeholder={invoice.billingClient.name || ''}
+                className="text-xl font-medium text-gray-900 border-b-2 border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none bg-transparent"
+                style={{ minWidth: '300px' }}
               />
+              <span className="text-xl font-medium text-gray-900 ml-2">御中</span>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                請求先企業
-              </label>
-              <input
-                type="text"
-                value={invoice.billingClient.name}
-                readOnly
-                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-900"
-              />
-            </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              件名
-            </label>
-            <input
-              type="text"
-              value={formData.subject}
-              onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-            />
-          </div>
+            {/* 「下記の通りご請求致しますのでご査収下さい。」 */}
+            <p className="text-base mb-6 text-gray-900">下記の通りご請求致しますのでご査収下さい。</p>
 
-          {/* 請求期間 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                請求期間開始
-              </label>
-              <input
-                type="date"
-                value={formData.periodStart}
-                onChange={(e) => setFormData({ ...formData, periodStart: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-              />
+            {/* 「ご請求金額」+ 大きな金額表示 */}
+            <div className="mb-8">
+              <p className="text-base text-gray-900 mb-2">ご請求金額</p>
+              <p className="text-3xl font-bold text-gray-900">¥{totalAmount.toLocaleString()}</p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                請求期間終了
-              </label>
-              <input
-                type="date"
-                value={formData.periodEnd}
-                onChange={(e) => setFormData({ ...formData, periodEnd: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-              />
-            </div>
-          </div>
 
-          {/* 代金決済条件・お支払い期日 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                代金決済条件
-              </label>
-              <input
-                type="text"
-                value={formData.paymentTerms}
-                onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-              />
+            {/* 件名、代金決済条件、お支払い期日 */}
+            <div className="mb-6 space-y-2 text-sm text-gray-900">
+              <div className="flex">
+                <span className="w-24 font-medium">件名</span>
+                <input
+                  type="text"
+                  value={formData.subject}
+                  onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                  className="flex-1 border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none bg-transparent"
+                />
+              </div>
+              <div className="flex">
+                <span className="w-24 font-medium">代金決済条件</span>
+                <input
+                  type="text"
+                  value={formData.paymentTerms}
+                  onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
+                  className="flex-1 border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none bg-transparent"
+                />
+              </div>
+              <div className="flex">
+                <span className="w-24 font-medium">お支払い期日</span>
+                <input
+                  type="date"
+                  value={formData.dueDate}
+                  onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                  className="flex-1 border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none bg-transparent"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                お支払い期日
-              </label>
-              <input
-                type="date"
-                value={formData.dueDate}
-                onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-              />
-            </div>
-          </div>
 
-          {/* 請求明細 */}
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">請求明細</h2>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 border border-gray-300">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-r border-gray-300">
-                      従業員名
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-r border-gray-300">
-                      勤務日数
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-r border-gray-300">
-                      基本単価
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-r border-gray-300">
-                      基本金額
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-r border-gray-300">
-                      残業時間
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-r border-gray-300">
-                      残業金額
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-r border-gray-300">
-                      欠勤日数
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-r border-gray-300">
-                      欠勤減算
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-r border-gray-300">
-                      遅刻・早退減算
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-r border-gray-300">
-                      小計
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      備考
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {details.map((detail, index) => (
-                    <tr key={detail.id}>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 border-r border-gray-300">
-                        {detail.employee.name}
-                        <span className="text-xs text-gray-500 ml-1">
-                          ({detail.employee.employeeNumber})
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap border-r border-gray-300">
-                        <input
-                          type="number"
-                          value={detail.workDays}
-                          onChange={(e) => handleDetailChange(index, 'workDays', e.target.value)}
-                          min="0"
-                          className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
-                        />
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap border-r border-gray-300">
-                        <input
-                          type="number"
-                          value={detail.basicRate}
-                          onChange={(e) => handleDetailChange(index, 'basicRate', e.target.value)}
-                          min="0"
-                          className="w-24 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
-                        />
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 border-r border-gray-300">
-                        <input
-                          type="number"
-                          value={detail.basicAmount}
-                          onChange={(e) => handleDetailChange(index, 'basicAmount', e.target.value)}
-                          min="0"
-                          className="w-28 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
-                        />
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap border-r border-gray-300">
-                        <input
-                          type="number"
-                          value={detail.overtimeHours || 0}
-                          onChange={(e) => handleDetailChange(index, 'overtimeHours', e.target.value)}
-                          min="0"
-                          step="0.1"
-                          disabled={!detail.overtimeRate}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white disabled:bg-gray-50"
-                        />
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 border-r border-gray-300">
-                        <input
-                          type="number"
-                          value={detail.overtimeAmount || 0}
-                          onChange={(e) => handleDetailChange(index, 'overtimeAmount', e.target.value)}
-                          min="0"
-                          className="w-28 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
-                        />
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap border-r border-gray-300">
-                        <input
-                          type="number"
-                          value={detail.absenceDays || 0}
-                          onChange={(e) => handleDetailChange(index, 'absenceDays', e.target.value)}
-                          min="0"
-                          className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
-                        />
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 border-r border-gray-300">
-                        <input
-                          type="number"
-                          value={detail.absenceDeduction || 0}
-                          onChange={(e) => handleDetailChange(index, 'absenceDeduction', e.target.value)}
-                          min="0"
-                          className="w-28 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
-                        />
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 border-r border-gray-300">
-                        <input
-                          type="number"
-                          value={detail.lateEarlyDeduction || 0}
-                          onChange={(e) => handleDetailChange(index, 'lateEarlyDeduction', e.target.value)}
-                          min="0"
-                          className="w-28 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white"
-                        />
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-300">
-                        {detail.subtotal.toLocaleString()}円
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        <textarea
-                          value={detail.notes || ''}
-                          onChange={(e) => handleDetailChange(index, 'notes', e.target.value)}
-                          placeholder="備考を入力"
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 bg-white min-h-[60px]"
-                          rows={2}
-                        />
-                      </td>
+            {/* 請求番号と適格番号 */}
+            <div className="mb-4 text-xs text-gray-600 flex justify-between">
+              <span>請求番号: {invoice.invoiceNumber}</span>
+              {invoice.company.taxId && <span>適格番号: {invoice.company.taxId}</span>}
+            </div>
+
+            {/* 請求期間 */}
+            <div className="mb-4 text-xs text-gray-600">
+              <span>請求期間: {formatDate(formData.periodStart)} ～ {formatDate(formData.periodEnd)}</span>
+            </div>
+
+            {/* 明細テーブル（費目、単価、数量、金額、適用税率、補足） */}
+            <div className="mb-6">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse border border-gray-300 text-sm">
+                  <thead>
+                    <tr className="bg-blue-600 text-white">
+                      <th className="border border-gray-300 px-2 py-2 text-left">費目</th>
+                      <th className="border border-gray-300 px-2 py-2 text-right">単価(税抜)</th>
+                      <th className="border border-gray-300 px-2 py-2 text-center">数量</th>
+                      <th className="border border-gray-300 px-2 py-2 text-right">金額(税抜)</th>
+                      <th className="border border-gray-300 px-2 py-2 text-center">適用税率</th>
+                      <th className="border border-gray-300 px-2 py-2 text-left">補足</th>
+                      <th className="border border-gray-300 px-2 py-2 w-16"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                  </thead>
+                  <tbody>
+                    {invoiceItems.map((item, itemIndex) => (
+                      <tr key={item.id} className="hover:bg-gray-50">
+                        <td className="border border-gray-300 px-2 py-2">
+                          {item.type === 'manual' ? (
+                            <input
+                              type="text"
+                              value={item.itemName}
+                              onChange={(e) => {
+                                const detail = details[item.detailIndex]
+                                handleDetailChange(item.detailIndex, 'itemName', e.target.value)
+                              }}
+                              className="w-full border-none focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent text-gray-900"
+                              placeholder="費目名を入力"
+                            />
+                          ) : (
+                            <span className="text-gray-900">{item.itemName}</span>
+                          )}
+                        </td>
+                        <td className="border border-gray-300 px-2 py-2 text-right">
+                          {item.type === 'manual' || item.type === 'basic' ? (
+                            <input
+                              type="number"
+                              value={item.unitPrice}
+                              onChange={(e) => {
+                                const detail = details[item.detailIndex]
+                                if (item.type === 'manual') {
+                                  handleDetailChange(item.detailIndex, 'basicRate', e.target.value)
+                                } else {
+                                  handleDetailChange(item.detailIndex, 'basicRate', e.target.value)
+                                }
+                              }}
+                              className="w-full border-none focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent text-right text-gray-900"
+                              min="0"
+                            />
+                          ) : (
+                            <span className="text-gray-900">-</span>
+                          )}
+                        </td>
+                        <td className="border border-gray-300 px-2 py-2 text-center">
+                          {item.type === 'manual' || item.type === 'basic' ? (
+                            <input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const detail = details[item.detailIndex]
+                                if (item.type === 'manual') {
+                                  handleDetailChange(item.detailIndex, 'workDays', e.target.value)
+                                }
+                              }}
+                              className="w-full border-none focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent text-center text-gray-900"
+                              min="0"
+                            />
+                          ) : (
+                            <span className="text-gray-900">-</span>
+                          )}
+                        </td>
+                        <td className="border border-gray-300 px-2 py-2 text-right">
+                          {item.amount < 0 ? (
+                            <span className="text-red-600">{item.amount.toLocaleString()}</span>
+                          ) : (
+                            <input
+                              type="number"
+                              value={Math.abs(item.amount)}
+                              onChange={(e) => {
+                                const detail = details[item.detailIndex]
+                                if (item.type === 'manual') {
+                                  handleDetailChange(item.detailIndex, 'basicAmount', e.target.value)
+                                } else if (item.type === 'basic') {
+                                  // 基本金額を変更する場合は、basicAmountとovertimeAmountの合計を調整
+                                  const newAmount = parseInt(e.target.value) || 0
+                                  const currentOvertime = detail.overtimeAmount || 0
+                                  handleDetailChange(item.detailIndex, 'basicAmount', newAmount - currentOvertime)
+                                }
+                              }}
+                              className="w-full border-none focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent text-right text-gray-900"
+                              min="0"
+                            />
+                          )}
+                        </td>
+                        <td className="border border-gray-300 px-2 py-2 text-center text-gray-900">
+                          {item.taxRate}%
+                        </td>
+                        <td className="border border-gray-300 px-2 py-2">
+                          <input
+                            type="text"
+                            value={item.note}
+                            onChange={(e) => {
+                              const detail = details[item.detailIndex]
+                              handleDetailChange(item.detailIndex, 'notes', e.target.value)
+                            }}
+                            className="w-full border-none focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent text-gray-900"
+                            placeholder="補足を入力"
+                          />
+                        </td>
+                        <td className="border border-gray-300 px-2 py-2 text-center">
+                          {item.type === 'manual' && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteItem(item.detailIndex)}
+                              className="text-red-600 hover:text-red-800 text-xs"
+                            >
+                              削除
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {/* 小計行 */}
+                    <tr className="bg-gray-100 font-medium">
+                      <td colSpan={3} className="border border-gray-300 px-2 py-2 text-right text-gray-900">
+                        {Math.round((invoice.billingClient.taxRate || 0.1) * 100)}%対象小計
+                      </td>
+                      <td className="border border-gray-300 px-2 py-2 text-right text-gray-900">
+                        {subtotal.toLocaleString()}
+                      </td>
+                      <td colSpan={3} className="border border-gray-300"></td>
+                    </tr>
+                    {/* 調整金額 */}
+                    <tr className="hover:bg-gray-50">
+                      <td colSpan={3} className="border border-gray-300 px-2 py-2 text-gray-900">
+                        調整金額
+                      </td>
+                      <td className="border border-gray-300 px-2 py-2 text-right">
+                        <input
+                          type="number"
+                          value={formData.adjustmentAmount}
+                          onChange={(e) => setFormData({ ...formData, adjustmentAmount: e.target.value })}
+                          className="w-full border-none focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent text-right text-gray-900"
+                        />
+                      </td>
+                      <td colSpan={3} className="border border-gray-300"></td>
+                    </tr>
+                    {/* 交通費 */}
+                    <tr className="hover:bg-gray-50">
+                      <td colSpan={3} className="border border-gray-300 px-2 py-2 text-gray-900">
+                        交通費
+                      </td>
+                      <td className="border border-gray-300 px-2 py-2 text-right">
+                        <input
+                          type="number"
+                          value={formData.transportationCost}
+                          onChange={(e) => setFormData({ ...formData, transportationCost: e.target.value })}
+                          min="0"
+                          className="w-full border-none focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent text-right text-gray-900"
+                        />
+                      </td>
+                      <td colSpan={3} className="border border-gray-300"></td>
+                    </tr>
+                    {/* 消費税 */}
+                    <tr>
+                      <td colSpan={3} className="border border-gray-300 px-2 py-2 text-gray-900">
+                        消費税({Math.round((invoice.billingClient.taxRate || 0.1) * 100)}%対象)
+                      </td>
+                      <td className="border border-gray-300 px-2 py-2 text-right text-gray-900">
+                        {taxAmount.toLocaleString()}
+                      </td>
+                      <td colSpan={3} className="border border-gray-300"></td>
+                    </tr>
+                    {/* 合計金額 */}
+                    <tr className="bg-gray-200 font-bold">
+                      <td colSpan={3} className="border border-gray-300 px-2 py-2 text-gray-900">
+                        合計金額
+                      </td>
+                      <td className="border border-gray-300 px-2 py-2 text-right text-gray-900">
+                        {totalAmount.toLocaleString()}
+                      </td>
+                      <td colSpan={3} className="border border-gray-300"></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
-          {/* 交通費・調整金額 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                交通費
-              </label>
-              <input
-                type="number"
-                value={formData.transportationCost}
-                onChange={(e) => setFormData({ ...formData, transportationCost: e.target.value })}
-                min="0"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-              />
+              {/* 費目追加ボタン */}
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={handleAddManualItem}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium text-sm"
+                >
+                  + 費目を追加
+                </button>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                調整金額
-              </label>
-              <input
-                type="number"
-                value={formData.adjustmentAmount}
-                onChange={(e) => setFormData({ ...formData, adjustmentAmount: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-              />
-            </div>
-          </div>
 
-          {/* 合計金額 */}
-          <div className="bg-gray-50 p-4 rounded-md border border-gray-300">
-            <div className="flex justify-end">
-              <div className="w-64 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-700">小計（税抜）:</span>
-                  <span className="text-gray-900 font-medium">{subtotal.toLocaleString()}円</span>
+            {/* 交通費・調整金額入力（非表示、テーブル内で表示） */}
+            <div className="hidden">
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">交通費</label>
+                  <input
+                    type="number"
+                    value={formData.transportationCost}
+                    onChange={(e) => setFormData({ ...formData, transportationCost: e.target.value })}
+                    min="0"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-700">消費税（{Math.round((invoice.billingClient.taxRate || 0.1) * 100)}%）:</span>
-                  <span className="text-gray-900 font-medium">{taxAmount.toLocaleString()}円</span>
-                </div>
-                <div className="flex justify-between text-lg font-bold border-t border-gray-300 pt-2">
-                  <span className="text-gray-900">合計（税込）:</span>
-                  <span className="text-gray-900">{totalAmount.toLocaleString()}円</span>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">調整金額</label>
+                  <input
+                    type="number"
+                    value={formData.adjustmentAmount}
+                    onChange={(e) => setFormData({ ...formData, adjustmentAmount: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* ステータス表示 */}
-          <div className="pt-4 border-t">
+          {/* ステータス表示と操作ボタン */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <div className="flex items-center gap-2 mb-4">
               <span className="text-sm font-medium text-gray-700">ステータス:</span>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -859,48 +1076,42 @@ export default function EditInvoicePage() {
                  '支払済み'}
               </span>
             </div>
-          </div>
 
-          {/* 送信ボタン */}
-          <div className="flex gap-4 pt-4 border-t">
-            <button
-              type="submit"
-              disabled={saving || invoice.status !== 'draft'}
-              className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? '保存中...' : '保存'}
-            </button>
-            {invoice.status === 'draft' && (
+            {/* 操作ボタン */}
+            <div className="flex gap-4 flex-wrap">
+              <button
+                type="submit"
+                disabled={saving || invoice.status !== 'draft'}
+                className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? '保存中...' : '保存'}
+              </button>
+              {invoice.status === 'draft' && (
+                <button
+                  type="button"
+                  onClick={handleIssue}
+                  disabled={issuing}
+                  className="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {issuing ? '発行中...' : '発行する'}
+                </button>
+              )}
               <button
                 type="button"
-                onClick={handleIssue}
-                disabled={issuing}
-                className="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handlePreviewPDF}
+                className="px-6 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 font-medium"
               >
-                {issuing ? '発行中...' : '発行する'}
+                PDFプレビュー
               </button>
-            )}
-            <button
-              type="button"
-              onClick={handlePreviewPDF}
-              className="px-6 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 font-medium"
-            >
-              PDFプレビュー
-            </button>
-            <button
-              type="button"
-              onClick={handleDownloadPDF}
-              disabled={downloading}
-              className="px-6 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {downloading ? 'ダウンロード中...' : 'PDFダウンロード'}
-            </button>
-            <Link
-              href="/admin/invoices"
-              className="px-6 py-2 bg-gray-200 text-gray-900 rounded-md hover:bg-gray-300 font-medium"
-            >
-              一覧に戻る
-            </Link>
+              <button
+                type="button"
+                onClick={handleDownloadPDF}
+                disabled={downloading}
+                className="px-6 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {downloading ? 'ダウンロード中...' : 'PDFダウンロード'}
+              </button>
+            </div>
           </div>
         </form>
       </div>

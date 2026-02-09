@@ -131,6 +131,11 @@ export default function InvoicesPage() {
         method: 'DELETE',
       })
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+
       const data = await response.json()
       if (data.success) {
         fetchInvoices()
@@ -138,9 +143,9 @@ export default function InvoicesPage() {
       } else {
         alert(data.error || '請求書の削除に失敗しました')
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to delete invoice:', err)
-      alert('請求書の削除に失敗しました')
+      alert(`請求書の削除に失敗しました: ${err?.message || String(err)}`)
     }
   }
 

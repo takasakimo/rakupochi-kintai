@@ -39,13 +39,54 @@ export async function GET(
 
     const invoiceId = parseInt(params.id)
 
+    // billingClientNameカラムが存在しない可能性があるため、selectで必要なフィールドのみを取得
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: invoiceId,
         companyId: effectiveCompanyId,
       },
-      include: {
-        billingClient: true,
+      select: {
+        id: true,
+        invoiceNumber: true,
+        subject: true,
+        periodStart: true,
+        periodEnd: true,
+        paymentTerms: true,
+        dueDate: true,
+        subtotal: true,
+        taxAmount: true,
+        totalAmount: true,
+        transportationCost: true,
+        adjustmentAmount: true,
+        billingClientName: true,
+        status: true,
+        issuedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        company: {
+          select: {
+            id: true,
+            name: true,
+            taxId: true,
+            invoiceItemNameTemplate: true,
+          },
+        },
+        billingClient: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            phone: true,
+            fax: true,
+            contactPerson: true,
+            code: true,
+            taxRate: true,
+            bankName: true,
+            bankBranch: true,
+            accountNumber: true,
+            accountHolder: true,
+          },
+        },
         details: {
           include: {
             employee: {
@@ -53,6 +94,8 @@ export async function GET(
                 id: true,
                 name: true,
                 employeeNumber: true,
+                workLocation: true,
+                invoiceItemName: true,
               },
             },
           },
@@ -113,10 +156,17 @@ export async function PATCH(
     const body = await request.json()
 
     // 請求書が存在し、この企業に紐づいているか確認
+    // billingClientNameカラムが存在しない可能性があるため、selectで必要なフィールドのみを取得
     const existingInvoice = await prisma.invoice.findFirst({
       where: {
         id: invoiceId,
         companyId: effectiveCompanyId,
+      },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        status: true,
+        issuedAt: true,
       },
     })
 
@@ -153,6 +203,7 @@ export async function PATCH(
     if (body.totalAmount !== undefined) updateData.totalAmount = parseInt(body.totalAmount)
     if (body.transportationCost !== undefined) updateData.transportationCost = parseInt(body.transportationCost) || 0
     if (body.adjustmentAmount !== undefined) updateData.adjustmentAmount = parseInt(body.adjustmentAmount) || 0
+    if (body.billingClientName !== undefined) updateData.billingClientName = body.billingClientName || null
     if (body.status !== undefined) {
       updateData.status = body.status
       // 発行済みに変更する場合は発行日を設定
@@ -189,7 +240,8 @@ export async function PATCH(
       // 新しい明細を作成
       updateData.details = {
         create: body.details.map((detail: any) => ({
-          employeeId: detail.employeeId,
+          employeeId: detail.employeeId || null,
+          itemName: detail.itemName || null,
           workDays: detail.workDays || 0,
           basicRate: detail.basicRate || 0,
           basicAmount: detail.basicAmount || 0,
@@ -206,10 +258,28 @@ export async function PATCH(
     }
 
     // 請求書を更新
+    // billingClientNameカラムが存在しない可能性があるため、selectで必要なフィールドのみを取得
     const invoice = await prisma.invoice.update({
       where: { id: invoiceId },
       data: updateData,
-      include: {
+      select: {
+        id: true,
+        invoiceNumber: true,
+        subject: true,
+        periodStart: true,
+        periodEnd: true,
+        paymentTerms: true,
+        dueDate: true,
+        subtotal: true,
+        taxAmount: true,
+        totalAmount: true,
+        transportationCost: true,
+        adjustmentAmount: true,
+        billingClientName: true,
+        status: true,
+        issuedAt: true,
+        createdAt: true,
+        updatedAt: true,
         billingClient: {
           select: {
             id: true,
@@ -224,6 +294,8 @@ export async function PATCH(
                 id: true,
                 name: true,
                 employeeNumber: true,
+                workLocation: true,
+                invoiceItemName: true,
               },
             },
           },
@@ -282,10 +354,16 @@ export async function DELETE(
     const invoiceId = parseInt(params.id)
 
     // 請求書が存在し、この企業に紐づいているか確認
+    // billingClientNameカラムが存在しない可能性があるため、selectで必要なフィールドのみを取得
     const existingInvoice = await prisma.invoice.findFirst({
       where: {
         id: invoiceId,
         companyId: effectiveCompanyId,
+      },
+      select: {
+        id: true,
+        companyId: true,
+        billingClientId: true,
       },
     })
 
@@ -302,10 +380,10 @@ export async function DELETE(
     })
 
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to delete invoice:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error?.message || String(error) },
       { status: 500 }
     )
   }

@@ -375,6 +375,7 @@ model Invoice {
   totalAmount     Int       // 合計金額（税込）
   transportationCost Int?   @default(0) // 交通費
   adjustmentAmount Int?     @default(0) // 調整金額
+  billingClientName String? // 請求先企業名（編集可能、便宜上名前を変える場合に使用）
   status          String    @default("draft") // draft, issued, billed, paid
   issuedAt        DateTime? // 発行日
   createdAt       DateTime  @default(now())
@@ -395,7 +396,8 @@ model Invoice {
 model InvoiceDetail {
   id              Int       @id @default(autoincrement())
   invoiceId       Int
-  employeeId      Int
+  employeeId      Int?      // 従業員ID（手動追加の費目項目の場合はnull）
+  itemName        String?   // 費目名（手動追加の費目項目の場合に使用）
   workDays        Int       // 勤務日数
   basicRate       Int       // 基本単価
   basicAmount     Int       // 基本金額
@@ -409,7 +411,7 @@ model InvoiceDetail {
   notes           String?   // 備考（減算が発生した日付など）
   
   invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  employee        Employee  @relation(fields: [employeeId], references: [id])
+  employee        Employee? @relation(fields: [employeeId], references: [id])
   
   @@index([invoiceId])
   @@index([employeeId])

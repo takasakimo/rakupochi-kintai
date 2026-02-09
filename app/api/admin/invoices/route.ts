@@ -52,7 +52,19 @@ export async function GET(request: NextRequest) {
 
     const invoices = await prisma.invoice.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        invoiceNumber: true,
+        subject: true,
+        periodStart: true,
+        periodEnd: true,
+        dueDate: true,
+        subtotal: true,
+        taxAmount: true,
+        totalAmount: true,
+        status: true,
+        issuedAt: true,
+        createdAt: true,
         billingClient: {
           select: {
             id: true,
@@ -71,10 +83,10 @@ export async function GET(request: NextRequest) {
     })
 
     return NextResponse.json({ invoices })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to fetch invoices:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error?.message || String(error) },
       { status: 500 }
     )
   }

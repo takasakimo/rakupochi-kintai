@@ -44,12 +44,29 @@ export async function GET(
     const invoiceId = parseInt(params.id)
 
     // 請求書データを取得
+    // billingClientNameカラムが存在しない可能性があるため、selectで必要なフィールドのみを取得
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: invoiceId,
         companyId: effectiveCompanyId,
       },
-      include: {
+      select: {
+        id: true,
+        invoiceNumber: true,
+        subject: true,
+        periodStart: true,
+        periodEnd: true,
+        paymentTerms: true,
+        dueDate: true,
+        subtotal: true,
+        taxAmount: true,
+        totalAmount: true,
+        transportationCost: true,
+        adjustmentAmount: true,
+        billingClientName: true,
+        status: true,
+        issuedAt: true,
+        createdAt: true,
         company: {
           select: {
             id: true,
@@ -93,6 +110,7 @@ export async function GET(
                 invoiceItemName: true,
                 billingRate: true,
                 billingRateType: true,
+                baseWorkDays: true,
               },
             },
           },
@@ -213,11 +231,15 @@ export async function GET(
     doc.text('請求書', 105, yPos, { align: 'center' })
     yPos += 15
 
-    // 「御中」+ 請求先企業名
+    // 請求先企業名 + 「御中」
+    // billingClientNameが設定されている場合はそれを使用、なければbillingClient.nameを使用
+    const billingClientName = invoice.billingClientName || invoice.billingClient.name || ''
     doc.setFontSize(12)
     doc.setFont(fontName, 'normal')
-    doc.text('御中', 20, yPos)
-    doc.text(invoice.billingClient.name || '', 35, yPos)
+    // 企業名の幅を計算して「御中」を配置
+    const nameWidth = doc.getTextWidth(billingClientName)
+    doc.text(billingClientName, 20, yPos)
+    doc.text('御中', 20 + nameWidth + 5, yPos) // 企業名の後に5mmの間隔を空けて「御中」を配置
     yPos += 10
 
     // 「下記の通りご請求致しますのでご査収下さい。」
@@ -233,28 +255,28 @@ export async function GET(
     doc.text(formatAmount(invoice.totalAmount), 20, yPos + 8)
     yPos += 20
 
-    // 件名、代金決済条件、お支払い期日（リスト形式）
-    doc.setFontSize(10)
+    // 件名、代金決済条件、お支払い期日（リスト形式、1枚に収めるため間隔を縮小）
+    doc.setFontSize(9)
     doc.setFont(fontName, 'normal')
     doc.text(`件名`, 20, yPos)
     doc.text(invoice.subject, 50, yPos)
-    yPos += 8
+    yPos += 6
     
     doc.text(`代金決済条件`, 20, yPos)
     doc.text(invoice.paymentTerms, 50, yPos)
-    yPos += 8
+    yPos += 6
     
     doc.text(`お支払い期日`, 20, yPos)
     doc.text(formatDate(invoice.dueDate), 50, yPos)
-    yPos += 12
+    yPos += 10
 
-    // 請求番号と適格番号
-    doc.setFontSize(9)
+    // 請求番号と適格番号（1枚に収めるため間隔を縮小）
+    doc.setFontSize(8)
     doc.text(`請求番号: ${invoice.invoiceNumber}`, 20, yPos)
     if (invoice.company.taxId) {
       doc.text(`適格番号: ${invoice.company.taxId}`, 120, yPos)
     }
-    yPos += 10
+    yPos += 8
 
     // 明細テーブル（費目、単価(税抜)、数量、金額(税抜)、適用税率、補足）
     // 従業員ごとに基本請求金額、遅刻早退減算、欠勤減算を別行で表示
@@ -265,31 +287,42 @@ export async function GET(
     const taxRate = Math.round((invoice.billingClient.taxRate || 0.1) * 100)
     
     invoice.details.forEach((detail) => {
-      // 従業員名と店舗情報を補足に含める
-      const employeeNote = detail.employee.workLocation 
-        ? `${detail.employee.workLocation} ${detail.employee.name}`
-        : detail.employee.name
-      
-      // 費目を決定（従業員の設定 > テンプレート）
+      // 費目を決定（手動追加の費目項目 > 従業員の設定 > テンプレート）
       let itemName: string
-      if (detail.employee.invoiceItemName) {
-        // 従業員に設定された費目を使用
-        itemName = detail.employee.invoiceItemName
+      if (detail.itemName) {
+        // 手動で追加された費目名を使用
+        itemName = detail.itemName
+      } else if (detail.employee) {
+        // 従業員の設定から取得
+        if (detail.employee.invoiceItemName) {
+          itemName = detail.employee.invoiceItemName
+        } else {
+          // テンプレートから生成
+          itemName = itemNameTemplate.replace(/{employeeName}/g, detail.employee.name)
+        }
       } else {
-        // テンプレートから生成
-        itemName = itemNameTemplate.replace(/{employeeName}/g, detail.employee.name)
+        // 従業員がnullの場合は費目名が必須
+        itemName = detail.itemName || '未設定'
       }
       
-      // 基本請求金額行を追加（減算前の基本金額 + 残業金額）
-      // basicAmountは減算後の金額なので、減算額を加算して減算前の基本金額を計算
-      const basicAmountBeforeDeduction = detail.basicAmount + (detail.absenceDeduction || 0) + (detail.lateEarlyDeduction || 0)
-      // 基本請求金額 = 基本金額（減算前）+ 残業金額
-      const basicInvoiceAmount = basicAmountBeforeDeduction + (detail.overtimeAmount || 0)
+      // 従業員名と店舗情報を補足に含める
+      const employeeNote = detail.employee 
+        ? (detail.employee.workLocation 
+          ? `${detail.employee.workLocation} ${detail.employee.name}`
+          : detail.employee.name)
+        : detail.notes || ''
+      
+      // 基本請求金額行を追加（基本単価 × 勤務日数 + 残業金額）
+      // 基本請求金額は減算前の金額で、basicAmount + overtimeAmountとして計算
+      // basicAmountは既に請求単価タイプに応じて正しく計算されているため、そのまま使用
+      // 減算額（absenceDeduction, lateEarlyDeduction）は別行で表示するため、ここでは加算しない
+      const basicInvoiceAmount = detail.basicAmount + (detail.overtimeAmount || 0)
+      
       tableData.push([
         itemName, // 費目
         formatAmountNoSymbol(detail.basicRate), // 単価(税抜)
         '1', // 数量
-        formatAmountNoSymbol(basicInvoiceAmount), // 金額(税抜) - 基本金額（減算前）+ 残業金額
+        formatAmountNoSymbol(basicInvoiceAmount), // 金額(税抜) - 基本単価 × 勤務日数 + 残業金額
         `${taxRate}%`, // 適用税率
         employeeNote, // 補足（従業員情報）
       ])
@@ -351,7 +384,7 @@ export async function GET(
       '',
     ])
 
-    // 調整金額がある場合は追加
+    // 調整金額がある場合のみ追加（使われていない場合は行を追加しない）
     if (invoice.adjustmentAmount && invoice.adjustmentAmount !== 0) {
       tableData.push([
         '調整金額',
@@ -361,33 +394,15 @@ export async function GET(
         '',
         '',
       ])
-    } else {
-      tableData.push([
-        '調整金額',
-        '',
-        '',
-        '',
-        '',
-        '',
-      ])
     }
 
-    // 交通費がある場合は追加
+    // 交通費がある場合のみ追加（使われていない場合は行を追加しない）
     if (invoice.transportationCost && invoice.transportationCost > 0) {
       tableData.push([
         '交通費',
         '',
         '',
         formatAmountNoSymbol(invoice.transportationCost),
-        '',
-        '',
-      ])
-    } else {
-      tableData.push([
-        '交通費',
-        '',
-        '',
-        '',
         '',
         '',
       ])
@@ -403,15 +418,7 @@ export async function GET(
       '',
     ])
 
-    // 8%対象の消費税は0なので空行
-    tableData.push([
-      '消費税(8%対象)',
-      '',
-      '',
-      '',
-      '',
-      '',
-    ])
+    // 8%対象の消費税は0なので行を追加しない（使われていない場合は行を追加しない）
 
     // 合計金額行を追加
     tableData.push([
@@ -423,39 +430,7 @@ export async function GET(
       '',
     ])
 
-    // 空行を動的に追加（1枚に収まるように調整）
-    // 現在の総行数（明細行 + 固定行）
-    const totalRows = tableData.length
-    
-    // A4サイズの高さ（297mm）から、上部の余白と下部の余白を考慮
-    const pageHeight = 297
-    const topMargin = yPos // テーブル開始位置
-    const bottomMargin = 55 // 下部の余白（振込先情報など）- 少し小さく
-    const availableHeight = pageHeight - topMargin - bottomMargin
-    
-    // 1行あたりの高さを推定（フォントサイズ8、セルパディング1を考慮）
-    const estimatedRowHeight = 4.5 // mm（フォント8pt + パディング1mm）
-    const headerHeight = 6 // ヘッダー行の高さ
-    const estimatedTableHeight = headerHeight + (totalRows * estimatedRowHeight)
-    
-    // 空行の数を動的に計算（より保守的に）
-    let emptyRows = 0
-    if (estimatedTableHeight < availableHeight - 10) { // 10mmの余裕を持たせる
-      // テーブルが1枚に収まる場合、空行を追加して見た目を整える
-      const maxRows = Math.floor((availableHeight - headerHeight - 10) / estimatedRowHeight)
-      emptyRows = Math.max(0, maxRows - totalRows)
-      // ただし、空行は最大8行まで（余裕を持たせすぎない）
-      emptyRows = Math.min(emptyRows, 8)
-    } else {
-      // テーブルが1枚に収まらない場合、空行は追加しない
-      emptyRows = 0
-    }
-    
-    // 空行を固定行の前に挿入（小計行の前、明細行の後）
-    const insertIndex = detailRowCount // 明細行の後、固定行の前
-    for (let i = 0; i < emptyRows; i++) {
-      tableData.splice(insertIndex, 0, ['', '', '', '', '', ''])
-    }
+    // 空行は追加しない（1枚に収まるように調整するため）
 
     // autoTableでも日本語フォントを使用
     const currentFont = japaneseFontLoaded ? 'NotoSansJP' : 'helvetica'
@@ -471,21 +446,24 @@ export async function GET(
       theme: 'grid',
       styles: {
         font: currentFont,
-        fontSize: 8, // フォントサイズを8ptに縮小
+        fontSize: 7, // フォントサイズを7ptに縮小（1枚に収めるため）
         overflow: 'linebreak', // セル内の改行を有効にする
-        cellPadding: 1, // セルのパディングを1mmに縮小
+        cellPadding: 0.5, // セルのパディングを0.5mmに縮小（1枚に収めるため）
+        lineWidth: 0.1, // 線の太さを細くする
       },
       headStyles: {
         fillColor: [66, 139, 202],
         textColor: 255,
         fontStyle: 'normal', // boldフォントがない場合はnormalを使用
-        fontSize: 8, // フォントサイズを8ptに縮小
+        fontSize: 7, // フォントサイズを7ptに縮小（1枚に収めるため）
         font: currentFont,
+        cellPadding: 0.5, // セルのパディングを0.5mmに縮小
       },
       bodyStyles: {
-        fontSize: 8, // フォントサイズを8ptに縮小
+        fontSize: 7, // フォントサイズを7ptに縮小（1枚に収めるため）
         font: currentFont,
         overflow: 'linebreak', // セル内の改行を有効にする
+        cellPadding: 0.5, // セルのパディングを0.5mmに縮小
       },
       columnStyles: {
         0: { cellWidth: 50, valign: 'top' }, // 費目（上揃え）
@@ -508,11 +486,14 @@ export async function GET(
           const text = Array.isArray(data.cell.text) ? data.cell.text.join('\n') : data.cell.text
           const lines = text.split('\n').length
           if (lines > 1) {
-            // 複数行の場合はセルの高さを調整
-            data.cell.styles.minCellHeight = lines * 4 // 1行あたり4mm（小さく）
+            // 複数行の場合はセルの高さを調整（1枚に収めるため小さく）
+            data.cell.styles.minCellHeight = lines * 3.5 // 1行あたり3.5mm（小さく）
           }
         }
       },
+      // ページ分割を防ぐ設定
+      pageBreak: 'avoid',
+      tableWidth: 'wrap',
     })
     
     // ページ分割が検出された場合、空行を減らして再生成（簡易的な対応）
@@ -520,61 +501,61 @@ export async function GET(
 
     // 合計金額の行を強調
     const finalY = (doc as any).lastAutoTable?.finalY || yPos + 50
-    yPos = finalY + 15
+    yPos = finalY + 10 // 間隔を縮小（1枚に収めるため）
 
-    // 振込先情報の説明
-    doc.setFontSize(9)
+    // 振込先情報の説明（1枚に収めるためフォントサイズと間隔を縮小）
+    doc.setFontSize(8)
     doc.setFont(fontName, 'normal')
     doc.text('※お手数ですが、お支払いは下記の銀行口座へお振込みくださいます様、お願い申し上げます。', 20, yPos)
-    yPos += 8
+    yPos += 6
 
     // 振込先情報（請求元企業のCompanyから取得）
-    doc.setFontSize(10)
+    doc.setFontSize(9)
     doc.setFont(fontName, 'normal') // boldフォントがない場合はnormalを使用
     doc.text('お振込み先', 20, yPos)
-    yPos += 8
+    yPos += 6
     
-    doc.setFontSize(9)
+    doc.setFontSize(8)
     doc.setFont(fontName, 'normal')
     
     // 振込先情報は請求元企業（Company）から取得
     const bankInfo = invoice.company
     if (bankInfo.bankName) {
       doc.text(bankInfo.bankName, 20, yPos)
-      yPos += 5
+      yPos += 4
     }
     if (bankInfo.bankBranch) {
       doc.text(bankInfo.bankBranch, 20, yPos)
-      yPos += 5
+      yPos += 4
     }
     if (bankInfo.accountNumber) {
       doc.text(bankInfo.accountNumber, 20, yPos)
-      yPos += 5
+      yPos += 4
     }
     if (bankInfo.accountHolder) {
       doc.text(bankInfo.accountHolder, 20, yPos)
-      yPos += 5
+      yPos += 4
     }
 
-    // 請求元企業情報（下部）
-    yPos += 10
-    doc.setFontSize(9)
+    // 請求元企業情報（下部、1枚に収めるため間隔を縮小）
+    yPos += 6
+    doc.setFontSize(8)
     doc.setFont(fontName, 'normal')
     if (invoice.company.name) {
       doc.text(invoice.company.name, 20, yPos)
-      yPos += 5
+      yPos += 4
     }
     if (invoice.company.address) {
       doc.text(invoice.company.address, 20, yPos)
-      yPos += 5
+      yPos += 4
     }
     if (invoice.company.phone) {
       doc.text(`TEL: ${invoice.company.phone}`, 20, yPos)
-      yPos += 5
+      yPos += 4
     }
     if (invoice.company.email) {
       doc.text(`Email: ${invoice.company.email}`, 20, yPos)
-      yPos += 5
+      yPos += 4
     }
     if (invoice.company.issuerName) {
       doc.text(`担当: ${invoice.company.issuerName}`, 20, yPos)
