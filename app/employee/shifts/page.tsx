@@ -93,7 +93,7 @@ export default function ShiftManagePage() {
   const [shiftRows, setShiftRows] = useState<ShiftRow[]>([])
   const [defaultWorkHours, setDefaultWorkHours] = useState<string>('8')
   const [defaultStartTime, setDefaultStartTime] = useState<string>('10:00')
-  const workLocations = ['SB天白', 'その他']
+  const workLocations = ['店舗名', 'その他']
   const workTypes = ['出勤', '公休', '有給休暇']
   const timeSlots = ['-', '早番', '中番', '遅番']
   const workHourOptions = ['2', '3', '4', '5', '6', '7', '8']
@@ -1275,7 +1275,7 @@ export default function ShiftManagePage() {
                         })
                       }
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="SB天白"
+                      placeholder="店舗名"
                     />
             </div>
                   <div>

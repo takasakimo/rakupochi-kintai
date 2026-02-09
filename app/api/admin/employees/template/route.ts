@@ -30,25 +30,25 @@ export async function GET(request: NextRequest) {
     switch (format) {
       case 'rakupochi':
         csvContent = '社員番号,氏名,部署,役職,メールアドレス,電話番号,生年月日,住所,入社日,勤続年数,有給付与日,有給残数,振込先口座,交通費,店舗,勤務先住所,権限\n'
-        csvContent += '0001,山田太郎,営業部,主任,tanaka@example.com,090-1234-5678,1990-01-01,東京都渋谷区,2020-04-01,3.5,2023-10-01,10,1234567,15000,本店,東京都渋谷区,employee\n'
+        csvContent += '0001,サンプル,部署名,役職名,sample@example.com,090-0000-0000,1990-01-01,住所,2020-04-01,3.5,2023-10-01,10,1234567,15000,店舗名,住所,employee\n'
         filename = 'employee_template_rakupochi.csv'
         break
 
       case 'general':
         csvContent = '社員番号,氏名,メールアドレス,電話番号,部署,役職,生年月日,住所,入社日,権限\n'
-        csvContent += '0001,山田太郎,tanaka@example.com,090-1234-5678,営業部,主任,1990-01-01,東京都渋谷区,2020-04-01,employee\n'
+        csvContent += '0001,サンプル,sample@example.com,090-0000-0000,部署名,役職名,1990-01-01,住所,2020-04-01,employee\n'
         filename = 'employee_template_general.csv'
         break
 
       case 'simple':
         csvContent = '社員番号,氏名,メールアドレス,電話番号,住所\n'
-        csvContent += '0001,山田太郎,tanaka@example.com,090-1234-5678,東京都渋谷区\n'
+        csvContent += '0001,サンプル,sample@example.com,090-0000-0000,住所\n'
         filename = 'employee_template_simple.csv'
         break
 
       default:
         csvContent = '社員番号,氏名,部署,役職,メールアドレス,電話番号,生年月日,住所,入社日,勤続年数,有給付与日,有給残数,振込先口座,交通費,店舗,勤務先住所,権限\n'
-        csvContent += '0001,山田太郎,営業部,主任,tanaka@example.com,090-1234-5678,1990-01-01,東京都渋谷区,2020-04-01,3.5,2023-10-01,10,1234567,15000,本店,東京都渋谷区,employee\n'
+        csvContent += '0001,サンプル,部署名,役職名,sample@example.com,090-0000-0000,1990-01-01,住所,2020-04-01,3.5,2023-10-01,10,1234567,15000,店舗名,住所,employee\n'
         filename = 'employee_template_rakupochi.csv'
     }
 

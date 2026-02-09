@@ -27,7 +27,7 @@ async function seedDatabase() {
         code: 'TEST001',
         email: 'test@example.com',
         phone: '03-1234-5678',
-        address: '東京都千代田区1-1-1',
+        address: '',
       },
     })
 
@@ -39,7 +39,7 @@ async function seedDatabase() {
       create: {
         companyId: company.id,
         employeeNumber: 'EMP001',
-        name: '管理者 太郎',
+        name: '管理者',
         email: 'admin@example.com',
         password: hashedPassword,
         role: 'admin',
@@ -57,7 +57,7 @@ async function seedDatabase() {
       create: {
         companyId: company.id,
         employeeNumber: 'EMP002',
-        name: '従業員 花子',
+        name: '従業員',
         email: 'employee@example.com',
         password: employeePassword,
         role: 'employee',
@@ -74,8 +74,8 @@ async function seedDatabase() {
     const location = await prisma.location.create({
       data: {
         companyId: company.id,
-        name: '本社',
-        address: '東京都千代田区1-1-1',
+        name: '店舗名',
+        address: '',
         latitude: 35.6812,
         longitude: 139.7671,
         radius: 500,

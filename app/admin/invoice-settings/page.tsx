@@ -384,7 +384,7 @@ export default function InvoiceSettingsPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               />
               <p className="mt-1 text-sm text-gray-500">
-                {'{employeeName}'}で従業員名を埋め込みます。例: 「{'{employeeName}'}委託費用」→「山田太郎委託費用」
+                {'{employeeName}'}で従業員名を埋め込みます。例: 「{'{employeeName}'}委託費用」
               </p>
             </div>
 

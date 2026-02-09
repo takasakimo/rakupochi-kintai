@@ -8,7 +8,7 @@ VALUES (
   'TEST001',
   'test@example.com',
   '03-1234-5678',
-  '東京都千代田区1-1-1',
+  '',
   true,
   NOW(),
   NOW()
@@ -38,7 +38,7 @@ INSERT INTO employees (
 VALUES (
   (SELECT id FROM companies WHERE code = 'TEST001'),
   'EMP001',
-  '管理者 太郎',
+  '管理者',
   'admin@example.com',
   '$2a$10$pt6bJXgyhSO6gF9/RLntven0/ko.H4dRGUBUVTomnVmCpHPiqpa8C', -- admin123のハッシュ
   'admin',
@@ -70,7 +70,7 @@ INSERT INTO employees (
 VALUES (
   (SELECT id FROM companies WHERE code = 'TEST001'),
   'EMP002',
-  '従業員 花子',
+  '従業員',
   'employee@example.com',
   '$2a$10$Xku.FvVXikxeZ59nZacaDef1ET0/9gliFu.NdSRLrcYK5o5an.eg6', -- employee123のハッシュ
   'employee',
@@ -100,8 +100,8 @@ INSERT INTO locations (
 )
 VALUES (
   (SELECT id FROM companies WHERE code = 'TEST001'),
-  '本社',
-  '東京都千代田区1-1-1',
+  '店舗名',
+  '',
   35.6812,
   139.7671,
   500,

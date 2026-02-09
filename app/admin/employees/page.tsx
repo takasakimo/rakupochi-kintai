@@ -2529,7 +2529,6 @@ export default function EmployeesPage() {
                             })
                           }
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                          placeholder="例: 並河達也"
                         />
                         <p className="mt-1 text-xs text-gray-500">
                           請求書の費目名に使用されます。「{'{業務名}'}委託費用」という形式で表示されます。

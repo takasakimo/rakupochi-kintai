@@ -117,20 +117,20 @@
     {
       "row": 3,
       "employeeNumber": "0003",
-      "name": "山田太郎",
+      "name": "サンプル1",
       "error": "メールアドレスが重複しています"
     },
     {
       "row": 5,
       "employeeNumber": "0005",
-      "name": "佐藤花子",
+      "name": "サンプル2",
       "error": "必須項目（電話番号）が不足しています"
     }
   ],
   "successEmployees": [
     {
       "employeeNumber": "0001",
-      "name": "田中一郎"
+      "name": "サンプル3"
     }
   ]
 }
