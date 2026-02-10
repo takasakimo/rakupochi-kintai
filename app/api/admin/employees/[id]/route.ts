@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
-import { processPaidLeaveOnGrantDate, calculatePaidLeaveDays, calculateFirstGrantDate } from '@/lib/paid-leave'
+import { processPaidLeaveOnGrantDate, calculatePaidLeaveDays, calculateFirstGrantDate, calculateTotalPaidLeaveBalance } from '@/lib/paid-leave'
 
 export const dynamic = 'force-dynamic'
 
@@ -230,14 +230,29 @@ export async function PATCH(
     }
 
     // 有給残数の処理
-    let paidLeaveBalance = body.paidLeaveBalance !== undefined 
-      ? parseInt(body.paidLeaveBalance) 
-      : existingEmployee.paidLeaveBalance
-    
-    // 有給付与日が設定されている場合、起算日処理を実行
+    // 勤続年数が変更された場合、有給残数を自動計算
     const finalGrantDate = calculatedGrantDate || 
       (body.paidLeaveGrantDate ? new Date(body.paidLeaveGrantDate) : existingEmployee.paidLeaveGrantDate)
     
+    let paidLeaveBalance = body.paidLeaveBalance !== undefined 
+      ? parseInt(body.paidLeaveBalance) 
+      : existingEmployee.paidLeaveBalance
+
+    // 勤続年数が変更された場合、有給残数を自動計算
+    const yearsOfServiceChanged = body.yearsOfService !== undefined && 
+      body.yearsOfService !== existingEmployee.yearsOfService?.toString()
+    
+    if (yearsOfServiceChanged && yearsOfService && finalGrantDate) {
+      const grantDaysConfig = companySettings?.paidLeaveGrantDays as { year1?: number; year2?: number; year3?: number; year4?: number; year5?: number; year6?: number; year7?: number } | null
+      paidLeaveBalance = calculateTotalPaidLeaveBalance(
+        yearsOfService,
+        grantDaysConfig,
+        firstGrantMonths
+      )
+      console.log(`[Employee Update] Recalculated paid leave balance: ${paidLeaveBalance} days for yearsOfService: ${yearsOfService}`)
+    }
+    
+    // 有給付与日が設定されている場合、起算日処理を実行
     if (finalGrantDate) {
       const grantDate = finalGrantDate instanceof Date ? finalGrantDate : new Date(finalGrantDate)
       const grantDaysConfig = companySettings?.paidLeaveGrantDays as { year1?: number; year2?: number; year3?: number; year4?: number; year5?: number; year6?: number; year7?: number } | null

@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
     const standardBreakMinutes = companySettings?.standardBreakMinutes || 60
     const workStartTime = companySettings?.workStartTime
     const workEndTime = companySettings?.workEndTime
+    const includePaidLeaveInInvoice = companySettings?.includePaidLeaveInInvoice || false
 
     // 請求期間の日付範囲を設定
     const startDate = new Date(periodStart)
@@ -163,6 +164,16 @@ export async function POST(request: NextRequest) {
 
         // シフトがある日のみカウント
         if (shift) {
+          // 有給休暇のシフトをチェック
+          const isPaidLeave = shift.workType === '有給休暇'
+          
+          // 有給休暇を請求書に反映しない設定の場合、有給休暇のシフトをスキップ
+          if (isPaidLeave && !includePaidLeaveInInvoice) {
+            // 有給休暇のシフトは請求書計算から除外（有給残数は既に減算済み）
+            currentDate.setDate(currentDate.getDate() + 1)
+            continue
+          }
+          
           // シフトが登録されている日数をカウント（期待される勤務日数）
           expectedWorkDays++
           
@@ -313,11 +324,18 @@ export async function POST(request: NextRequest) {
               })
             }
           } else {
-            // シフトがあるが打刻がない場合：欠勤
-            absenceDays++
-            // 欠勤日付を記録
-            const formattedDate = new Date(dateStr).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })
-            absenceDates.push(formattedDate)
+            // シフトがあるが打刻がない場合
+            // 有給休暇のシフトで打刻がない場合は、有給休暇として扱う（欠勤ではない）
+            if (isPaidLeave && includePaidLeaveInInvoice) {
+              // 有給休暇を請求書に反映する設定の場合、有給休暇として扱う
+              // 有給残数は既に減算済みなので、ここでは何もしない
+            } else if (!isPaidLeave) {
+              // 有給休暇以外のシフトで打刻がない場合：欠勤
+              absenceDays++
+              // 欠勤日付を記録
+              const formattedDate = new Date(dateStr).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })
+              absenceDates.push(formattedDate)
+            }
           }
         }
 
@@ -330,8 +348,8 @@ export async function POST(request: NextRequest) {
       const periodEndDate = new Date(periodEnd)
       const periodDays = Math.ceil((periodEndDate.getTime() - periodStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
       
-      // baseWorkDaysを取得（デフォルトは22日）
-      const baseWorkDays = employee.baseWorkDays || 22
+      // baseWorkDaysを取得（デフォルトは21日）
+      const baseWorkDays = employee.baseWorkDays || 21
       
       // 請求期間が1ヶ月（28-31日の範囲）の場合、baseWorkDaysをそのまま使用
       // それ以外の場合は請求期間の日数に応じて按分（1ヶ月を30日として計算）
@@ -386,7 +404,7 @@ export async function POST(request: NextRequest) {
           overtimeAmount = Math.round(overtimeHours * (billingRate / 8) * overtimeRate)
         } else if (billingRateType === 'monthly') {
           // 月給の場合：残業時間 × (月給 / 標準稼働日数 / 8時間) × 倍率
-          const standardWorkDays = employee.baseWorkDays || 22
+          const standardWorkDays = employee.baseWorkDays || 21
           overtimeAmount = Math.round(overtimeHours * (billingRate / standardWorkDays / 8) * overtimeRate)
         }
       }
@@ -408,7 +426,7 @@ export async function POST(request: NextRequest) {
           lateEarlyDeduction = Math.round(lateEarlyHours * (billingRate / 8))
         } else if (billingRateType === 'monthly') {
           // 月給の場合：遅刻・早退時間 × (月給 / 標準稼働日数 / 8時間)
-          const standardWorkDays = employee.baseWorkDays || 22
+          const standardWorkDays = employee.baseWorkDays || 21
           lateEarlyDeduction = Math.round(lateEarlyHours * (billingRate / standardWorkDays / 8))
         } else {
           // デフォルトは日給として計算
@@ -461,8 +479,9 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('Failed to calculate invoice details:', error)
+    // セキュリティ: エラーの詳細を返さない
     return NextResponse.json(
-      { error: 'Internal server error', details: error?.message },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

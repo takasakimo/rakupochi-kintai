@@ -1963,7 +1963,6 @@ export default function ShiftManagePage() {
                         })
                       }
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="店舗名"
                     />
                   </div>
                   <div>

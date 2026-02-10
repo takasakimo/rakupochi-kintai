@@ -152,11 +152,10 @@ export async function GET(request: NextRequest) {
     console.error('[Shifts] Error name:', error?.name)
     console.error('[Shifts] Error message:', error?.message)
     console.error('[Shifts] Error stack:', error?.stack)
+    // セキュリティ: エラーの詳細を返さない
     return NextResponse.json(
       { 
         error: 'Internal server error',
-        details: error?.message || 'Unknown error',
-        name: error?.name || 'Unknown',
       },
       { status: 500 }
     )
@@ -390,12 +389,10 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       )
     }
+    // セキュリティ: エラーの詳細を返さない
     return NextResponse.json(
       { 
         error: 'Internal server error',
-        details: error?.message || 'Unknown error',
-        name: error?.name || 'Unknown',
-        code: error?.code || 'Unknown',
       },
       { status: 500 }
     )

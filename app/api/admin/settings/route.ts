@@ -63,6 +63,7 @@ export async function GET(request: NextRequest) {
             year6: 18,
             year7: 20,
           },
+          includePaidLeaveInInvoice: false,
         },
       })
       return NextResponse.json({ settings: defaultSettings })
@@ -164,6 +165,9 @@ export async function PATCH(request: NextRequest) {
         ...(body.paidLeaveGrantDays !== undefined && {
           paidLeaveGrantDays: body.paidLeaveGrantDays,
         }),
+        ...(body.includePaidLeaveInInvoice !== undefined && {
+          includePaidLeaveInInvoice: body.includePaidLeaveInInvoice,
+        }),
       },
       create: {
         companyId: effectiveCompanyId,
@@ -185,6 +189,7 @@ export async function PATCH(request: NextRequest) {
           year6: 18,
           year7: 20,
         },
+        includePaidLeaveInInvoice: body.includePaidLeaveInInvoice ?? false,
       },
     })
 

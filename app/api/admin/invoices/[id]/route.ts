@@ -314,8 +314,9 @@ export async function PATCH(
         { status: 409 }
       )
     }
+    // セキュリティ: エラーの詳細を返さない
     return NextResponse.json(
-      { error: 'Internal server error', details: error?.message },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }
@@ -384,8 +385,9 @@ export async function DELETE(
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Failed to delete invoice:', error)
+    // セキュリティ: エラーの詳細を返さない
     return NextResponse.json(
-      { error: 'Internal server error', details: error?.message || String(error) },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

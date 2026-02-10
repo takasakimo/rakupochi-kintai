@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import { calculateFirstGrantDate, calculateTotalPaidLeaveBalance } from '@/lib/paid-leave'
 
 export const dynamic = 'force-dynamic'
 
@@ -293,6 +294,16 @@ export async function POST(request: NextRequest) {
     // デフォルトパスワード生成
     const defaultPassword = 'Password123!' // 固定パスワード（初回ログイン時に変更を促す）
 
+    // 会社設定を取得（有給残数計算用）
+    const companySettings = await prisma.companySetting.findUnique({
+      where: { companyId: effectiveCompanyId },
+      select: {
+        paidLeaveFirstGrantMonths: true,
+        paidLeaveGrantDays: true,
+      },
+    })
+    const firstGrantMonths = companySettings?.paidLeaveFirstGrantMonths ?? 6
+
     // 各行を処理
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i]
@@ -475,15 +486,22 @@ export async function POST(request: NextRequest) {
         const paidLeaveBalance = paidLeaveBalanceStr ? parseInt(paidLeaveBalanceStr) : 0
         const transportationCost = transportationCostStr ? parseInt(transportationCostStr) : null
 
-        // 勤続年数から有給付与日を自動計算
+        // 入社日から有給付与日を自動計算（設定に基づく）
         let calculatedGrantDate = paidLeaveGrantDate
-        if (hireDate && yearsOfService && !paidLeaveGrantDate) {
-          const grantDate = new Date(hireDate)
-          grantDate.setFullYear(grantDate.getFullYear() + Math.floor(yearsOfService))
-          grantDate.setMonth(grantDate.getMonth() + Math.floor((yearsOfService % 1) * 12))
-          calculatedGrantDate = grantDate
-        } else if (hireDate && !paidLeaveGrantDate) {
-          calculatedGrantDate = hireDate
+        if (hireDate && !paidLeaveGrantDate) {
+          calculatedGrantDate = calculateFirstGrantDate(hireDate, firstGrantMonths)
+        }
+
+        // 有給残数を自動計算（勤続年数と有給付与日から）
+        let calculatedPaidLeaveBalance = paidLeaveBalance
+        if (yearsOfService && calculatedGrantDate) {
+          const grantDaysConfig = companySettings?.paidLeaveGrantDays as { year1?: number; year2?: number; year3?: number; year4?: number; year5?: number; year6?: number; year7?: number } | null
+          calculatedPaidLeaveBalance = calculateTotalPaidLeaveBalance(
+            yearsOfService,
+            grantDaysConfig,
+            firstGrantMonths
+          )
+          console.log(`[CSV Import] Row ${rowNumber}: Calculated paid leave balance: ${calculatedPaidLeaveBalance} days for yearsOfService: ${yearsOfService}`)
         }
 
         // パスワードのハッシュ化
@@ -511,7 +529,7 @@ export async function POST(request: NextRequest) {
             hireDate,
             paidLeaveGrantDate: calculatedGrantDate,
             yearsOfService,
-            paidLeaveBalance,
+            paidLeaveBalance: calculatedPaidLeaveBalance,
             isActive: true,
           },
         })
@@ -642,8 +660,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('CSV import error:', error)
+    // セキュリティ: エラーの詳細を返さない
     return NextResponse.json(
-      { error: 'CSVインポート処理中にエラーが発生しました', details: error.message },
+      { error: 'CSVインポート処理中にエラーが発生しました' },
       { status: 500 }
     )
   }

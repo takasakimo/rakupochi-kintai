@@ -211,7 +211,6 @@ export async function PATCH(
     return NextResponse.json(
       { 
         error: 'Internal server error',
-        details: error?.message || 'Unknown error',
       },
       { status: 500 }
     )

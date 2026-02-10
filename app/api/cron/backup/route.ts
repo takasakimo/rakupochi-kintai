@@ -162,7 +162,19 @@ export async function GET(request: NextRequest) {
           const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
           const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-          if (supabaseUrl && supabaseServiceKey) {
+          if (!supabaseUrl) {
+            console.error('NEXT_PUBLIC_SUPABASE_URL is not set')
+            storageResult = {
+              provider: 'supabase',
+              error: 'NEXT_PUBLIC_SUPABASE_URL is not configured',
+            }
+          } else if (!supabaseServiceKey) {
+            console.error('SUPABASE_SERVICE_ROLE_KEY is not set')
+            storageResult = {
+              provider: 'supabase',
+              error: 'SUPABASE_SERVICE_ROLE_KEY is not configured',
+            }
+          } else {
             const supabase = createClient(supabaseUrl, supabaseServiceKey)
             const fileName = `backup-${timestamp}.json`
             const { data, error } = await supabase.storage
@@ -174,16 +186,30 @@ export async function GET(request: NextRequest) {
 
             if (error) {
               console.error('Failed to upload backup to Supabase Storage:', error)
-            } else {
+              storageResult = {
+                provider: 'supabase',
+                error: error.message,
+              }
+            } else if (data) {
               storageResult = {
                 provider: 'supabase',
                 fileName,
                 path: data.path,
               }
+            } else {
+              console.error('No data returned from Supabase Storage upload')
+              storageResult = {
+                provider: 'supabase',
+                error: 'No data returned from upload',
+              }
             }
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Supabase Storage upload error:', error)
+          storageResult = {
+            provider: 'supabase',
+            error: error?.message || 'Unknown error occurred',
+          }
         }
       } else if (backupStorage === 'email') {
         // メールで送信する場合（管理者メールアドレスが必要）
@@ -225,30 +251,39 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // ストレージへの保存が失敗した場合の警告
+      const hasStorageError = storageResult?.error !== undefined
+      const success = !hasStorageError
+
       return NextResponse.json({
-        success: true,
-        message: 'バックアップが完了しました',
+        success,
+        message: success
+          ? 'バックアップが完了しました'
+          : 'バックアップデータの取得は完了しましたが、ストレージへの保存に失敗しました',
         timestamp,
         stats: backupData.stats,
         backupSize: `${(backupSize / 1024).toFixed(2)} KB`,
         storage: storageResult || { provider: 'log', message: 'ログに出力されました' },
+        warning: hasStorageError
+          ? 'ストレージへの保存に失敗しました。ログを確認してください。'
+          : undefined,
       })
     } catch (error) {
       console.error('Backup data retrieval error:', error)
+      // セキュリティ: エラーの詳細を返さない
       return NextResponse.json(
         {
           error: 'Failed to retrieve backup data',
-          message: error instanceof Error ? error.message : 'Unknown error',
         },
         { status: 500 }
       )
     }
   } catch (error) {
     console.error('Backup cron error:', error)
+    // セキュリティ: エラーの詳細を返さない
     return NextResponse.json(
       {
         error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
     )

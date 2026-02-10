@@ -184,7 +184,7 @@ export default function EditInvoicePage() {
           if (employeeIds.includes(emp.id)) {
             infoMap.set(emp.id, {
               billingRateType: emp.billingRateType || 'daily',
-              baseWorkDays: emp.baseWorkDays || 22,
+              baseWorkDays: emp.baseWorkDays || 21,
             })
           }
         })
@@ -209,7 +209,7 @@ export default function EditInvoicePage() {
       if (detail.employeeId && detail.employeeId !== null) {
         const empInfo = employeeInfo.get(detail.employeeId)
         const billingRateType = empInfo?.billingRateType || 'daily'
-        const baseWorkDays = empInfo?.baseWorkDays || 22
+        const baseWorkDays = empInfo?.baseWorkDays || 21
         
         if (billingRateType === 'monthly') {
           // 月給の場合：実際の勤務日数で按分
@@ -228,7 +228,7 @@ export default function EditInvoicePage() {
       if (detail.employeeId && detail.employeeId !== null) {
         const empInfo = employeeInfo.get(detail.employeeId)
         const billingRateType = empInfo?.billingRateType || 'daily'
-        const baseWorkDays = empInfo?.baseWorkDays || 22
+        const baseWorkDays = empInfo?.baseWorkDays || 21
         
         if (billingRateType === 'monthly') {
           // 月給の場合：実際の勤務日数で按分
@@ -257,7 +257,7 @@ export default function EditInvoicePage() {
       if (detail.employeeId && detail.employeeId !== null) {
         const empInfo = employeeInfo.get(detail.employeeId)
         const billingRateType = empInfo?.billingRateType || 'daily'
-        const baseWorkDays = empInfo?.baseWorkDays || 22
+        const baseWorkDays = empInfo?.baseWorkDays || 21
         
         let dailyRate = 0
         if (billingRateType === 'hourly') {
@@ -639,7 +639,7 @@ export default function EditInvoicePage() {
       detail: InvoiceDetail
     }> = []
 
-    const itemNameTemplate = invoice.company.invoiceItemNameTemplate || '{employeeName}委託費用'
+    const itemNameTemplate = invoice.company.invoiceItemNameTemplate || '{businessName}委託費用'
     const taxRate = parseInt(formData.taxRate) || Math.round((invoice.billingClient.taxRate || 0.1) * 100)
 
     details.forEach((detail, detailIndex) => {
@@ -656,8 +656,9 @@ export default function EditInvoicePage() {
           // 業務名を使用して「{業務名}委託費用」という形式で生成
           itemName = `${detail.employee.businessName}委託費用`
         } else {
-          // テンプレートから生成
-          itemName = itemNameTemplate.replace(/{employeeName}/g, detail.employee.name)
+          // テンプレートから生成（{businessName}を業務名で置換、業務名がない場合は従業員名でフォールバック）
+          const businessName = detail.employee.businessName || detail.employee.name
+          itemName = itemNameTemplate.replace(/{businessName}/g, businessName)
         }
       } else {
         // 従業員がnullの場合は費目名を使用（空文字列も許可）

@@ -17,6 +17,7 @@ interface CompanySettings {
   leaveExpiryAlertDays: number
   paidLeaveFirstGrantMonths?: number
   paidLeaveGrantDays?: { year1?: number; year2?: number; year3?: number; year4?: number; year5?: number; year6?: number; year7?: number } | null
+  includePaidLeaveInInvoice?: boolean
 }
 
 export default function AdminSettingsPage() {
@@ -46,6 +47,7 @@ export default function AdminSettingsPage() {
       year6: 18,
       year7: 20,
     },
+    includePaidLeaveInInvoice: false,
   })
 
   useEffect(() => {
@@ -90,6 +92,7 @@ export default function AdminSettingsPage() {
             year6: 18,
             year7: 20,
           },
+          includePaidLeaveInInvoice: data.settings.includePaidLeaveInInvoice ?? false,
         })
       }
     } catch (err) {
@@ -120,6 +123,7 @@ export default function AdminSettingsPage() {
           leaveExpiryAlertDays: parseInt(formData.leaveExpiryAlertDays.toString()),
           paidLeaveFirstGrantMonths: parseInt(formData.paidLeaveFirstGrantMonths.toString()),
           paidLeaveGrantDays: formData.paidLeaveGrantDays,
+          includePaidLeaveInInvoice: formData.includePaidLeaveInInvoice,
         }),
       })
 
@@ -293,6 +297,29 @@ export default function AdminSettingsPage() {
                 </div>
                 <p className="mt-2 text-sm text-gray-500">
                   各年次の有給付与日数を設定してください（7年目以降は7年目の設定が適用されます）
+                </p>
+              </div>
+
+              {/* 有給休暇を請求書に反映するか */}
+              <div className="mb-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.includePaidLeaveInInvoice}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        includePaidLeaveInInvoice: e.target.checked,
+                      })
+                    }
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    有給休暇を請求書に反映する
+                  </span>
+                </label>
+                <p className="mt-1 text-sm text-gray-500 ml-6">
+                  OFFの場合、有給休暇のシフトは請求書計算から除外されます（有給残数は自動的に減算されます）
                 </p>
               </div>
             </div>

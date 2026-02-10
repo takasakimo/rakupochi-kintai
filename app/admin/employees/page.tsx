@@ -822,7 +822,6 @@ export default function EmployeesPage() {
                         onChange={(e) =>
                           setLocationFormData({ ...locationFormData, storeName: e.target.value })
                         }
-                        placeholder="店舗名を入力"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                       />
                     </div>
@@ -836,7 +835,6 @@ export default function EmployeesPage() {
                         onChange={(e) =>
                           setLocationFormData({ ...locationFormData, departmentName: e.target.value })
                         }
-                        placeholder="部署名を入力"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                       />
                     </div>
@@ -858,7 +856,6 @@ export default function EmployeesPage() {
                             handleAddressGeocode(e.target.value)
                           }
                         }}
-                        placeholder="住所を入力すると自動的に緯度経度が取得されます"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                       />
                       {geocodingLoading && (
@@ -1002,7 +999,6 @@ export default function EmployeesPage() {
                                         : storeName,
                                     })
                                   }}
-                                  placeholder="店舗名"
                                   className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white"
                                 />
                                 <input
@@ -1023,7 +1019,6 @@ export default function EmployeesPage() {
                                         : storeName || departmentName,
                                     })
                                   }}
-                                  placeholder="部署名"
                                   className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white"
                                 />
                               </div>
@@ -1052,7 +1047,6 @@ export default function EmployeesPage() {
                                       handleEditAddressGeocode(e.target.value)
                                     }
                                   }}
-                                  placeholder="住所を入力すると自動的に緯度経度が取得されます"
                                   className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 bg-white"
                                 />
                                 {geocodingLoading && editingWorkLocation?.id === location.id && (
@@ -1349,7 +1343,6 @@ export default function EmployeesPage() {
                       setFormData({ ...formData, workLocationAddress: e.target.value })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                    placeholder="店舗の住所を入力してください"
                   />
                 </div>
                 <div>
@@ -2043,7 +2036,6 @@ export default function EmployeesPage() {
                           })
                         }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-                        placeholder="店舗の住所を入力してください"
                       />
                     </div>
                     
@@ -2603,18 +2595,18 @@ export default function EmployeesPage() {
                         </label>
                         <input
                           type="number"
-                          value={selectedEmployee.baseWorkDays?.toString() || '22'}
+                          value={selectedEmployee.baseWorkDays?.toString() || '21'}
                           onChange={(e) =>
                             setSelectedEmployee({
                               ...selectedEmployee,
-                              baseWorkDays: e.target.value ? parseInt(e.target.value) : 22,
+                              baseWorkDays: e.target.value ? parseInt(e.target.value) : 21,
                             })
                           }
                           min="1"
                           max="31"
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                         />
-                        <p className="mt-1 text-xs text-gray-500">月間の標準稼働日数（デフォルト: 22日）</p>
+                        <p className="mt-1 text-xs text-gray-500">月間の標準稼働日数（デフォルト: 21日）</p>
                       </div>
                     </div>
                   </div>

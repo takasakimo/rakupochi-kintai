@@ -267,11 +267,10 @@ export async function GET() {
     console.error('[Dashboard] Error name:', error?.name)
     console.error('[Dashboard] Error message:', error?.message)
     console.error('[Dashboard] Error stack:', error?.stack)
+    // セキュリティ: エラーの詳細を返さない
     return NextResponse.json(
       { 
         error: 'Internal server error',
-        details: error?.message || 'Unknown error',
-        name: error?.name || 'Unknown',
       },
       { status: 500 }
     )

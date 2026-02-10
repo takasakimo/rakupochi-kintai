@@ -14,6 +14,14 @@ interface Attendance {
   clockOutLocation?: any
 }
 
+interface Announcement {
+  id: number
+  title: string
+  content: string
+  attachments?: any
+  createdAt: string
+}
+
 export default function ClockPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -23,11 +31,13 @@ export default function ClockPage() {
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
   const [enableWakeUpDeparture, setEnableWakeUpDeparture] = useState(true)
+  const [announcements, setAnnouncements] = useState<Announcement[]>([])
 
   useEffect(() => {
     if (status === 'authenticated') {
       fetchTodayAttendance()
       fetchSettings()
+      fetchAnnouncements()
     }
 
     // 現在時刻を1秒ごとに更新
@@ -57,6 +67,27 @@ export default function ClockPage() {
       }
     } catch (err) {
       console.error('Failed to fetch settings:', err)
+    }
+  }
+
+  const fetchAnnouncements = async () => {
+    try {
+      const response = await fetch('/api/employee/announcements')
+      if (!response.ok) {
+        console.error('Failed to fetch announcements:', response.status)
+        setAnnouncements([])
+        return
+      }
+      const data = await response.json()
+      if (data.announcements && Array.isArray(data.announcements)) {
+        // 最新5件を表示
+        setAnnouncements(data.announcements.slice(0, 5))
+      } else {
+        setAnnouncements([])
+      }
+    } catch (err) {
+      console.error('Failed to fetch announcements:', err)
+      setAnnouncements([])
     }
   }
 
@@ -491,6 +522,53 @@ export default function ClockPage() {
             </span>
           </div>
         </div>
+
+        {/* お知らせセクション */}
+        {announcements.length > 0 && (
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3">お知らせ</h2>
+            <div className="space-y-3">
+              {announcements.map((announcement) => {
+                // 画像添付ファイルを取得
+                const imageAttachments = announcement.attachments &&
+                  Array.isArray(announcement.attachments)
+                  ? announcement.attachments.filter((att: any) => 
+                      att.type && att.type.startsWith('image/')
+                    )
+                  : []
+                const firstImage = imageAttachments.length > 0 ? imageAttachments[0] : null
+
+                return (
+                  <div
+                    key={announcement.id}
+                    className="border border-gray-200 rounded-lg p-3 bg-gray-50"
+                  >
+                    <div className="flex gap-3">
+                      {firstImage && (
+                        <div className="flex-shrink-0">
+                          <img
+                            src={firstImage.data}
+                            alt={firstImage.name || '添付画像'}
+                            className="w-16 h-16 object-cover rounded border border-gray-300"
+                          />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-sm text-gray-900 mb-1">{announcement.title}</h3>
+                        <p className="text-xs text-gray-700 mb-2 line-clamp-2">
+                          {announcement.content}
+                        </p>
+                        <span className="text-xs text-gray-500">
+                          {new Date(announcement.createdAt).toLocaleDateString('ja-JP')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

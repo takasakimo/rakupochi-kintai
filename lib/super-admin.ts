@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from './auth'
 import { Session } from 'next-auth'
+import { isSuperAdminEmail } from './super-admin-helper'
 
 /**
  * スーパー管理者が選択した企業IDを取得
@@ -14,7 +15,7 @@ export async function getEffectiveCompanyId(): Promise<number | null> {
   }
 
   const isSuperAdmin = session.user.role === 'super_admin' || 
-                       session.user.email === 'superadmin@rakupochi.com'
+                       isSuperAdminEmail(session.user.email)
 
   if (isSuperAdmin) {
     // スーパー管理者の場合は選択された企業IDを使用
@@ -36,7 +37,7 @@ export function getEffectiveCompanyIdFromSession(session: Session | null): numbe
   }
 
   const isSuperAdmin = session.user.role === 'super_admin' || 
-                       session.user.email === 'superadmin@rakupochi.com'
+                       isSuperAdminEmail(session.user.email)
 
   const effectiveCompanyId = isSuperAdmin 
     ? session.user.selectedCompanyId 
@@ -59,7 +60,7 @@ export async function isSuperAdmin(): Promise<boolean> {
   }
 
   return session.user.role === 'super_admin' || 
-         session.user.email === 'superadmin@rakupochi.com'
+         isSuperAdminEmail(session.user.email)
 }
 
 /**
@@ -72,7 +73,7 @@ export async function isAdminOrSuperAdmin(): Promise<boolean> {
   }
 
   const isSuperAdmin = session.user.role === 'super_admin' || 
-                       session.user.email === 'superadmin@rakupochi.com'
+                       isSuperAdminEmail(session.user.email)
   const isAdmin = session.user.role === 'admin'
 
   return isSuperAdmin || isAdmin

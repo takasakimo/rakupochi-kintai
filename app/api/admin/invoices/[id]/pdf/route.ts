@@ -283,8 +283,8 @@ export async function GET(
     // 従業員ごとに基本請求金額、遅刻早退減算、欠勤減算を別行で表示
     const tableData: any[] = []
     
-    // 費目テンプレートを取得（デフォルトは「{employeeName}委託費用」）
-    const itemNameTemplate = invoice.company.invoiceItemNameTemplate || '{employeeName}委託費用'
+    // 費目テンプレートを取得（デフォルトは「{businessName}委託費用」）
+    const itemNameTemplate = invoice.company.invoiceItemNameTemplate || '{businessName}委託費用'
     const taxRate = Math.round((invoice.billingClient.taxRate || 0.1) * 100)
     
     invoice.details.forEach((detail) => {
@@ -301,8 +301,9 @@ export async function GET(
           // 業務名を使用して「{業務名}委託費用」という形式で生成
           itemName = `${detail.employee.businessName}委託費用`
         } else {
-          // テンプレートから生成
-          itemName = itemNameTemplate.replace(/{employeeName}/g, detail.employee.name)
+          // テンプレートから生成（{businessName}を業務名で置換、業務名がない場合は従業員名でフォールバック）
+          const businessName = detail.employee.businessName || detail.employee.name
+          itemName = itemNameTemplate.replace(/{businessName}/g, businessName)
         }
       } else {
         // 従業員がnullの場合は費目名が必須
@@ -577,8 +578,9 @@ export async function GET(
     })
   } catch (error: any) {
     console.error('Failed to generate PDF:', error)
+    // セキュリティ: エラーの詳細を返さない
     return NextResponse.json(
-      { error: 'Internal server error', details: error?.message },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

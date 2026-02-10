@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('Template generation error:', error)
     return NextResponse.json(
-      { error: 'テンプレート生成中にエラーが発生しました', details: error.message },
+      { error: 'テンプレート生成中にエラーが発生しました' },
       { status: 500 }
     )
   }

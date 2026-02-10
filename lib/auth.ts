@@ -81,8 +81,9 @@ export const authOptions: NextAuthOptions = {
           }
           
           // スーパー管理者の判定
+          const { isSuperAdminEmail } = await import('./super-admin-helper')
           const isSuperAdmin = employee.role === 'super_admin' || 
-                               employee.email === 'superadmin@rakupochi.com'
+                               isSuperAdminEmail(employee.email)
           
           return {
             id: employee.id.toString(),
@@ -136,7 +137,8 @@ export const authOptions: NextAuthOptions = {
     },
     async signIn({ user, account, profile }) {
       // スーパー管理者の場合はcompanyIdをnullに設定
-      if (user.role === 'super_admin' || user.email === 'superadmin@rakupochi.com') {
+      const { isSuperAdminEmail } = await import('./super-admin-helper')
+      if (user.role === 'super_admin' || isSuperAdminEmail(user.email)) {
         return true
       }
       return true

@@ -45,10 +45,10 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('Migration status check error:', error)
+    // セキュリティ: エラーの詳細を返さない
     return NextResponse.json(
       {
         error: 'Failed to check migration status',
-        details: error?.message || 'Unknown error',
       },
       { status: 500 }
     )
@@ -103,10 +103,10 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('Migration error:', error)
+    // セキュリティ: エラーの詳細を返さない
     return NextResponse.json(
       {
         error: 'Migration failed',
-        details: error?.message || 'Unknown error',
       },
       { status: 500 }
     )

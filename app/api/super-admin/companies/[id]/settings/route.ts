@@ -55,6 +55,7 @@ export async function GET(
             year6: 18,
             year7: 20,
           },
+          includePaidLeaveInInvoice: false,
         },
       })
       return NextResponse.json({ settings: defaultSettings })
@@ -92,12 +93,13 @@ export async function PATCH(
     const companyId = parseInt(params.id)
     const body = await request.json()
 
-    // スーパー管理者が更新できるのは以下の4つの設定のみ
+    // スーパー管理者が更新できるのは以下の5つの設定のみ
     const updateData: {
       allowPreOvertime?: boolean
       enableSalesVisit?: boolean
       enableWakeUpDeparture?: boolean
       enableInvoice?: boolean
+      includePaidLeaveInInvoice?: boolean
     } = {}
 
     if (body.allowPreOvertime !== undefined) {
@@ -111,6 +113,9 @@ export async function PATCH(
     }
     if (body.enableInvoice !== undefined) {
       updateData.enableInvoice = body.enableInvoice
+    }
+    if (body.includePaidLeaveInInvoice !== undefined) {
+      updateData.includePaidLeaveInInvoice = body.includePaidLeaveInInvoice
     }
 
     const settings = await prisma.companySetting.upsert({
@@ -138,6 +143,7 @@ export async function PATCH(
           year6: 18,
           year7: 20,
         },
+        includePaidLeaveInInvoice: body.includePaidLeaveInInvoice ?? false,
       },
     })
 

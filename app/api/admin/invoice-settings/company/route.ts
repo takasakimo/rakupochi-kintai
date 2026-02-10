@@ -100,6 +100,10 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json()
     const {
+      name,
+      email,
+      phone,
+      address,
       issuerName,
       taxId,
       bankName,
@@ -109,16 +113,28 @@ export async function PUT(request: NextRequest) {
       invoiceItemNameTemplate,
     } = body
 
+    // 企業名は必須
+    if (name === undefined || name === null || name.trim() === '') {
+      return NextResponse.json(
+        { error: '企業名は必須です' },
+        { status: 400 }
+      )
+    }
+
     const company = await prisma.company.update({
       where: { id: effectiveCompanyId },
       data: {
-        issuerName: issuerName || null,
-        taxId: taxId || null,
-        bankName: bankName || null,
-        bankBranch: bankBranch || null,
-        accountNumber: accountNumber || null,
-        accountHolder: accountHolder || null,
-        invoiceItemNameTemplate: invoiceItemNameTemplate || null,
+        name: name.trim(),
+        email: email && email.trim() !== '' ? email.trim() : null,
+        phone: phone && phone.trim() !== '' ? phone.trim() : null,
+        address: address && address.trim() !== '' ? address.trim() : null,
+        issuerName: issuerName && issuerName.trim() !== '' ? issuerName.trim() : null,
+        taxId: taxId && taxId.trim() !== '' ? taxId.trim() : null,
+        bankName: bankName && bankName.trim() !== '' ? bankName.trim() : null,
+        bankBranch: bankBranch && bankBranch.trim() !== '' ? bankBranch.trim() : null,
+        accountNumber: accountNumber && accountNumber.trim() !== '' ? accountNumber.trim() : null,
+        accountHolder: accountHolder && accountHolder.trim() !== '' ? accountHolder.trim() : null,
+        invoiceItemNameTemplate: invoiceItemNameTemplate && invoiceItemNameTemplate.trim() !== '' ? invoiceItemNameTemplate.trim() : null,
       },
       select: {
         id: true,

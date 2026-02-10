@@ -24,6 +24,7 @@ interface CompanySettings {
   enableSalesVisit: boolean
   enableWakeUpDeparture: boolean
   enableInvoice: boolean
+  includePaidLeaveInInvoice?: boolean
 }
 
 export default function SuperAdminCompaniesPage() {
@@ -193,6 +194,7 @@ export default function SuperAdminCompaniesPage() {
           enableSalesVisit: data.settings.enableSalesVisit ?? true,
           enableWakeUpDeparture: data.settings.enableWakeUpDeparture ?? true,
           enableInvoice: data.settings.enableInvoice ?? false,
+          includePaidLeaveInInvoice: data.settings.includePaidLeaveInInvoice ?? false,
         })
       }
     } catch (err) {
@@ -525,6 +527,28 @@ export default function SuperAdminCompaniesPage() {
                       </label>
                       <p className="mt-1 text-xs text-gray-500 ml-6">
                         チェックを入れると、管理者メニューに「請求先企業管理」や「請求書管理」が表示されます。
+                      </p>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={companySettings.includePaidLeaveInInvoice ?? false}
+                          onChange={(e) =>
+                            setCompanySettings({
+                              ...companySettings,
+                              includePaidLeaveInInvoice: e.target.checked,
+                            })
+                          }
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="ml-2 text-sm font-medium text-gray-700">
+                          有給休暇を請求書に反映する
+                        </span>
+                      </label>
+                      <p className="mt-1 text-xs text-gray-500 ml-6">
+                        OFFの場合、有給休暇のシフトは請求書計算から除外されます（有給残数は自動的に減算されます）
                       </p>
                     </div>
                   </div>

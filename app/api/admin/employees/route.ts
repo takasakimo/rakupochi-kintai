@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
-import { processPaidLeaveOnGrantDate, calculateFirstGrantDate } from '@/lib/paid-leave'
+import { processPaidLeaveOnGrantDate, calculateFirstGrantDate, calculateTotalPaidLeaveBalance } from '@/lib/paid-leave'
 
 export const dynamic = 'force-dynamic'
 
@@ -155,12 +155,10 @@ export async function GET() {
       if (error?.stack) {
         console.error('[Employees] Error stack (first 500 chars):', error.stack.substring(0, 500))
       }
+      // セキュリティ: エラーの詳細を返さない
       return NextResponse.json(
         { 
           error: 'Failed to fetch employees',
-          details: error?.message || 'Unknown database error',
-          code: error?.code || 'UNKNOWN',
-          name: error?.name || 'Unknown',
         },
         { status: 500 }
       )
@@ -175,12 +173,10 @@ export async function GET() {
     if (error?.stack) {
       console.error('[Employees] Error stack (first 500 chars):', error.stack.substring(0, 500))
     }
+    // セキュリティ: エラーの詳細を返さない
     return NextResponse.json(
       { 
-        error: 'Internal server error', 
-        details: error?.message || 'Unknown error',
-        code: error?.code || 'UNKNOWN',
-        name: error?.name || 'Unknown',
+        error: 'Internal server error',
       },
       { status: 500 }
     )
@@ -258,6 +254,19 @@ export async function POST(request: NextRequest) {
       calculatedGrantDate = calculateFirstGrantDate(hire, firstGrantMonths)
     }
 
+    // 有給残数を自動計算（勤続年数と有給付与日から）
+    let calculatedPaidLeaveBalance = paidLeaveBalance ? parseInt(paidLeaveBalance) : 0
+    const finalGrantDate = paidLeaveGrantDate ? new Date(paidLeaveGrantDate) : calculatedGrantDate
+    if (yearsOfService && finalGrantDate) {
+      const grantDaysConfig = companySettings?.paidLeaveGrantDays as { year1?: number; year2?: number; year3?: number; year4?: number; year5?: number; year6?: number; year7?: number } | null
+      calculatedPaidLeaveBalance = calculateTotalPaidLeaveBalance(
+        parseFloat(yearsOfService),
+        grantDaysConfig,
+        firstGrantMonths
+      )
+      console.log(`[Employee Create] Calculated paid leave balance: ${calculatedPaidLeaveBalance} days for yearsOfService: ${yearsOfService}`)
+    }
+
     // バリデーション
     if (!employeeNumber || !name || !email || !password || !phone || !address) {
       return NextResponse.json(
@@ -317,7 +326,7 @@ export async function POST(request: NextRequest) {
         hireDate: hireDate ? new Date(hireDate) : null,
         paidLeaveGrantDate: paidLeaveGrantDate ? new Date(paidLeaveGrantDate) : calculatedGrantDate,
         yearsOfService: yearsOfService ? parseFloat(yearsOfService) : null,
-        paidLeaveBalance: paidLeaveBalance ? parseInt(paidLeaveBalance) : 0,
+        paidLeaveBalance: calculatedPaidLeaveBalance,
         isActive: true,
       },
     })

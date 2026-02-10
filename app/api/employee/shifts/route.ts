@@ -273,7 +273,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { 
         error: 'Internal server error',
-        details: error?.message || 'Unknown error',
       },
       { status: 500 }
     )
@@ -430,7 +429,6 @@ async function handleBulkCreate(session: any, employeeId: number, shifts: any[])
     return NextResponse.json(
       { 
         error: 'Internal server error',
-        details: error?.message || 'Unknown error',
       },
       { status: 500 }
     )

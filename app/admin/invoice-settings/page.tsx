@@ -50,13 +50,17 @@ export default function InvoiceSettingsPage() {
   // 自社情報
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null)
   const [companyFormData, setCompanyFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
     issuerName: '',
     taxId: '',
     bankName: '',
     bankBranch: '',
     accountNumber: '',
     accountHolder: '',
-    invoiceItemNameTemplate: '{employeeName}委託費用',
+    invoiceItemNameTemplate: '{businessName}委託費用',
   })
   const [savingCompany, setSavingCompany] = useState(false)
   
@@ -121,13 +125,19 @@ export default function InvoiceSettingsPage() {
         setCompanyInfo(data.company)
         if (data.company) {
           setCompanyFormData({
+            name: data.company.name || '',
+            email: data.company.email || '',
+            phone: data.company.phone || '',
+            address: data.company.address || '',
             issuerName: data.company.issuerName || '',
             taxId: data.company.taxId || '',
             bankName: data.company.bankName || '',
             bankBranch: data.company.bankBranch || '',
             accountNumber: data.company.accountNumber || '',
             accountHolder: data.company.accountHolder || '',
-            invoiceItemNameTemplate: data.company.invoiceItemNameTemplate || '{employeeName}委託費用',
+            invoiceItemNameTemplate: data.company.invoiceItemNameTemplate 
+              ? data.company.invoiceItemNameTemplate.replace(/{employeeName}/g, '{businessName}')
+              : '{businessName}委託費用',
           })
         }
       }
@@ -337,40 +347,90 @@ export default function InvoiceSettingsPage() {
             請求書に表示される自社情報と振込先情報を設定します。
           </p>
 
-          {companyInfo && (
-            <div className="mb-4 p-4 bg-gray-50 rounded">
-              <h3 className="font-semibold mb-2">現在の企業情報</h3>
-              <p className="text-sm text-gray-600">企業名: {companyInfo.name}</p>
-              {companyInfo.email && <p className="text-sm text-gray-600">Email: {companyInfo.email}</p>}
-              {companyInfo.phone && <p className="text-sm text-gray-600">電話: {companyInfo.phone}</p>}
-              {companyInfo.address && <p className="text-sm text-gray-600">住所: {companyInfo.address}</p>}
-            </div>
-          )}
-
           <form onSubmit={handleSaveCompanyInfo} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                発行者名
-              </label>
-              <input
-                type="text"
-                value={companyFormData.issuerName}
-                onChange={(e) => setCompanyFormData({ ...companyFormData, issuerName: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-              <p className="mt-1 text-sm text-gray-500">請求書に表示される発行者名</p>
-            </div>
+            <div className="border-b pb-6">
+              <h3 className="text-lg font-semibold mb-4">企業情報</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    企業名 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={companyFormData.name}
+                    onChange={(e) => setCompanyFormData({ ...companyFormData, name: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                適格番号
-              </label>
-              <input
-                type="text"
-                value={companyFormData.taxId}
-                onChange={(e) => setCompanyFormData({ ...companyFormData, taxId: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={companyFormData.email}
+                    onChange={(e) => setCompanyFormData({ ...companyFormData, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    電話番号
+                  </label>
+                  <input
+                    type="tel"
+                    value={companyFormData.phone}
+                    onChange={(e) => setCompanyFormData({ ...companyFormData, phone: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    住所
+                  </label>
+                  <textarea
+                    value={companyFormData.address}
+                    onChange={(e) => setCompanyFormData({ ...companyFormData, address: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="border-b pb-6">
+              <h3 className="text-lg font-semibold mb-4">請求書表示情報</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    発行者名
+                  </label>
+                  <input
+                    type="text"
+                    value={companyFormData.issuerName}
+                    onChange={(e) => setCompanyFormData({ ...companyFormData, issuerName: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="mt-1 text-sm text-gray-500">請求書に表示される発行者名</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    適格番号
+                  </label>
+                  <input
+                    type="text"
+                    value={companyFormData.taxId}
+                    onChange={(e) => setCompanyFormData({ ...companyFormData, taxId: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
             </div>
 
             <div>
@@ -379,13 +439,11 @@ export default function InvoiceSettingsPage() {
               </label>
               <input
                 type="text"
-                value={companyFormData.invoiceItemNameTemplate}
+                value={companyFormData.invoiceItemNameTemplate || ''}
                 onChange={(e) => setCompanyFormData({ ...companyFormData, invoiceItemNameTemplate: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="{businessName}委託費用"
               />
-              <p className="mt-1 text-sm text-gray-500">
-                {'{employeeName}'}で従業員名を埋め込みます。例: 「{'{employeeName}'}委託費用」
-              </p>
             </div>
 
             <div className="border-t pt-6">
