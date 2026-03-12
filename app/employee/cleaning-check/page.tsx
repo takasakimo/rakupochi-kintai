@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { compressImageToBase64 } from '@/lib/compress-image'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 
@@ -430,16 +431,22 @@ function CheckInModal({
   const [handoverNotes, setHandoverNotes] = useState<string | null>(null)
   const [handoverLoading, setHandoverLoading] = useState(false)
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (!f) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      const data = reader.result as string
+    try {
+      const data = await compressImageToBase64(f)
       setPhotoBase64(data)
       setPhotoPreview(data)
+    } catch {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const d = reader.result as string
+        setPhotoBase64(d)
+        setPhotoPreview(d)
+      }
+      reader.readAsDataURL(f)
     }
-    reader.readAsDataURL(f)
   }
 
   const handlePhotoSubmit = async () => {
@@ -728,31 +735,42 @@ function ReportEditModal({
   const existingExterior = urls?.exterior ?? null
   const existingGarbage = urls?.garbage ?? []
 
-  const handleExteriorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExteriorChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (!f) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      const data = reader.result as string
+    try {
+      const data = await compressImageToBase64(f)
       setPhotoExteriorBase64(data)
       setExteriorPreview(data)
+    } catch {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const d = reader.result as string
+        setPhotoExteriorBase64(d)
+        setExteriorPreview(d)
+      }
+      reader.readAsDataURL(f)
     }
-    reader.readAsDataURL(f)
   }
 
   const handleGarbageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
-    const results = await Promise.all(
-      files.slice(0, 5).map(
-        (f) =>
-          new Promise<string>((resolve) => {
-            const r = new FileReader()
-            r.onload = () => resolve((r.result as string) || '')
-            r.readAsDataURL(f)
-          })
-      )
-    )
+    const results: string[] = []
+    for (const f of files.slice(0, 5)) {
+      try {
+        const data = await compressImageToBase64(f)
+        results.push(data)
+      } catch {
+        const d = await new Promise<string>((resolve, reject) => {
+          const r = new FileReader()
+          r.onload = () => resolve((r.result as string) || '')
+          r.onerror = reject
+          r.readAsDataURL(f)
+        })
+        results.push(d)
+      }
+    }
     setPhotoGarbageBase64s((prev) => [...prev, ...results])
     setGarbagePreviews((prev) => [...prev, ...results])
   }
@@ -912,34 +930,42 @@ function CheckOutModal({
   const [exteriorPreview, setExteriorPreview] = useState<string | null>(null)
   const [garbagePreviews, setGarbagePreviews] = useState<string[]>([])
 
-  const handleExteriorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExteriorChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (!f) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      const data = reader.result as string
+    try {
+      const data = await compressImageToBase64(f)
       setExteriorBase64(data)
       setExteriorPreview(data)
+    } catch {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const d = reader.result as string
+        setExteriorBase64(d)
+        setExteriorPreview(d)
+      }
+      reader.readAsDataURL(f)
     }
-    reader.readAsDataURL(f)
   }
 
   const handleGarbageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
-    const max = 5
-    const toRead = files.slice(0, max)
-    const results = await Promise.all(
-      toRead.map(
-        (f) =>
-          new Promise<string>((resolve, reject) => {
-            const r = new FileReader()
-            r.onload = () => resolve((r.result as string) || '')
-            r.onerror = reject
-            r.readAsDataURL(f)
-          })
-      )
-    )
+    const results: string[] = []
+    for (const f of files.slice(0, 5)) {
+      try {
+        const data = await compressImageToBase64(f)
+        results.push(data)
+      } catch {
+        const d = await new Promise<string>((resolve, reject) => {
+          const r = new FileReader()
+          r.onload = () => resolve((r.result as string) || '')
+          r.onerror = reject
+          r.readAsDataURL(f)
+        })
+        results.push(d)
+      }
+    }
     setGarbageBase64s((prev) => [...prev, ...results])
     setGarbagePreviews((prev) => [...prev, ...results])
   }
