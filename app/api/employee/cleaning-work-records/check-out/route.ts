@@ -126,8 +126,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 勤怠管理と同様にクライアント送信の date+time を JST として解釈し保存（タイムゾーンずれ防止）
     const [datePart] = date.split('T')
-    const checkOutAt = new Date(`${datePart}T${time}:00`)
+    const checkOutAt = new Date(`${datePart}T${time}:00+09:00`)
 
     const durationMinutes = existing.checkInAt
       ? Math.round((checkOutAt.getTime() - existing.checkInAt.getTime()) / 60000)

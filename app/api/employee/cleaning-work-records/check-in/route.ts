@@ -105,8 +105,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 勤怠打刻と同様: date+time は JST として解釈（クライアントがローカルで送るため）
     const [datePart] = date.split('T')
-    const checkInAtStr = `${datePart}T${time}:00`
+    const checkInAtStr = `${datePart}T${time}:00+09:00`
     const locationJson = location ? JSON.stringify(location) : null
 
     if (existingRecord) {

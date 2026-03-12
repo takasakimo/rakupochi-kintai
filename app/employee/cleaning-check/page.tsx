@@ -78,14 +78,9 @@ export default function EmployeeCleaningCheckPage() {
     return () => clearInterval(timer)
   }, [status])
 
+  // 勤怠打刻と同じ（管理物件掃除_チェックイン設計書）
   const getCurrentTimeString = () => currentTime.toTimeString().slice(0, 5)
-  // ローカル日付を使用（toISOString は UTC のため日本時間午前中に1日ずれる）
-  const getCurrentDateString = () => {
-    const y = currentTime.getFullYear()
-    const m = String(currentTime.getMonth() + 1).padStart(2, '0')
-    const d = String(currentTime.getDate()).padStart(2, '0')
-    return `${y}-${m}-${d}`
-  }
+  const getCurrentDateString = () => currentTime.toISOString().split('T')[0]
 
   const fetchData = async () => {
     try {
