@@ -3,6 +3,7 @@
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { getLocalDateString } from '@/lib/date-utils'
 
 interface Employee {
   id: number
@@ -19,7 +20,7 @@ export default function NewAttendancePage() {
   const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState({
     employeeId: '',
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
     type: 'clock_in',
     time: '',
     location: {

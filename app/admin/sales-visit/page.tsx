@@ -58,8 +58,12 @@ export default function AdminSalesVisitPage() {
   
   // フィルター
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
+  const getLocalDateStr = () => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+  const [startDate, setStartDate] = useState(getLocalDateStr())
+  const [endDate, setEndDate] = useState(getLocalDateStr())
   
   // 自分の入退店フォームの状態
   const [showMyEntryForm, setShowMyEntryForm] = useState(false)
@@ -70,7 +74,7 @@ export default function AdminSalesVisitPage() {
   // 従業員管理用の入店フォームの状態
   const [showEntryForm, setShowEntryForm] = useState(false)
   const [entryEmployeeId, setEntryEmployeeId] = useState('')
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0])
+  const [entryDate, setEntryDate] = useState(getLocalDateStr())
   const [entryTime, setEntryTime] = useState('')
   const [companyName, setCompanyName] = useState('')
   const [contactPersonName, setContactPersonName] = useState('')
@@ -171,8 +175,12 @@ export default function AdminSalesVisitPage() {
     return currentTime.toTimeString().slice(0, 5)
   }
 
+  // ローカル日付（0時跨ぎで日付ずれしない）
   const getCurrentDateString = () => {
-    return currentTime.toISOString().split('T')[0]
+    const y = currentTime.getFullYear()
+    const m = String(currentTime.getMonth() + 1).padStart(2, '0')
+    const d = String(currentTime.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
   }
 
   const handleMyEntry = async () => {
@@ -384,7 +392,7 @@ export default function AdminSalesVisitPage() {
         setCompanyName('')
         setPurpose('商談')
         setEntryTime('')
-        setEntryDate(new Date().toISOString().split('T')[0])
+        setEntryDate(getLocalDateStr())
       } else {
         setError(data.error || '入店の記録に失敗しました')
       }
@@ -460,7 +468,7 @@ export default function AdminSalesVisitPage() {
 
       const notes = meetingNotes[visitId] || ''
       const visit = visits.find(v => v.id === visitId)
-      const exitDate = visit ? visit.date : new Date().toISOString().split('T')[0]
+      const exitDate = visit ? visit.date : getLocalDateStr()
 
       // 退店を実行
       const response = await fetch('/api/admin/sales-visit/exit', {
@@ -1201,7 +1209,7 @@ export default function AdminSalesVisitPage() {
                   setContactPersonName('')
                   setPurpose('商談')
                   setEntryTime('')
-                  setEntryDate(new Date().toISOString().split('T')[0])
+                  setEntryDate(getLocalDateStr())
                 }}
                 disabled={loading}
                 className="px-6 py-2 rounded-lg font-semibold bg-gray-300 text-gray-700 hover:bg-gray-400 disabled:opacity-50"

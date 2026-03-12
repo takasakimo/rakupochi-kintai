@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { getLocalDateString } from '@/lib/date-utils'
 
 interface Attendance {
   id: number
@@ -263,8 +264,8 @@ export default function AdminAttendancesPage() {
   const fetchShiftsAndAttendances = async () => {
     setLoading(true)
     try {
-      // 日付が指定されていない場合は今日の日付を使用
-      const targetDate = startDate || new Date().toISOString().split('T')[0]
+      // 日付が指定されていない場合は今日の日付を使用（ローカル日付で0時跨ぎ対応）
+      const targetDate = startDate || getLocalDateString()
       
       // シフトを取得
       const shiftParams = new URLSearchParams()

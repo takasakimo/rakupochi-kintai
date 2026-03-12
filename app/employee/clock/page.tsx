@@ -50,7 +50,8 @@ export default function ClockPage() {
 
   const fetchTodayAttendance = async () => {
     try {
-      const response = await fetch('/api/attendance/today')
+      const dateParam = getCurrentDateString()
+      const response = await fetch(`/api/attendance/today?date=${dateParam}`)
       const data = await response.json()
       setAttendance(data.attendance)
     } catch (err) {
@@ -95,8 +96,12 @@ export default function ClockPage() {
     return currentTime.toTimeString().slice(0, 5)
   }
 
+  // ローカル日付（0時跨ぎで日付ずれしない。toISOStringはUTCのため日本時間午前中に1日ずれる）
   const getCurrentDateString = () => {
-    return currentTime.toISOString().split('T')[0]
+    const y = currentTime.getFullYear()
+    const m = String(currentTime.getMonth() + 1).padStart(2, '0')
+    const d = String(currentTime.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
   }
 
   const handleWakeUp = async () => {

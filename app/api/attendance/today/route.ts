@@ -25,15 +25,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // ローカル時間で今日の日付を取得
-    const now = new Date()
-    const todayYear = now.getFullYear()
-    const todayMonth = now.getMonth()
-    const todayDay = now.getDate()
-    
-    // UTC日付として今日の開始と終了を設定
-    const todayStartUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 0, 0, 0, 0))
-    const todayEndUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 23, 59, 59, 999))
+    // クライアントから日付が渡されればそれを使用（JSTの「今日」）、なければサーバー日付
+    const dateStr = searchParams.get('date')
+    let todayStartUTC: Date
+    let todayEndUTC: Date
+    if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      todayStartUTC = new Date(`${dateStr}T00:00:00.000Z`)
+      todayEndUTC = new Date(`${dateStr}T23:59:59.999Z`)
+    } else {
+      const now = new Date()
+      const todayYear = now.getFullYear()
+      const todayMonth = now.getMonth()
+      const todayDay = now.getDate()
+      todayStartUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 0, 0, 0, 0))
+      todayEndUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 23, 59, 59, 999))
+    }
 
     // 削除されていない打刻データを取得
     const attendance = await prisma.attendance.findFirst({

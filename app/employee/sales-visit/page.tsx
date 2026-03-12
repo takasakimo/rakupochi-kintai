@@ -72,8 +72,12 @@ export default function SalesVisitPage() {
     return currentTime.toTimeString().slice(0, 5)
   }
 
+  // ローカル日付（0時跨ぎで日付ずれしない）
   const getCurrentDateString = () => {
-    return currentTime.toISOString().split('T')[0]
+    const y = currentTime.getFullYear()
+    const m = String(currentTime.getMonth() + 1).padStart(2, '0')
+    const d = String(currentTime.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
   }
 
   const handleEntry = async () => {
