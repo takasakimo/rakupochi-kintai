@@ -41,6 +41,9 @@ model Company {
   salesVisits SalesVisit[]
   billingClients BillingClient[]
   invoices Invoice[]
+  properties  Property[]
+  cleaningAssignments CleaningAssignment[]
+  cleaningWorkRecords CleaningWorkRecord[]
 
   @@map("companies")
 }
@@ -81,6 +84,8 @@ model Employee {
   attendanceModificationLogs AttendanceModificationLog[] @relation("Modifier")
   salesVisits SalesVisit[]
   invoiceDetails InvoiceDetail[]
+  cleaningAssignments  CleaningAssignment[]
+  cleaningWorkRecords  CleaningWorkRecord[]
 
   // 請求関連フィールド
   billingClientId Int?      // 請求先企業ID
@@ -238,6 +243,11 @@ model CompanySetting {
   paidLeaveFirstGrantMonths Int @default(6) // 初回有給付与までの月数（例：6ヶ月）
   paidLeaveGrantDays Json? // 年次ごとの付与日数 {year1: 10, year2: 11, year3: 12, year4: 14, year5: 16, year6: 18, year7: 20}
   includePaidLeaveInInvoice Boolean @default(false) // 有給休暇を請求書に反映するかどうか
+  // らくポチリザーブ連携
+  reserveIntegrationEnabled Boolean @default(false) // リザーブ連携を有効にするか
+  reserveTenantId          String?  // リザーブ側のテナントID（連携先店舗の識別子）
+  // 管理物件掃除 チェックイン/チェックアウト機能
+  enableCleaningCheck      Boolean @default(false) // チェックイン/チェックアウト機能を有効にするかどうか
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -418,4 +428,90 @@ model InvoiceDetail {
   @@index([invoiceId])
   @@index([employeeId])
   @@map("invoice_details")
+}
+
+// 管理物件（掃除案件用）
+model Property {
+  id                    Int       @id @default(autoincrement())
+  companyId             Int       @map("company_id")
+  name                  String    // 物件名
+  address               String    // 住所
+  latitude              Float     // 緯度
+  longitude             Float     // 経度
+  lockInfo              String    @db.Text @map("lock_info") // 共有部分の施錠有無（オートロック解除キー等）
+  hasManager            Boolean   @map("has_manager") // 管理人の有無（報告の必要有無）
+  parkingInfo           String    @db.Text @map("parking_info") // 駐車可能スペースの有無、コインパーキング情報
+  keyAccessInfo         String?   @db.Text @map("key_access_info") // 鍵・アクセス方法（任意）
+  contactInfo           String?   @db.Text @map("contact_info") // 連絡先（任意）
+  workRangeNotes        String?   @db.Text @map("work_range_notes") // 作業範囲・注意事項（任意）
+  buildingAccessInfo    String?   @db.Text @map("building_access_info") // 建物の入り方（任意）
+  lastVisitedAt         DateTime? @map("last_visited_at") // 最終訪問日（チェックアウト完了時に自動更新）
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  company               Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  cleaningAssignments   CleaningAssignment[]
+  cleaningWorkRecords   CleaningWorkRecord[]
+
+  @@index([companyId])
+  @@index([lastVisitedAt])
+  @@map("properties")
+}
+
+// 掃除案件アサインメント（スタッフ×日付×物件の割り当て）
+model CleaningAssignment {
+  id            Int       @id @default(autoincrement())
+  companyId     Int       @map("company_id")
+  employeeId    Int       @map("employee_id")
+  propertyId    Int       @map("property_id")
+  assignmentDate DateTime @db.Date @map("assignment_date")
+  sortOrder     Int       @map("sort_order") // 訪問順（1〜10）
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee      Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  property      Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, employeeId, assignmentDate, sortOrder])
+  @@index([companyId])
+  @@index([employeeId])
+  @@index([propertyId])
+  @@index([assignmentDate])
+  @@map("cleaning_assignments")
+}
+
+// 掃除作業記録（チェックイン〜チェックアウトの1件）
+model CleaningWorkRecord {
+  id                  Int       @id @default(autoincrement())
+  companyId           Int       @map("company_id")
+  employeeId          Int       @map("employee_id")
+  propertyId          Int       @map("property_id")
+  workDate            DateTime  @db.Date @map("work_date")
+  checkInAt           DateTime? @map("check_in_at") // チェックイン日時
+  checkOutAt          DateTime? @map("check_out_at") // チェックアウト日時
+  checkInLocation     Json?     @map("check_in_location") // チェックイン時のGPS
+  checkOutLocation    Json?     @map("check_out_location") // チェックアウト時のGPS
+  checkInPhotoUrl     String?   @map("check_in_photo_url") // チェックイン写真（外観1枚）
+  checkOutPhotoUrls   Json?     @map("check_out_photo_urls") // チェックアウト写真 {exterior: url, garbage: [urls]}
+  handoverConfirmed   Boolean   @default(false) @map("handover_confirmed") // 引き継ぎ確認済みか
+  workType            String?   @map("work_type") // 作業種別：定期清掃、追加清掃、特別清掃、その他
+  workTypeOtherComment String?   @db.Text @map("work_type_other_comment") // その他選択時のコメント
+  impression          String?   @db.Text @map("impression") // 所感
+  dirtyAreas          String?   @db.Text @map("dirty_areas") // 特に汚れていた場所
+  handoverNotes       String?   @db.Text @map("handover_notes") // 次回への引き継ぎ事項
+  durationMinutes     Int?     @map("duration_minutes") // 所要時間（分）
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee      Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  property      Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, employeeId, propertyId, workDate])
+  @@index([companyId])
+  @@index([employeeId])
+  @@index([propertyId])
+  @@index([workDate])
+  @@map("cleaning_work_records")
 }
