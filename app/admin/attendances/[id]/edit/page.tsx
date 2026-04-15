@@ -49,6 +49,7 @@ export default function EditAttendancePage() {
       locationName: '',
     },
     breakMinutes: 0,
+    notes: '',
   })
 
   useEffect(() => {
@@ -112,6 +113,19 @@ export default function EditAttendancePage() {
           return { latitude: '', longitude: '', locationName: '' }
         }
 
+        // 備考：JSON（休憩情報等）の場合はoriginalNotesを表示、それ以外はそのまま
+        const getEditableNotes = (notes: string | null) => {
+          if (!notes) return ''
+          try {
+            const parsed = JSON.parse(notes)
+            if (parsed.originalNotes !== undefined) return parsed.originalNotes || ''
+            if (parsed.breakStartTime) return ''
+            return notes
+          } catch {
+            return notes
+          }
+        }
+
         setEditFormData({
           wakeUpTime: formatTime(data.attendance.wakeUpTime),
           departureTime: formatTime(data.attendance.departureTime),
@@ -120,6 +134,7 @@ export default function EditAttendancePage() {
           clockInLocation: formatLocation(data.attendance.clockInLocation),
           clockOutLocation: formatLocation(data.attendance.clockOutLocation),
           breakMinutes: data.attendance.breakMinutes || 0,
+          notes: getEditableNotes(data.attendance.notes),
         })
       }
     } catch (err) {
@@ -142,6 +157,22 @@ export default function EditAttendancePage() {
         clockIn: editFormData.clockIn || null,
         clockOut: editFormData.clockOut || null,
         breakMinutes: editFormData.breakMinutes || 0,
+      }
+
+      // 備考：既存がJSON（休憩情報等）の場合はマージ、それ以外は上書き
+      if (attendance.notes) {
+        try {
+          const parsed = JSON.parse(attendance.notes)
+          if (parsed.breakStartTime || (parsed.breaks && Array.isArray(parsed.breaks))) {
+            payload.notes = JSON.stringify({ ...parsed, originalNotes: editFormData.notes.trim() || null })
+          } else {
+            payload.notes = editFormData.notes.trim() || null
+          }
+        } catch {
+          payload.notes = editFormData.notes.trim() || null
+        }
+      } else {
+        payload.notes = editFormData.notes.trim() || null
       }
 
       if (editFormData.clockInLocation.latitude && editFormData.clockInLocation.longitude) {
@@ -266,6 +297,19 @@ export default function EditAttendancePage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                 />
               </div>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">備考（レポートに表示されます）</label>
+              <textarea
+                value={editFormData.notes}
+                onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                rows={3}
+                maxLength={500}
+                placeholder="備考を入力"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white resize-none"
+              />
+              <p className="text-xs text-gray-500 mt-1">最大500文字（印刷時は表示幅により省略される場合があります）</p>
             </div>
 
             <div className="border-t pt-4">

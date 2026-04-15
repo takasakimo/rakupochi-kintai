@@ -2,15 +2,21 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 
-// 本番環境でシードデータを投入するためのAPI
-// 注意: 本番環境では認証を追加することを推奨
+// シードデータ投入用API（開発・テスト用）
+// セキュリティ: 本番環境では完全に無効化
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 })
+  }
   return await seedDatabase()
 }
 
 export async function POST() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 })
+  }
   return await seedDatabase()
 }
 

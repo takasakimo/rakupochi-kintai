@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic'
 export default async function Home() {
   const session = await getSession()
 
+  // 未ログイン時はログイン画面へ
   if (!session) {
     redirect('/auth/signin')
   }
@@ -15,7 +16,6 @@ export default async function Home() {
                        session.user.email === 'superadmin@rakupochi.com'
   
   if (isSuperAdmin) {
-    // スーパー管理者の場合は企業選択画面へ
     redirect('/super-admin/select-company')
   } else if (session.user.role === 'admin') {
     redirect('/admin/dashboard')

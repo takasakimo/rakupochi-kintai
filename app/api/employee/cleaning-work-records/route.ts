@@ -28,37 +28,58 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams
     const dateStr = searchParams.get('date')
-    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      return NextResponse.json({ error: '無効な日付です（YYYY-MM-DD形式）' }, { status: 400 })
+    const monthStr = searchParams.get('month')
+
+    const useMonth = !!monthStr && /^\d{4}-\d{2}$/.test(monthStr)
+    const useDate = !!dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+
+    if (!useMonth && !useDate) {
+      return NextResponse.json(
+        { error: 'date（YYYY-MM-DD）または month（YYYY-MM）のいずれかを指定してください' },
+        { status: 400 }
+      )
     }
 
-    // PostgreSQL DATE型を確実に比較（タイムゾーン問題を回避）
-    const raw = await prisma.$queryRaw<
-      Array<{
-        id: number
-        company_id: number
-        employee_id: number
-        property_id: number
-        work_date: Date
-        check_in_at: Date | null
-        check_out_at: Date | null
-        check_in_photo_url: string | null
-        impression: string | null
-        dirty_areas: string | null
-        handover_notes: string | null
-        check_out_photo_urls: unknown
-        handover_confirmed: boolean
-        work_type: string | null
-        work_type_other_comment: string | null
-        duration_minutes: number | null
-        created_at: Date
-        updated_at: Date
-      }>
-    >`
-      SELECT * FROM cleaning_work_records
-      WHERE company_id = ${companyId} AND employee_id = ${employeeId}
-        AND work_date = ${dateStr}::date
-    `
+    type RecordRow = {
+      id: number
+      company_id: number
+      employee_id: number
+      property_id: number
+      work_date: Date
+      check_in_at: Date | null
+      check_out_at: Date | null
+      check_in_photo_url: string | null
+      impression: string | null
+      dirty_areas: string | null
+      handover_notes: string | null
+      check_out_photo_urls: unknown
+      handover_confirmed: boolean
+      work_type: string | null
+      work_type_other_comment: string | null
+      duration_minutes: number | null
+      created_at: Date
+      updated_at: Date
+    }
+
+    let raw: RecordRow[]
+    if (useMonth) {
+      const [y, m] = monthStr!.split('-').map(Number)
+      const startDate = `${monthStr}-01`
+      const nextMonth = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
+      raw = await prisma.$queryRaw<RecordRow[]>`
+        SELECT * FROM cleaning_work_records
+        WHERE company_id = ${companyId} AND employee_id = ${employeeId}
+          AND work_date >= ${startDate}::date
+          AND work_date < ${nextMonth}::date
+        ORDER BY work_date ASC, id ASC
+      `
+    } else {
+      raw = await prisma.$queryRaw<RecordRow[]>`
+        SELECT * FROM cleaning_work_records
+        WHERE company_id = ${companyId} AND employee_id = ${employeeId}
+          AND work_date = ${dateStr}::date
+      `
+    }
 
     if (raw.length === 0) {
       return NextResponse.json({ records: [] })

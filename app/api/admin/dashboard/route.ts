@@ -38,12 +38,12 @@ export async function GET() {
 
     console.log('[Dashboard] Session valid, companyId:', effectiveCompanyId)
     
-    // ローカル時間で今日の日付を取得
-    const now = new Date()
+    // JST の今日（Vercel は UTC のため +9h 補正）
+    const now = new Date(Date.now() + 9 * 60 * 60 * 1000)
     const todayYear = now.getFullYear()
     const todayMonth = now.getMonth()
     const todayDay = now.getDate()
-    
+
     // UTC日付として今日の開始と終了を設定
     const todayStartUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 0, 0, 0, 0))
     const todayEndUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 23, 59, 59, 999))
@@ -69,7 +69,7 @@ export async function GET() {
     // 未打刻者数（シフトが登録されていて、シフト開始時間を過ぎているが打刻していない従業員）
     let missingAttendanceCount = 0
     try {
-      const currentTime = now.getHours() * 60 + now.getMinutes() // 現在時刻を分単位で取得（ローカル時間）
+      const currentTime = now.getHours() * 60 + now.getMinutes() // 現在時刻を分単位で取得（JST）
       
       console.log('[Dashboard] Today date range:', {
         local: `${todayYear}-${todayMonth + 1}-${todayDay}`,
@@ -221,9 +221,9 @@ export async function GET() {
     console.log('[Dashboard] Company ID:', session.user.companyId)
 
     // 残業アラート数（今月の残業時間が40時間を超えている従業員）
-    const currentMonth = new Date()
-    const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
-    const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0)
+    // JST の今月（nowは上で+9h補正済み）
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
     const attendances = await prisma.attendance.findMany({
       where: {

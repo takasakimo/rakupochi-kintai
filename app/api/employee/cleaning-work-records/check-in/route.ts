@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     const existingRecord = existingRows[0]
     if (existingRecord?.check_out_at) {
       return NextResponse.json(
-        { error: 'すでにチェックアウト済みです' },
+        { error: 'すでに退場済みです' },
         { status: 400 }
       )
     }

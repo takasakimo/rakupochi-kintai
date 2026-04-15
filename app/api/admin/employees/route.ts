@@ -10,14 +10,8 @@ export const dynamic = 'force-dynamic'
 // 従業員一覧取得
 export async function GET() {
   try {
-    // セキュリティ: 本番環境では機密情報をログに出力しない
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[Employees] GET /api/admin/employees - Starting')
-    }
-    
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
-      console.log('[Employees] Unauthorized: no session or user')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -27,7 +21,6 @@ export async function GET() {
     const isAdmin = session.user.role === 'admin'
 
     if (!isSuperAdmin && !isAdmin) {
-      console.log('[Employees] Forbidden: not admin or super admin role')
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -43,11 +36,8 @@ export async function GET() {
       )
     }
 
-    console.log('[Employees] Company ID:', effectiveCompanyId)
-
     let employees
     try {
-      console.log('[Employees] Attempting to query database...')
       employees = await prisma.employee.findMany({
         where: {
           companyId: effectiveCompanyId,
@@ -92,7 +82,6 @@ export async function GET() {
           employeeNumber: 'asc',
         },
       })
-      console.log('[Employees] Found employees:', employees.length)
 
       // 会社設定を取得
       const companySettings = await prisma.companySetting.findUnique({
@@ -138,7 +127,6 @@ export async function GET() {
             
             // メモリ内のデータも更新（レスポンス用）
             emp.paidLeaveBalance = result.newBalance
-            console.log(`[Employees] Processed paid leave on grant date for employee ${emp.id}: expired ${result.expiredDays} days, granted ${result.grantedDays} days, new balance: ${result.newBalance}`)
           }
         }
       }
@@ -264,7 +252,6 @@ export async function POST(request: NextRequest) {
         grantDaysConfig,
         firstGrantMonths
       )
-      console.log(`[Employee Create] Calculated paid leave balance: ${calculatedPaidLeaveBalance} days for yearsOfService: ${yearsOfService}`)
     }
 
     // バリデーション

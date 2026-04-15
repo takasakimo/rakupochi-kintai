@@ -64,6 +64,9 @@ export async function GET(request: NextRequest) {
             year7: 20,
           },
           includePaidLeaveInInvoice: false,
+          reserveIntegrationEnabled: false,
+          reserveTenantId: null,
+          enableCleaningCheck: false,
         },
       })
       return NextResponse.json({ settings: defaultSettings })
@@ -168,6 +171,15 @@ export async function PATCH(request: NextRequest) {
         ...(body.includePaidLeaveInInvoice !== undefined && {
           includePaidLeaveInInvoice: body.includePaidLeaveInInvoice,
         }),
+        ...(body.reserveIntegrationEnabled !== undefined && {
+          reserveIntegrationEnabled: body.reserveIntegrationEnabled,
+        }),
+        ...(body.reserveTenantId !== undefined && {
+          reserveTenantId: body.reserveTenantId?.trim() || null,
+        }),
+        ...(body.enableCleaningCheck !== undefined && {
+          enableCleaningCheck: body.enableCleaningCheck,
+        }),
       },
       create: {
         companyId: effectiveCompanyId,
@@ -190,6 +202,9 @@ export async function PATCH(request: NextRequest) {
           year7: 20,
         },
         includePaidLeaveInInvoice: body.includePaidLeaveInInvoice ?? false,
+        reserveIntegrationEnabled: body.reserveIntegrationEnabled ?? false,
+        reserveTenantId: body.reserveTenantId?.trim() || null,
+        enableCleaningCheck: body.enableCleaningCheck ?? false,
       },
     })
 

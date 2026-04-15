@@ -69,7 +69,8 @@ export async function POST(request: NextRequest) {
     })
 
     const generatedAlerts: any[] = []
-    const now = new Date()
+    // JST の今月（Vercel は UTC のため +9h 補正）
+    const now = new Date(Date.now() + 9 * 60 * 60 * 1000)
     const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 

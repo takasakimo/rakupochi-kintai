@@ -34,7 +34,184 @@ interface AssignmentItem {
   sortOrder: number
 }
 
+interface ProgressRecord {
+  id: number
+  employeeId: number
+  propertyId: number
+  workDate: string
+  checkInAt: string | null
+  checkOutAt: string | null
+  checkInPhotoUrl: string | null
+  checkOutPhotoUrls: { exterior?: string | null; garbage?: string[] } | null
+  checkInLocation: { latitude?: number; longitude?: number } | null
+  checkOutLocation: { latitude?: number; longitude?: number } | null
+  workType: string | null
+  workTypeOtherComment: string | null
+  impression: string | null
+  dirtyAreas: string | null
+  handoverNotes: string | null
+  durationMinutes: number | null
+  property?: Property
+  employee?: { id: number; name: string }
+}
+
 const DEFAULT_CENTER = { lat: 35.6812, lng: 139.7671 } // 東京
+
+function formatTime(iso: string | null): string {
+  if (!iso) return '-'
+  const d = new Date(iso)
+  return d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+}
+
+/** 住所から市区町村を抽出（グループ表示用） */
+function extractCityFromAddress(address: string): string {
+  if (!address?.trim()) return '住所なし'
+  const withoutPref = address.replace(/^(.+?[都道府県])/, '').trim()
+  if (!withoutPref) return address.slice(0, 15) || '未分類'
+  const m = withoutPref.match(/^([^0-9]*?[市区町村])/)
+  return m ? m[1].trim() : (withoutPref.slice(0, 15).trim() || '未分類')
+}
+
+/** 物件を市区町村ごとにグループ化 */
+function groupPropertiesByCity(props: Property[]): { city: string; properties: Property[] }[] {
+  const map = new Map<string, Property[]>()
+  for (const p of props) {
+    const city = extractCityFromAddress(p.address)
+    if (!map.has(city)) map.set(city, [])
+    map.get(city)!.push(p)
+  }
+  return Array.from(map.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([city, properties]) => ({ city, properties }))
+}
+
+function ProgressDetailModal({ record, onClose }: { record: ProgressRecord; onClose: () => void }) {
+  const mapRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<any>(null)
+  const [mapLoaded, setMapLoaded] = useState(false)
+
+  const loc = record.checkInLocation || record.checkOutLocation
+  const lat = loc && typeof loc === 'object' && typeof (loc as any).latitude === 'number' ? (loc as any).latitude : record.property?.latitude ?? DEFAULT_CENTER.lat
+  const lng = loc && typeof loc === 'object' && typeof (loc as any).longitude === 'number' ? (loc as any).longitude : record.property?.longitude ?? DEFAULT_CENTER.lng
+
+  useEffect(() => {
+    if (!record || !mapRef.current) return
+    let mounted = true
+    const loadL = () => {
+      return new Promise<void>((resolve, reject) => {
+        if ((window as any).L) {
+          resolve()
+          return
+        }
+        const link = document.querySelector('link[href*="leaflet.css"]')
+        if (!link) {
+          const l = document.createElement('link')
+          l.rel = 'stylesheet'
+          l.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+          document.head.appendChild(l)
+        }
+        const script = document.querySelector('script[src*="leaflet.js"]')
+        if (script) {
+          const check = setInterval(() => { if ((window as any).L) { clearInterval(check); resolve() } }, 100)
+          setTimeout(() => clearInterval(check), 5000)
+          return
+        }
+        const s = document.createElement('script')
+        s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+        s.async = true
+        s.onload = () => ((window as any).L ? resolve() : reject(new Error('L not found')))
+        s.onerror = () => reject(new Error('Load failed'))
+        document.head.appendChild(s)
+      })
+    }
+    const init = async () => {
+      try {
+        await loadL()
+        if (!mounted || !mapRef.current) return
+        const L = (window as any).L
+        if (!L) return
+        delete (L.Icon.Default.prototype as any)._getIconUrl
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+          iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+          shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        })
+        const map = L.map(mapRef.current).setView([lat, lng], 16)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map)
+        L.marker([lat, lng]).addTo(map).bindPopup(record.property?.name ?? '打刻位置')
+        mapInstanceRef.current = map
+        setMapLoaded(true)
+      } catch (e) {
+        console.error('Map init error:', e)
+      }
+    }
+    const t = setTimeout(init, 200)
+    return () => {
+      mounted = false
+      clearTimeout(t)
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+      }
+    }
+  }, [record, lat, lng])
+
+  const urls = record.checkOutPhotoUrls
+  const exteriorUrl = urls && typeof urls === 'object' && (urls as any).exterior ? (urls as any).exterior : null
+  const garbageUrls = urls && typeof urls === 'object' && Array.isArray((urls as any).garbage) ? (urls as any).garbage : []
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white">
+          <h2 className="text-lg font-semibold text-gray-900">
+            作業記録詳細 - {record.property?.name ?? '-'} ({record.employee?.name ?? '-'})
+          </h2>
+          <button onClick={onClose} className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-gray-900">閉じる</button>
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <p><span className="text-gray-600">入場:</span> {formatTime(record.checkInAt)}</p>
+            <p><span className="text-gray-600">退場:</span> {formatTime(record.checkOutAt)}</p>
+            <p><span className="text-gray-600">所要時間:</span> {record.durationMinutes != null ? `${record.durationMinutes}分` : '-'}</p>
+            <p><span className="text-gray-600">作業種別:</span> {record.workType ?? '-'}{record.workTypeOtherComment ? `（${record.workTypeOtherComment}）` : ''}</p>
+          </div>
+
+          {record.checkInPhotoUrl && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-1">入場写真</h3>
+              <img src={record.checkInPhotoUrl} alt="入場" className="max-w-full max-h-48 rounded border object-contain" />
+            </div>
+          )}
+          {(exteriorUrl || garbageUrls.length > 0) && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-1">退場写真</h3>
+              <div className="flex flex-wrap gap-2">
+                {exteriorUrl && <img src={exteriorUrl} alt="外観" className="max-w-32 max-h-32 rounded border object-cover" />}
+                {garbageUrls.map((url: string, i: number) => (
+                  <img key={i} src={url} alt={`ゴミ袋${i + 1}`} className="max-w-32 max-h-32 rounded border object-cover" />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(record.impression || record.dirtyAreas || record.handoverNotes) && (
+            <div className="space-y-2">
+              {record.impression && <div><span className="text-gray-600 text-sm">所感:</span><p className="text-gray-900 text-sm mt-0.5">{record.impression}</p></div>}
+              {record.dirtyAreas && <div><span className="text-gray-600 text-sm">汚れていた場所:</span><p className="text-gray-900 text-sm mt-0.5">{record.dirtyAreas}</p></div>}
+              {record.handoverNotes && <div><span className="text-gray-600 text-sm">引き継ぎ:</span><p className="text-gray-900 text-sm mt-0.5">{record.handoverNotes}</p></div>}
+            </div>
+          )}
+
+          <div>
+            <h3 className="text-sm font-medium text-gray-700 mb-1">打刻位置</h3>
+            <div ref={mapRef} className="w-full h-48 rounded border bg-gray-100" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function AdminCleaningCheckPage() {
   const { data: session, status } = useSession()
@@ -77,6 +254,25 @@ export default function AdminCleaningCheckPage() {
   const [assignmentLoading, setAssignmentLoading] = useState(false)
   const [addEmployeeId, setAddEmployeeId] = useState<number | ''>('')
   const [addPropertyId, setAddPropertyId] = useState<number | ''>('')
+  const [bulkAddEmployeeId, setBulkAddEmployeeId] = useState<number | ''>('')
+  const [bulkAddPropertyIds, setBulkAddPropertyIds] = useState<Set<number>>(new Set())
+  const [draggedAssignment, setDraggedAssignment] = useState<{ employeeId: number; fromIndex: number } | null>(null)
+
+  // 物件マスタからアサインメント追加用（日付は assignmentDate を共用）
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<Set<number>>(new Set())
+  const [propertyTabAddEmployeeId, setPropertyTabAddEmployeeId] = useState<number | ''>('')
+  const [propertyTabAddLoading, setPropertyTabAddLoading] = useState(false)
+
+  // 進捗一覧用
+  const [progressDate, setProgressDate] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
+  const [progressEmployeeId, setProgressEmployeeId] = useState<number | ''>('')
+  const [progressPropertyId, setProgressPropertyId] = useState<number | ''>('')
+  const [progressRecords, setProgressRecords] = useState<any[]>([])
+  const [progressLoading, setProgressLoading] = useState(false)
+  const [progressDetailModal, setProgressDetailModal] = useState<any | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -143,7 +339,40 @@ export default function AdminCleaningCheckPage() {
       fetchEmployees()
       fetchAssignments()
     }
+    if (activeTab === 'properties') {
+      fetchEmployees()
+    }
   }, [activeTab, assignmentDate])
+
+  useEffect(() => {
+    if (activeTab === 'progress' && progressDate) {
+      fetchProgress()
+    }
+  }, [activeTab, progressDate, progressEmployeeId, progressPropertyId])
+
+  const fetchProgress = async () => {
+    if (!progressDate) return
+    setProgressLoading(true)
+    try {
+      let url = `/api/admin/cleaning-work-records?date=${progressDate}`
+      if (progressEmployeeId) url += `&employeeId=${progressEmployeeId}`
+      if (progressPropertyId) url += `&propertyId=${progressPropertyId}`
+      const res = await fetch(url)
+      const data = await res.json()
+      setProgressRecords(data.records || [])
+    } catch (err) {
+      console.error('Failed to fetch progress:', err)
+    } finally {
+      setProgressLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'progress') {
+      fetchEmployees()
+      fetchProgress()
+    }
+  }, [activeTab, progressDate, progressEmployeeId, progressPropertyId])
 
   const handleAddAssignment = () => {
     const eId = typeof addEmployeeId === 'number' ? addEmployeeId : null
@@ -165,6 +394,120 @@ export default function AdminCleaningCheckPage() {
     setAddPropertyId('')
   }
 
+  const handleBulkAddAssignments = () => {
+    const eId = typeof bulkAddEmployeeId === 'number' ? bulkAddEmployeeId : null
+    if (eId == null || bulkAddPropertyIds.size === 0) return
+    const emp = employees.find(e => e.id === eId)
+    if (!emp) return
+    const existingForEmployee = assignmentItems.filter(a => a.employeeId === eId)
+    const existingPropertyIds = new Set(existingForEmployee.map(a => a.propertyId))
+    const toAdd = [...bulkAddPropertyIds].filter(pid => !existingPropertyIds.has(pid))
+    if (toAdd.length === 0) {
+      alert('選択した物件はすべて既に追加済みです')
+      return
+    }
+    const propMap = Object.fromEntries(properties.map(p => [p.id, p]))
+    let nextOrder = existingForEmployee.length ? Math.max(...existingForEmployee.map(a => a.sortOrder)) + 1 : 1
+    const newItems: AssignmentItem[] = toAdd.map(pid => {
+      const prop = propMap[pid]
+      const item: AssignmentItem = {
+        employeeId: eId,
+        employeeName: emp.name,
+        propertyId: pid,
+        propertyName: prop?.name ?? '',
+        sortOrder: nextOrder++,
+      }
+      return item
+    })
+    setAssignmentItems(prev => [...prev, ...newItems])
+    setBulkAddPropertyIds(new Set())
+    alert(`${newItems.length}件を追加しました。保存ボタンで確定してください。`)
+  }
+
+  const toggleBulkProperty = (pid: number) => {
+    setBulkAddPropertyIds(prev => {
+      const next = new Set(prev)
+      if (next.has(pid)) next.delete(pid)
+      else next.add(pid)
+      return next
+    })
+  }
+
+  const selectAllBulkProperties = () => setBulkAddPropertyIds(new Set(properties.map(p => p.id)))
+  const clearBulkProperties = () => setBulkAddPropertyIds(new Set())
+
+  // 物件マスタから選択→アサインメント追加
+  const toggleSelectedProperty = (pid: number) => {
+    setSelectedPropertyIds(prev => {
+      const next = new Set(prev)
+      if (next.has(pid)) next.delete(pid)
+      else next.add(pid)
+      return next
+    })
+  }
+  const selectAllPropertiesInTab = () => setSelectedPropertyIds(new Set(properties.map(p => p.id)))
+  const clearSelectedProperties = () => setSelectedPropertyIds(new Set())
+
+  const handleAddFromPropertyTab = async () => {
+    const eId = typeof propertyTabAddEmployeeId === 'number' ? propertyTabAddEmployeeId : null
+    if (eId == null || selectedPropertyIds.size === 0 || !assignmentDate) return
+    const emp = employees.find(e => e.id === eId)
+    if (!emp) return
+    setPropertyTabAddLoading(true)
+    try {
+      const res = await fetch(`/api/admin/cleaning-assignments?date=${assignmentDate}`)
+      const data = await res.json()
+      const existing: AssignmentItem[] = (data.assignments || []).map((a: any) => ({
+        employeeId: a.employeeId,
+        employeeName: a.employee?.name ?? '',
+        propertyId: a.propertyId,
+        propertyName: a.property?.name ?? '',
+        sortOrder: a.sortOrder,
+      }))
+      const existingForEmployee = existing.filter(a => a.employeeId === eId)
+      const existingPropertyIds = new Set(existingForEmployee.map(a => a.propertyId))
+      const toAdd = [...selectedPropertyIds].filter(pid => !existingPropertyIds.has(pid))
+      if (toAdd.length === 0) {
+        alert('選択した物件はすべて既に追加済みです')
+        return
+      }
+      const propMap = Object.fromEntries(properties.map(p => [p.id, p]))
+      let nextOrder = existingForEmployee.length ? Math.max(...existingForEmployee.map(a => a.sortOrder)) + 1 : 1
+      const newItems: AssignmentItem[] = toAdd.map(pid => {
+        const prop = propMap[pid]
+        return {
+          employeeId: eId,
+          employeeName: emp.name,
+          propertyId: pid,
+          propertyName: prop?.name ?? '',
+          sortOrder: nextOrder++,
+        }
+      })
+      const merged = [...existing, ...newItems]
+      const postRes = await fetch('/api/admin/cleaning-assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: assignmentDate,
+          assignments: merged.map(a => ({ employeeId: a.employeeId, propertyId: a.propertyId, sortOrder: a.sortOrder })),
+        }),
+      })
+      const postData = await postRes.json()
+      if (postData.success) {
+        setSelectedPropertyIds(new Set())
+        alert(`${newItems.length}件をアサインメントに追加しました`)
+        setActiveTab('assignment')
+        fetchAssignments()
+      } else {
+        alert(postData.error || '追加に失敗しました')
+      }
+    } catch (err) {
+      alert('追加に失敗しました')
+    } finally {
+      setPropertyTabAddLoading(false)
+    }
+  }
+
   const handleRemoveAssignment = (employeeId: number, propertyId: number) => {
     setAssignmentItems(prev => {
       const filtered = prev.filter(a => !(a.employeeId === employeeId && a.propertyId === propertyId))
@@ -174,6 +517,67 @@ export default function AdminCleaningCheckPage() {
         return { ...a, sortOrder: pos + 1 }
       })
     })
+  }
+
+  const handleReorderAssignment = (employeeId: number, fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return
+    setAssignmentItems(prev => {
+      const empItems = prev
+        .filter(a => a.employeeId === employeeId)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+      const otherItems = prev.filter(a => a.employeeId !== employeeId)
+      const [moved] = empItems.splice(fromIndex, 1)
+      empItems.splice(toIndex, 0, moved)
+      const reordered = empItems.map((a, i) => ({ ...a, sortOrder: i + 1 }))
+      return [...otherItems, ...reordered]
+    })
+  }
+
+  // 位置情報（緯度・経度）に基づくルート最適化（Nearest Neighbor 貪欲法）
+  const handleOptimizeRoute = () => {
+    if (assignmentItems.length === 0) return
+    const propMap = Object.fromEntries(properties.map(p => [p.id, p]))
+    const dist = (a: Property, b: Property) =>
+      Math.sqrt((a.latitude - b.latitude) ** 2 + (a.longitude - b.longitude) ** 2)
+
+    setAssignmentItems(prev => {
+      const byEmployee = prev.reduce<Record<number, AssignmentItem[]>>((acc, a) => {
+        if (!acc[a.employeeId]) acc[a.employeeId] = []
+        acc[a.employeeId].push(a)
+        acc[a.employeeId].sort((x, y) => x.sortOrder - y.sortOrder)
+        return acc
+      }, {})
+
+      const result: AssignmentItem[] = []
+      for (const items of Object.values(byEmployee)) {
+        if (items.length <= 1) {
+          result.push(...items)
+          continue
+        }
+        const withCoords = items
+          .map(a => ({ item: a, prop: propMap[a.propertyId] }))
+          .filter((x): x is { item: AssignmentItem; prop: Property } => !!x.prop)
+        if (withCoords.length <= 1) {
+          result.push(...items)
+          continue
+        }
+        const ordered: AssignmentItem[] = []
+        let remaining = [...withCoords]
+        let current = remaining.shift()!
+        ordered.push(current.item)
+        while (remaining.length > 0) {
+          const nearest = remaining.reduce((best, x) =>
+            dist(current.prop, x.prop) < dist(current.prop, best.prop) ? x : best
+          )
+          remaining = remaining.filter(x => x !== nearest)
+          current = nearest
+          ordered.push(current.item)
+        }
+        ordered.forEach((a, i) => result.push({ ...a, sortOrder: i + 1 }))
+      }
+      return result
+    })
+    alert('位置情報をもとに訪問順を最適化しました。内容を確認して保存してください。')
   }
 
   const handleSaveAssignments = async () => {
@@ -458,7 +862,7 @@ export default function AdminCleaningCheckPage() {
   return (
     <div className="p-4">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-2xl font-bold mb-6 text-gray-900">管理物件掃除・チェックイン/チェックアウト</h1>
+        <h1 className="text-2xl font-bold mb-6 text-gray-900">清掃案件管理・入退場</h1>
 
         {/* タブ */}
         <div className="mb-6">
@@ -485,7 +889,7 @@ export default function AdminCleaningCheckPage() {
                 activeTab === 'myCheckin' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              自分のチェックイン/チェックアウト
+              自分の入退場
             </button>
             <button
               onClick={() => setActiveTab('progress')}
@@ -493,7 +897,7 @@ export default function AdminCleaningCheckPage() {
                 activeTab === 'progress' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              進捗一覧（準備中）
+              進捗一覧
             </button>
           </div>
         </div>
@@ -674,28 +1078,116 @@ export default function AdminCleaningCheckPage() {
               </div>
             )}
 
-            {/* 物件一覧 */}
+            {/* 選択した物件をアサインメントに追加 */}
+            {selectedPropertyIds.size > 0 && (
+              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h3 className="text-sm font-medium text-gray-800 mb-3">
+                  選択中: {selectedPropertyIds.size}件 → スタッフを指定してアサインメントに追加
+                </h3>
+                <div className="flex flex-wrap items-end gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">対象日</label>
+                    <input
+                      type="date"
+                      value={assignmentDate}
+                      onChange={e => setAssignmentDate(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">スタッフ</label>
+                    <select
+                      value={propertyTabAddEmployeeId}
+                      onChange={e => setPropertyTabAddEmployeeId(e.target.value ? Number(e.target.value) : '')}
+                      className="px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white min-w-[160px]"
+                    >
+                      <option value="">選択</option>
+                      {employees.map(e => (
+                        <option key={e.id} value={e.id}>{e.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddFromPropertyTab}
+                    disabled={!propertyTabAddEmployeeId || !assignmentDate || propertyTabAddLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 font-medium"
+                  >
+                    {propertyTabAddLoading ? '追加中...' : '選択物件をアサインメントに追加'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPropertyIds(new Set())}
+                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-medium"
+                  >
+                    選択解除
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 物件一覧（市区町村別グループ表示） */}
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
               <table className="w-full">
                 <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">物件名</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">住所</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">施錠</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">管理人</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">操作</th>
-                  </tr>
+                    <tr>
+                      <th className="px-2 py-3 text-left w-10">
+                        <input
+                          type="checkbox"
+                          checked={properties.length > 0 && selectedPropertyIds.size === properties.length}
+                          onChange={e => {
+                            if (e.target.checked) setSelectedPropertyIds(new Set(properties.map(p => p.id)))
+                            else setSelectedPropertyIds(new Set())
+                          }}
+                          className="rounded"
+                        />
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">物件名</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">住所</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">施錠</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">管理人</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">最終訪問日</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">操作</th>
+                    </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {properties.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-6 text-center text-gray-700">
-                        物件が登録されていません
+                      <td colSpan={7} className="px-4 py-12 text-center">
+                        <div className="max-w-md mx-auto text-gray-600 space-y-3">
+                          <p className="font-medium text-gray-800">まだ物件が登録されていません</p>
+                          <p className="text-sm">清掃案件管理を始めるには、まず物件を登録しましょう。右上の「+ 物件登録」から追加できます。</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowCreateForm(true)
+                              setEditingProperty(null)
+                              setFormData({ name: '', address: '', latitude: '', longitude: '', lockInfo: '', hasManager: false, parkingInfo: '', keyAccessInfo: '', contactInfo: '', workRangeNotes: '', buildingAccessInfo: '' })
+                            }}
+                            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium text-sm"
+                          >
+                            + 物件を登録する
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ) : (
-                    properties.map(p => (
-                      <tr key={p.id} className="hover:bg-gray-50">
+                    groupPropertiesByCity(properties).flatMap(({ city, properties: groupProps }) => [
+                      <tr key={`city-${city}`} className="bg-gray-100">
+                        <td colSpan={7} className="px-4 py-2 text-sm font-medium text-gray-700">
+                          {city}
+                        </td>
+                      </tr>,
+                      ...groupProps.map(p => (
+                        <tr key={p.id} className="hover:bg-gray-50">
+                        <td className="px-2 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedPropertyIds.has(p.id)}
+                            onChange={() => toggleSelectedProperty(p.id)}
+                            className="rounded"
+                          />
+                        </td>
                         <td className="px-4 py-3 text-sm text-gray-900">
                           {editingProperty?.id === p.id ? (
                             <input
@@ -783,6 +1275,7 @@ export default function AdminCleaningCheckPage() {
                         </td>
                       </tr>
                     ))
+                    ])
                   )}
                 </tbody>
               </table>
@@ -793,14 +1286,14 @@ export default function AdminCleaningCheckPage() {
         {activeTab === 'myCheckin' && (
           <div className="bg-white rounded-lg shadow-md p-6">
             <p className="text-gray-600 mb-4">
-              スタッフと同じ画面で、自分のアサインメントのチェックイン・チェックアウトができます。
+              スタッフと同じ画面で、自分のアサインメントの入退場ができます。
             </p>
             <button
               type="button"
               onClick={() => router.push('/employee/cleaning-check')}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
             >
-              チェックイン/チェックアウト画面を開く
+              入退場画面を開く
             </button>
           </div>
         )}
@@ -839,8 +1332,12 @@ export default function AdminCleaningCheckPage() {
                     className="px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white min-w-[180px]"
                   >
                     <option value="">選択</option>
-                    {properties.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
+                    {groupPropertiesByCity(properties).map(({ city, properties: groupProps }) => (
+                      <optgroup key={city} label={city}>
+                        {groupProps.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 </div>
@@ -862,18 +1359,107 @@ export default function AdminCleaningCheckPage() {
                 {assignmentLoading ? '保存中...' : '保存'}
               </button>
             </div>
+
+            {/* サマリ表示 */}
+            {!assignmentLoading && assignmentItems.length > 0 && (() => {
+              const byEmployee = assignmentItems.reduce<Record<string, { name: string; count: number }>>((acc, a) => {
+                const key = String(a.employeeId)
+                if (!acc[key]) acc[key] = { name: a.employeeName, count: 0 }
+                acc[key].count++
+                return acc
+              }, {})
+              const summary = Object.values(byEmployee).map(v => `${v.name}${v.count}件`).join('、')
+              const [y, m, d] = assignmentDate.split('-').map(Number)
+              const dateLabel = `${m}月${d}日`
+              return (
+                <div className="py-2 px-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-gray-800">
+                  <span className="font-medium">{dateLabel}</span>: {summary}
+                </div>
+              )
+            })()}
+
+            {/* 一括追加（スタッフ単位） */}
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <h3 className="text-sm font-medium text-gray-800 mb-3">一括追加（スタッフ単位）</h3>
+              <div className="flex flex-wrap items-start gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">スタッフ</label>
+                  <select
+                    value={bulkAddEmployeeId}
+                    onChange={e => setBulkAddEmployeeId(e.target.value ? Number(e.target.value) : '')}
+                    className="px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white min-w-[160px]"
+                  >
+                    <option value="">選択</option>
+                    {employees.map(e => (
+                      <option key={e.id} value={e.id}>{e.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1 min-w-[280px]">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700">物件（複数選択可）</label>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={selectAllBulkProperties} className="text-xs text-blue-600 hover:underline">全選択</button>
+                      <button type="button" onClick={clearBulkProperties} className="text-xs text-gray-500 hover:underline">クリア</button>
+                    </div>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-md bg-white p-2">
+                    {groupPropertiesByCity(properties).map(({ city, properties: groupProps }) => (
+                      <div key={city} className="mb-2">
+                        <div className="text-xs font-medium text-gray-500 mb-1">{city}</div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1">
+                          {groupProps.map(p => (
+                            <label key={p.id} className="flex items-center gap-1 cursor-pointer text-sm text-gray-800">
+                              <input
+                                type="checkbox"
+                                checked={bulkAddPropertyIds.has(p.id)}
+                                onChange={() => toggleBulkProperty(p.id)}
+                                className="rounded"
+                              />
+                              {p.name}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={handleBulkAddAssignments}
+                    disabled={!bulkAddEmployeeId || bulkAddPropertyIds.size === 0 || assignmentLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 font-medium"
+                  >
+                    選択した物件を一括追加
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
-              ※チェックイン画面には、担当スタッフとして割り当てた本人のみスケジュールが表示されます。自分で打刻する場合は、スタッフに自分の名前を選択してください。
+              ※入場画面には、担当スタッフとして割り当てた本人のみスケジュールが表示されます。自分で打刻する場合は、スタッフに自分の名前を選択してください。
             </p>
             {assignmentLoading && assignmentItems.length === 0 ? (
               <p className="text-gray-600">読み込み中...</p>
             ) : assignmentItems.length === 0 ? (
-              <p className="text-gray-600">対象日のアサインメントはありません。スタッフと物件を選択して追加してください。</p>
+              <div className="py-12 px-4 bg-gray-50 rounded-lg border border-gray-200 text-center max-w-lg mx-auto">
+                <p className="font-medium text-gray-800 mb-2">この日付のアサインメントはありません</p>
+                <p className="text-sm text-gray-600 mb-4">
+                  上のフォームでスタッフと物件を選んで「追加」するか、<strong>物件マスタ</strong>タブで物件を選択し、スタッフ指定で一括追加できます。
+                </p>
+                {properties.length === 0 && (
+                  <p className="text-xs text-amber-700">
+                    物件をまだ登録していない場合は、まず物件マスタタブで物件を登録してください。
+                  </p>
+                )}
+              </div>
             ) : (
               <div className="bg-white rounded-lg shadow-md overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
+                      <th className="px-2 py-3 text-left text-sm font-semibold text-gray-900 w-8"></th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">スタッフ</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">訪問順</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">物件</th>
@@ -890,7 +1476,34 @@ export default function AdminCleaningCheckPage() {
                       }, {})
                     ).map(([empId, items]) =>
                       items.map((a, i) => (
-                        <tr key={`${a.employeeId}-${a.propertyId}`} className="hover:bg-gray-50">
+                        <tr
+                          key={`${a.employeeId}-${a.propertyId}`}
+                          className={`hover:bg-gray-50 ${draggedAssignment?.employeeId === a.employeeId && draggedAssignment.fromIndex === i ? 'opacity-50 bg-blue-50' : ''}`}
+                          draggable={items.length > 1}
+                          onDragStart={e => {
+                            if (items.length <= 1) return
+                            e.dataTransfer.effectAllowed = 'move'
+                            e.dataTransfer.setData('text/plain', `${a.employeeId}-${i}`)
+                            setDraggedAssignment({ employeeId: a.employeeId, fromIndex: i })
+                          }}
+                          onDragOver={e => {
+                            e.preventDefault()
+                            if (items.length <= 1) return
+                            e.dataTransfer.dropEffect = 'move'
+                          }}
+                          onDrop={e => {
+                            e.preventDefault()
+                            if (!draggedAssignment || draggedAssignment.employeeId !== a.employeeId) return
+                            handleReorderAssignment(a.employeeId, draggedAssignment.fromIndex, i)
+                            setDraggedAssignment(null)
+                          }}
+                          onDragEnd={() => setDraggedAssignment(null)}
+                        >
+                          <td className="px-2 py-3 text-gray-400">
+                            {items.length > 1 ? (
+                              <span className="cursor-grab active:cursor-grabbing" title="ドラッグで順番を変更">⋮⋮</span>
+                            ) : null}
+                          </td>
                           {i === 0 && (
                             <td rowSpan={items.length} className="px-4 py-3 text-sm font-medium text-gray-900 align-top">
                               {a.employeeName}
@@ -918,9 +1531,109 @@ export default function AdminCleaningCheckPage() {
         )}
 
         {activeTab === 'progress' && (
-          <div className="bg-white rounded-lg shadow-md p-6 text-center text-gray-600">
-            進捗一覧はフェーズ5で実装予定です。
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-end gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">日付</label>
+                <input
+                  type="date"
+                  value={progressDate}
+                  onChange={e => setProgressDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">スタッフ</label>
+                <select
+                  value={progressEmployeeId}
+                  onChange={e => setProgressEmployeeId(e.target.value ? Number(e.target.value) : '')}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white min-w-[140px]"
+                >
+                  <option value="">すべて</option>
+                  {employees.map(e => (
+                    <option key={e.id} value={e.id}>{e.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">物件</label>
+                <select
+                  value={progressPropertyId}
+                  onChange={e => setProgressPropertyId(e.target.value ? Number(e.target.value) : '')}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white min-w-[180px]"
+                >
+                  <option value="">すべて</option>
+                  {properties.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={fetchProgress}
+                disabled={progressLoading}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 font-medium"
+              >
+                {progressLoading ? '検索中...' : '検索'}
+              </button>
+            </div>
+            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">スタッフ</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">物件</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">入場</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">退場</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">所要時間</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">操作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {progressRecords.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-6 text-center text-gray-600">
+                        {progressLoading ? '読み込み中...' : '対象の作業記録がありません'}
+                      </td>
+                    </tr>
+                  ) : (
+                    progressRecords.map((r: any) => (
+                      <tr key={r.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-900">{r.employee?.name ?? '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{r.property?.name ?? '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {r.checkInAt ? new Date(r.checkInAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {r.checkOutAt ? new Date(r.checkOutAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : r.checkInAt ? '未' : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {r.durationMinutes != null ? `${r.durationMinutes}分` : '-'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => setProgressDetailModal(r)}
+                            className="text-blue-600 hover:underline text-sm"
+                          >
+                            詳細
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
+        )}
+
+        {/* 進捗詳細モーダル */}
+        {progressDetailModal && (
+          <ProgressDetailModal
+            record={progressDetailModal}
+            onClose={() => setProgressDetailModal(null)}
+          />
         )}
 
         {/* 地図ピン差しモーダル */}

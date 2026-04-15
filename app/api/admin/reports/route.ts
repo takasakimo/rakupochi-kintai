@@ -8,11 +8,8 @@ export const dynamic = 'force-dynamic'
 // 勤怠レポート生成
 export async function GET(request: NextRequest) {
   try {
-    console.log('[Reports] GET /api/admin/reports - Starting')
-    
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
-      console.log('[Reports] Unauthorized: no session or user')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -22,7 +19,6 @@ export async function GET(request: NextRequest) {
     const isAdmin = session.user.role === 'admin'
 
     if (!isSuperAdmin && !isAdmin) {
-      console.log('[Reports] Forbidden: not admin or super admin role')
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -37,8 +33,6 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    console.log('[Reports] Company ID:', effectiveCompanyId)
 
     const searchParams = request.nextUrl.searchParams
     const employeeId = searchParams.get('employee_id')
@@ -81,7 +75,6 @@ export async function GET(request: NextRequest) {
     }
 
     // 勤怠データを取得
-    console.log('[Reports] Fetching attendances with where clause:', JSON.stringify(where))
     let attendances
     try {
       attendances = await prisma.attendance.findMany({
@@ -102,21 +95,10 @@ export async function GET(request: NextRequest) {
           date: 'asc',
         },
       })
-      console.log('[Reports] Found attendances:', attendances.length)
     } catch (error: any) {
-      console.error('[Reports] Error fetching attendances:', error)
-      console.error('[Reports] Error name:', error?.name)
-      console.error('[Reports] Error code:', error?.code)
-      console.error('[Reports] Error message:', error?.message)
-      if (error?.stack) {
-        console.error('[Reports] Error stack:', error.stack.substring(0, 500))
-      }
+      console.error('[Reports] Error fetching attendances:', error?.message)
       return NextResponse.json(
-        { 
-          error: 'Failed to fetch attendances',
-          details: error?.message || 'Unknown error',
-          code: error?.code || 'UNKNOWN',
-        },
+        { error: 'Failed to fetch attendances' },
         { status: 500 }
       )
     }
@@ -141,7 +123,6 @@ export async function GET(request: NextRequest) {
       companySettings = await prisma.companySetting.findUnique({
         where: { companyId: effectiveCompanyId },
       })
-      console.log('Company settings found:', companySettings ? 'yes' : 'no')
     } catch (error: any) {
       console.error('Error fetching company settings:', error)
       // allowPreOvertimeカラムが存在しない場合のエラーをキャッチ
@@ -251,8 +232,6 @@ export async function GET(request: NextRequest) {
       },
     })
     
-    console.log('[Reports] Found shifts:', shifts.length, 'for period:', start.toISOString().split('T')[0], 'to', end.toISOString().split('T')[0])
-    
     // シフト情報を日付と従業員IDでマップ
     const shiftMap: Map<string, any> = new Map()
     shifts.forEach((shift) => {
@@ -278,11 +257,7 @@ export async function GET(request: NextRequest) {
       }
       const key = `${shift.employeeId}_${dateStr}`
       shiftMap.set(key, shift)
-      console.log('[Reports] Added shift to map:', key, 'startTime:', shift.startTime, 'endTime:', shift.endTime)
     })
-    
-    console.log('[Reports] Shift map size:', shiftMap.size)
-    console.log('[Reports] Shift map keys:', Array.from(shiftMap.keys()))
 
     attendances.forEach((attendance) => {
       if (!attendance.clockIn || !attendance.clockOut) {
@@ -404,13 +379,7 @@ export async function GET(request: NextRequest) {
       }
       const shiftKey = `${attendance.employeeId}_${attendanceDateStr}`
       const shift = shiftMap.get(shiftKey)
-      
-      if (!shift) {
-        console.log('[Reports] No shift found for:', shiftKey, 'employeeId:', attendance.employeeId, 'employeeName:', attendance.employee.name, 'date:', attendanceDateStr, 'available keys:', Array.from(shiftMap.keys()).filter(k => k.startsWith(`${attendance.employeeId}_`)))
-      } else {
-        console.log('[Reports] Found shift for:', shiftKey, 'startTime:', shift.startTime, 'endTime:', shift.endTime)
-      }
-      
+
       // 残業時間の計算
       let basicMinutes: number
       let overtimeMinutes: number
@@ -581,7 +550,6 @@ export async function GET(request: NextRequest) {
       attendances: report.attendances,
     }))
 
-    console.log('[Reports] Returning reports:', reports.length)
     return NextResponse.json({
       reports,
       period: {
@@ -590,13 +558,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error: any) {
-    console.error('[Reports] Get reports error:', error)
-    console.error('[Reports] Error name:', error?.name)
-    console.error('[Reports] Error message:', error?.message)
-    console.error('[Reports] Error code:', error?.code)
-    if (error?.stack) {
-      console.error('[Reports] Error stack:', error.stack.substring(0, 500))
-    }
+    console.error('[Reports] Error:', error?.message)
     // セキュリティ: エラーの詳細を返さない
     return NextResponse.json(
       { 

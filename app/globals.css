@@ -68,6 +68,14 @@
   }
 }
 
+/* レポート備考セル：折り返して全文表示（画面用） */
+.timesheet-notes-cell {
+  word-break: break-all;
+  white-space: normal;
+  text-align: left;
+  vertical-align: top;
+}
+
 /* 印刷用スタイル */
 @media print {
   * {
@@ -107,87 +115,90 @@
     padding: 0 !important;
   }
 
-  /* 印刷用コンテナ - 横幅を狭く、縦幅を伸ばす */
-  .print-container {
-    width: 95% !important;
-    max-width: 95% !important;
-    margin: 0 auto !important;
-    padding: 0 !important;
-    display: none !important;
+  /* ページ設定 - タイムシート用A4縦（named pageで他と区別） */
+  @page timesheet {
+    size: A4 portrait;
+    margin: 8mm 10mm 8mm 10mm;
   }
 
-  /* 印刷時のみ表示 */
-  @media print {
-    .print-container {
-      display: block !important;
-    }
+  /* デフォルトも縦（レポート印刷時は print-container のみ表示） */
+  @page {
+    size: A4 portrait;
+    margin: 8mm 10mm 8mm 10mm;
+  }
+
+  /* 印刷用コンテナ - タイムシート用 named page を適用（182mmで右端見切れ防止） */
+  .print-container {
+    page: timesheet;
+    width: 182mm !important;
+    max-width: 182mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
   }
 
   .print-page {
-    page-break-after: always;
-    width: 95% !important;
-    max-width: 95% !important;
+    width: 182mm !important;
+    max-width: 182mm !important;
     margin: 0 auto !important;
     padding: 0 !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   .print-page:last-child {
-    page-break-after: auto;
+    page-break-after: avoid !important;
   }
 
-  /* ヘッダー情報 - 横幅を狭く、上に余白を追加して下にずらす */
+  /* ヘッダー情報 - コンパクトに */
   .timesheet-header {
-    margin-top: 15mm !important;
-    margin-bottom: 4px;
-    padding: 0;
-    width: 95% !important;
-    max-width: 95% !important;
+    margin-top: 2mm !important;
+    margin-bottom: 2mm !important;
+    padding: 0 !important;
+    width: 182mm !important;
+    max-width: 182mm !important;
     margin-left: auto !important;
     margin-right: auto !important;
   }
 
   .timesheet-title {
-    font-size: 14pt !important;
+    font-size: 9pt !important;
     font-weight: bold;
     text-align: center;
-    margin-bottom: 4px;
-    padding: 0;
+    margin-bottom: 1px !important;
+    padding: 0 !important;
   }
 
   .timesheet-info {
-    font-size: 18pt !important;
+    font-size: 8pt !important;
     display: flex;
     justify-content: space-between;
-    margin-bottom: 4px;
+    margin-bottom: 1px !important;
   }
 
-  /* タイムシートテーブル - 横幅を狭く、縦幅を伸ばす */
+  /* タイムシートテーブル - 1枚に収める（182mmで右端見切れ防止） */
   .timesheet-table {
-    width: 95% !important;
-    max-width: 95% !important;
+    width: 182mm !important;
+    max-width: 182mm !important;
     border-collapse: collapse !important;
-    font-size: 7pt !important;
-    page-break-inside: avoid;
-    margin: 0 auto !important;
+    font-size: 6pt !important;
+    page-break-inside: avoid !important;
+    margin: 0 !important;
     padding: 0 !important;
+    table-layout: fixed !important;
   }
 
   .timesheet-table th,
   .timesheet-table td {
     border: 0.5px solid #000 !important;
-    padding: 2px 3px !important;
+    padding: 0 1px !important;
     text-align: center !important;
-    font-size: 7pt !important;
-    line-height: 1.2 !important;
-    height: 4mm !important;
+    font-size: 6pt !important;
+    line-height: 1.1 !important;
   }
 
   .timesheet-table th {
     background-color: #e0e0e0 !important;
     font-weight: bold !important;
-    font-size: 7.5pt !important;
-    padding: 2px 3px !important;
-    height: 4.5mm !important;
   }
 
   .timesheet-table .total-row {
@@ -196,35 +207,21 @@
   }
 
   .timesheet-table .total-row td {
-    font-size: 7.5pt !important;
-    padding: 2px 3px !important;
-    height: 4.5mm !important;
+    font-size: 6pt !important;
   }
 
-  /* ページ設定 - 縦向き、A4サイズ、上余白を増やして下にずらす */
-  @page {
-    size: A4 portrait;
-    margin: 10mm 5mm 5mm 5mm;
-  }
-
-  /* 1枚に収めるための調整 - 縦幅をさらに1.3倍に（合計1.69倍） */
-  .timesheet-table tbody tr {
-    height: 6.42mm !important;
-    min-height: 6.42mm !important;
-    max-height: 6.42mm !important;
+  /* 行高さ：281mm(印刷可能) - 10mm(ヘッダー) = 271mm ÷ 33行 ≒ 8.2mm → 安全のため5.8mm */
+  .timesheet-table tbody tr,
+  .timesheet-table thead tr,
+  .timesheet-table tfoot tr {
+    height: 5.8mm !important;
+    min-height: 5.8mm !important;
   }
 
   .timesheet-table th,
   .timesheet-table td {
-    height: 6.42mm !important;
-  }
-
-  .timesheet-table th {
-    height: 7.1mm !important;
-  }
-
-  .timesheet-table .total-row td {
-    height: 7.1mm !important;
+    height: 5.8mm !important;
+    box-sizing: border-box !important;
   }
 
   /* 不要な余白を削除 */
@@ -238,11 +235,11 @@
     padding: 0 !important;
   }
 
-  /* テーブルを1枚に収める - 横幅を狭く、縦幅を伸ばす */
+  /* テーブル幅固定 */
   .timesheet-table {
     table-layout: fixed;
-    width: 95% !important;
-    max-width: 95% !important;
+    width: 182mm !important;
+    max-width: 182mm !important;
   }
 
   .timesheet-table th:nth-child(1),
@@ -287,7 +284,20 @@
 
   .timesheet-table th:nth-child(9),
   .timesheet-table td:nth-child(9) {
-    width: 12% !important; /* 備考 */
+    width: 15% !important; /* 備考：幅を確保 */
+    min-width: 22mm !important;
+  }
+
+  /* 備考列：折り返して全文表示（-webkit-boxはtable-cellで崩れるため使用しない） */
+  .timesheet-table td.timesheet-notes-cell,
+  .timesheet-table td:nth-child(9) {
+    word-break: break-all !important;
+    white-space: normal !important;
+    text-align: left !important;
+    vertical-align: top !important;
+    line-height: 1.2 !important;
+    overflow: hidden !important;
+    padding: 0 2px !important;
   }
 
   /* タイムテーブル印刷用スタイル - A4横向き */
@@ -348,10 +358,14 @@
       margin-bottom: 2mm;
     }
 
-    /* A4横向き設定 - 余白を最小限に */
-    @page {
+    /* タイムテーブル用 named page（A4横向き）- これで timesheet の @page を上書きしない */
+    @page timetable {
       size: A4 landscape;
       margin: 3mm 2mm;
+    }
+
+    .timetable-container {
+      page: timetable;
     }
 
     /* タイムテーブルコンテナ - 印刷時に全体を1ページに収める */

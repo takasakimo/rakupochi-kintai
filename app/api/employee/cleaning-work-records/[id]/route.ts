@@ -49,15 +49,16 @@ export async function PATCH(
     }
 
     if (!existing.checkOutAt) {
-      return NextResponse.json({ error: 'チェックアウト完了後にのみ編集できます' }, { status: 400 })
+      return NextResponse.json({ error: '退場完了後にのみ編集できます' }, { status: 400 })
     }
 
-    const today = new Date()
-    const workDate = new Date(existing.workDate)
+    // JST の今日と比較（Vercel は UTC のため +9h 補正）
+    const jstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+    const workDate = new Date(existing.workDate) // DATE カラム → UTC midnight
     if (
-      workDate.getFullYear() !== today.getFullYear() ||
-      workDate.getMonth() !== today.getMonth() ||
-      workDate.getDate() !== today.getDate()
+      workDate.getUTCFullYear() !== jstNow.getFullYear() ||
+      workDate.getUTCMonth() !== jstNow.getMonth() ||
+      workDate.getUTCDate() !== jstNow.getDate()
     ) {
       return NextResponse.json({ error: '報告内容の編集は作業当日のみ可能です' }, { status: 400 })
     }

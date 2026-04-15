@@ -82,8 +82,10 @@ export default function AdminReportsPage() {
         const employeeIdParam = params.get('employee_id')
         if (employeeIdParam) {
           setSelectedEmployeeForTimesheet(parseInt(employeeIdParam))
+          setSelectedEmployeeId(employeeIdParam) // ドロップダウンと同期
         } else {
           setSelectedEmployeeForTimesheet(null)
+          setSelectedEmployeeId('')
         }
       }
     }
@@ -271,7 +273,7 @@ export default function AdminReportsPage() {
         }
       }
     }
-  }, [selectedEmployeeId, selectedMonth, startDate, endDate, reportType, enableSalesVisit])
+  }, [selectedEmployeeId, selectedEmployeeForTimesheet, selectedMonth, startDate, endDate, reportType, enableSalesVisit])
   
   // 選択された従業員が変更されたときにシフト情報を取得
   useEffect(() => {
@@ -650,9 +652,11 @@ export default function AdminReportsPage() {
 
   const resetFilters = () => {
     setSelectedEmployeeId('')
+    setSelectedEmployeeForTimesheet(null)
     setSelectedMonth(new Date().toISOString().slice(0, 7))
     setStartDate('')
     setEndDate('')
+    router.push('/admin/reports')
   }
 
   if (status === 'loading' || loading) {
@@ -725,11 +729,24 @@ export default function AdminReportsPage() {
                 従業員
               </label>
               <select
-                value={selectedEmployeeId}
+                value={selectedEmployeeId || (selectedEmployeeForTimesheet?.toString() ?? '')}
                 onChange={(e) => {
-                  setSelectedEmployeeId(e.target.value)
+                  const value = e.target.value
+                  setSelectedEmployeeId(value)
                   setStartDate('')
                   setEndDate('')
+                  // ドロップダウン変更時は selectedEmployeeForTimesheet も同期してレポートを正しく更新
+                  if (value) {
+                    setSelectedEmployeeForTimesheet(parseInt(value))
+                    const params = new URLSearchParams(window.location.search)
+                    params.set('employee_id', value)
+                    router.push(`/admin/reports?${params.toString()}`)
+                  } else {
+                    setSelectedEmployeeForTimesheet(null)
+                    const params = new URLSearchParams(window.location.search)
+                    params.delete('employee_id')
+                    router.push(params.toString() ? `/admin/reports?${params.toString()}` : '/admin/reports')
+                  }
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
               >
@@ -858,12 +875,14 @@ export default function AdminReportsPage() {
                       <td className="px-4 py-3 text-sm font-medium">
                         <button
                           onClick={() => {
+                            const employeeId = report.employee.id.toString()
                             // URLクエリパラメータを更新してページ遷移
                             const params = new URLSearchParams(window.location.search)
-                            params.set('employee_id', report.employee.id.toString())
+                            params.set('employee_id', employeeId)
                             const newUrl = `/admin/reports?${params.toString()}`
                             router.push(newUrl)
-                            // 状態を即座に更新
+                            // 状態を即座に更新（ドロップダウンと同期）
+                            setSelectedEmployeeId(employeeId)
                             setSelectedEmployeeForTimesheet(report.employee.id)
                             // スクロールをトップに移動
                             setTimeout(() => {
@@ -1553,7 +1572,7 @@ export default function AdminReportsPage() {
                               <td className="border border-gray-300 px-2 py-1 text-sm text-center text-gray-900">{row.basic}</td>
                               <td className="border border-gray-300 px-2 py-1 text-sm text-center text-gray-900">{row.overtime}</td>
                               <td className="border border-gray-300 px-2 py-1 text-sm text-center text-gray-900">{row.break}</td>
-                              <td className="border border-gray-300 px-2 py-1 text-sm text-center text-gray-900">{row.notes}</td>
+                              <td className="border border-gray-300 px-2 py-1 text-sm text-gray-900 timesheet-notes-cell">{row.notes}</td>
                             </tr>
                           ))}
                           <tr className="bg-gray-100 font-bold">
@@ -1576,9 +1595,9 @@ export default function AdminReportsPage() {
           </div>
         )}
 
-        {/* 印刷用タイムシート */}
+        {/* 印刷用タイムシート - 画面では非表示、印刷時のみ表示 */}
         {reports.length > 0 && (
-          <div className="print-container" style={{ display: 'none' }}>
+          <div className="print-container hidden print:!block">
             {reports
               .filter((report) => {
                 // 特定の従業員が選択されている場合は、その従業員だけを表示
@@ -1894,7 +1913,7 @@ export default function AdminReportsPage() {
                         <span>氏名: {report.employee.name}</span>
                       </div>
                     </div>
-                    <div style={{ marginTop: '5px', fontSize: '18pt' }}>{month}</div>
+                    <div style={{ marginTop: '1mm', fontSize: '9pt' }}>{month}</div>
                   </div>
                   <table className="timesheet-table">
                     <thead>
@@ -1921,7 +1940,7 @@ export default function AdminReportsPage() {
                           <td>{row.basic}</td>
                           <td>{row.overtime}</td>
                           <td>{row.break}</td>
-                          <td>{row.notes}</td>
+                          <td className="timesheet-notes-cell">{row.notes}</td>
                         </tr>
                       ))}
                       <tr className="total-row">

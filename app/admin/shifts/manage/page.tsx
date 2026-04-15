@@ -497,17 +497,6 @@ export default function ShiftManagePage() {
     const startHour = Math.floor(startMinutes / 60)
     const endHour = Math.floor(endMinutes / 60)
 
-    // デバッグ用ログ
-    console.log('Time range calculation:', {
-      earliestStart: `${Math.floor(earliestStart / 60)}:${String(earliestStart % 60).padStart(2, '0')}`,
-      latestEnd: `${Math.floor(latestEnd / 60)}:${String(latestEnd % 60).padStart(2, '0')}`,
-      startMinutes,
-      endMinutes,
-      startHour,
-      endHour,
-      shifts: timetableShifts.map(s => ({ start: s.startTime, end: s.endTime }))
-    })
-
     return { startHour, endHour, startMinutes, endMinutes }
   }
 
@@ -1046,7 +1035,6 @@ export default function ShiftManagePage() {
     const { startHour, endHour } = getTimeRange()
     const slots: string[] = []
     // 開始時間から終了時間まで30分間隔でスロットを生成
-    console.log('generateTimeSlots:', { startHour, endHour })
     for (let hour = startHour; hour <= endHour; hour++) {
       slots.push(`${String(hour).padStart(2, '0')}:00`)
       // 終了時間の時間まで30分スロットも追加（終了時間がその時間の場合は追加しない）
@@ -1054,7 +1042,6 @@ export default function ShiftManagePage() {
         slots.push(`${String(hour).padStart(2, '0')}:30`)
       }
     }
-    console.log('Generated slots:', slots)
     return slots
   }
 
@@ -1331,12 +1318,6 @@ export default function ShiftManagePage() {
 
   // 一括更新処理
   const handleBulkUpdate = async () => {
-    console.log('handleBulkUpdate called', { 
-      selectedShiftIds: Array.from(selectedShiftIds), 
-      selectedShiftIdsSize: selectedShiftIds.size,
-      bulkUpdateData 
-    })
-    
     if (selectedShiftIds.size === 0) {
       alert('反映するシフトを選択してください')
       return
@@ -1395,9 +1376,6 @@ export default function ShiftManagePage() {
       }
     }
     
-    console.log('Update data:', updateData)
-    console.log('Update data keys:', Object.keys(updateData))
-    
     if (Object.keys(updateData).length === 0) {
       alert('反映する項目を入力してください')
       return
@@ -1408,13 +1386,10 @@ export default function ShiftManagePage() {
     }
     
     try {
-      console.log('Starting bulk update for', selectedShiftIds.size, 'shifts')
       const shiftIds = Array.from(selectedShiftIds)
-      console.log('Shift IDs to update:', shiftIds)
       
       const updatePromises = shiftIds.map(async (shiftId) => {
         try {
-          console.log('Updating shift', shiftId, 'with data', updateData)
           const response = await fetch(`/api/admin/shifts/${shiftId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -1428,7 +1403,6 @@ export default function ShiftManagePage() {
           }
           
           const data = await response.json()
-          console.log('Successfully updated shift', shiftId, ':', data)
           return { success: true, shiftId, data }
         } catch (err) {
           console.error('Error updating shift', shiftId, ':', err)
@@ -1438,8 +1412,6 @@ export default function ShiftManagePage() {
       
       const results = await Promise.all(updatePromises)
       const failed = results.filter(r => !r.success)
-      
-      console.log('Bulk update results:', { total: results.length, success: results.length - failed.length, failed: failed.length })
       
       if (failed.length > 0) {
         console.error('Failed updates:', failed)
@@ -1472,7 +1444,6 @@ export default function ShiftManagePage() {
         } else {
           newSet.delete(shiftId)
         }
-        console.log('Selected shifts:', Array.from(newSet))
         return newSet
       })
     }

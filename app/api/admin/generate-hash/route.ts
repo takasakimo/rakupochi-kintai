@@ -33,7 +33,14 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const password = searchParams.get('password') || 'admin123'
+    const password = searchParams.get('password')
+
+    if (!password || password.trim() === '') {
+      return NextResponse.json(
+        { error: 'パスワードは必須です（?password=xxx で指定してください）' },
+        { status: 400 }
+      )
+    }
 
     // パスワードの最小長チェック
     if (password.length < 8) {

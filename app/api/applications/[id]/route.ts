@@ -234,6 +234,87 @@ export async function PATCH(
             // エラーが発生しても申請の承認は続行
           }
         }
+
+        // チェックイン/チェックアウト漏れ申請が承認された場合、作業記録を補完
+        if (existingApplication.type === 'cleaning_check_omission') {
+          try {
+            const content = JSON.parse(existingApplication.content)
+            const { propertyId, workDate, omissionType, estimatedTime, reason } = content
+            if (!propertyId || !workDate || !omissionType) {
+              return NextResponse.json(
+                { error: '申請内容に物件ID・日付・漏れ種別が不足しています' },
+                { status: 400 }
+              )
+            }
+
+            const workDateObj = new Date(workDate)
+            workDateObj.setHours(0, 0, 0, 0)
+
+            // 想定時刻があれば日時を組み立て、なければ日付の10:00（JST）とする
+            let checkInAt: Date | null = null
+            let checkOutAt: Date | null = null
+            if (estimatedTime && typeof estimatedTime === 'string') {
+              const [h, m] = estimatedTime.split(':').map(Number)
+              const dt = new Date(workDateObj)
+              dt.setHours(h || 0, m || 0, 0, 0)
+              if (omissionType === 'check_in') checkInAt = dt
+              else if (omissionType === 'check_out') checkOutAt = dt
+            } else {
+              const defaultTime = new Date(workDateObj)
+              defaultTime.setHours(10, 0, 0, 0)
+              if (omissionType === 'check_in') checkInAt = defaultTime
+              else if (omissionType === 'check_out') checkOutAt = defaultTime
+            }
+
+            const existingRecord = await prisma.cleaningWorkRecord.findUnique({
+              where: {
+                companyId_employeeId_propertyId_workDate: {
+                  companyId: effectiveCompanyId,
+                  employeeId: existingApplication.employeeId,
+                  propertyId: Number(propertyId),
+                  workDate: workDateObj,
+                },
+              },
+            })
+
+            if (existingRecord) {
+              await prisma.cleaningWorkRecord.update({
+                where: { id: existingRecord.id },
+                data: omissionType === 'check_in'
+                  ? { checkInAt: checkInAt ?? undefined }
+                  : { checkOutAt: checkOutAt ?? undefined },
+              })
+            } else {
+              await prisma.cleaningWorkRecord.create({
+                data: {
+                  companyId: effectiveCompanyId,
+                  employeeId: existingApplication.employeeId,
+                  propertyId: Number(propertyId),
+                  workDate: workDateObj,
+                  ...(omissionType === 'check_in' && checkInAt ? { checkInAt } : {}),
+                  ...(omissionType === 'check_out' && checkOutAt ? { checkOutAt } : {}),
+                },
+              })
+            }
+
+            const property = await prisma.property.findFirst({
+              where: { id: Number(propertyId), companyId: effectiveCompanyId },
+            })
+            if (property && omissionType === 'check_out') {
+              const checkOutForLastVisited = checkOutAt ?? new Date(workDateObj.getTime() + 3600000)
+              await prisma.property.update({
+                where: { id: property.id },
+                data: { lastVisitedAt: checkOutForLastVisited },
+              })
+            }
+          } catch (error) {
+            console.error('Failed to create CleaningWorkRecord for omission application:', error)
+            return NextResponse.json(
+              { error: '作業記録の補完に失敗しました' },
+              { status: 500 }
+            )
+          }
+        }
       } else {
         updateData.rejectedAt = new Date()
         updateData.approvedAt = null

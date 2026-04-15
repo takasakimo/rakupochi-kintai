@@ -12,8 +12,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    // JST の今日 UTC midnight（Vercel は UTC のため +9h 補正）
+    const jstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+    const today = new Date(Date.UTC(jstNow.getFullYear(), jstNow.getMonth(), jstNow.getDate()))
 
     // 今日の訪問履歴を取得
     const visits = await prisma.salesVisit.findMany({

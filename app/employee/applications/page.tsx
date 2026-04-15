@@ -25,6 +25,7 @@ const APPLICATION_TYPES: Record<string, string> = {
   expense_advance: '立替金精算',
   expense_transportation: '交通費精算',
   shift_request: 'シフト希望',
+  cleaning_check_omission: '入場/退場漏れ',
 }
 
 const STATUS_LABELS: Record<string, string> = {

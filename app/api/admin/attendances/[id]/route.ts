@@ -115,6 +115,7 @@ export async function PATCH(
       breakMinutes,
       clockInLocation,
       clockOutLocation,
+      notes,
     } = body
 
     // 打刻データが存在し、同じ会社のものか確認
@@ -161,6 +162,7 @@ export async function PATCH(
       breakMinutes: existingAttendance.breakMinutes,
       clockInLocation: existingAttendance.clockInLocation,
       clockOutLocation: existingAttendance.clockOutLocation,
+      notes: existingAttendance.notes,
     }
 
     const updateData: any = {
@@ -208,6 +210,12 @@ export async function PATCH(
     if (breakMinutes !== undefined && existingAttendance.breakMinutes !== breakMinutes) {
       changedFields.push('breakMinutes')
     }
+    if (notes !== undefined) {
+      updateData.notes = notes || null
+      if (existingAttendance.notes !== (notes || null)) {
+        changedFields.push('notes')
+      }
+    }
 
     // 変更があった場合のみ更新と履歴記録を行う
     if (changedFields.length > 0) {
@@ -235,6 +243,7 @@ export async function PATCH(
         breakMinutes: updatedAttendance.breakMinutes,
         clockInLocation: updatedAttendance.clockInLocation,
         clockOutLocation: updatedAttendance.clockOutLocation,
+        notes: updatedAttendance.notes,
       }
 
       // 修正履歴を記録

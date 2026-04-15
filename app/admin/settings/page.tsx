@@ -18,6 +18,8 @@ interface CompanySettings {
   paidLeaveFirstGrantMonths?: number
   paidLeaveGrantDays?: { year1?: number; year2?: number; year3?: number; year4?: number; year5?: number; year6?: number; year7?: number } | null
   includePaidLeaveInInvoice?: boolean
+  reserveIntegrationEnabled?: boolean
+  reserveTenantId?: string | null
 }
 
 export default function AdminSettingsPage() {
@@ -48,6 +50,8 @@ export default function AdminSettingsPage() {
       year7: 20,
     },
     includePaidLeaveInInvoice: false,
+    reserveIntegrationEnabled: false,
+    reserveTenantId: '',
   })
 
   useEffect(() => {
@@ -93,6 +97,8 @@ export default function AdminSettingsPage() {
             year7: 20,
           },
           includePaidLeaveInInvoice: data.settings.includePaidLeaveInInvoice ?? false,
+          reserveIntegrationEnabled: data.settings.reserveIntegrationEnabled ?? false,
+          reserveTenantId: data.settings.reserveTenantId ?? '',
         })
       }
     } catch (err) {
@@ -124,6 +130,8 @@ export default function AdminSettingsPage() {
           paidLeaveFirstGrantMonths: parseInt(formData.paidLeaveFirstGrantMonths.toString()),
           paidLeaveGrantDays: formData.paidLeaveGrantDays,
           includePaidLeaveInInvoice: formData.includePaidLeaveInInvoice,
+          reserveIntegrationEnabled: formData.reserveIntegrationEnabled,
+          reserveTenantId: formData.reserveTenantId?.trim() || null,
         }),
       })
 
@@ -416,6 +424,52 @@ export default function AdminSettingsPage() {
                 />
                 <p className="mt-1 text-sm text-gray-500">
                   有給失効の何日前に通知するか
+                </p>
+              </div>
+            </div>
+
+            {/* らくっぽリザーブ連携 */}
+            <div className="border-t pt-6">
+              <h2 className="text-lg font-semibold mb-4 text-gray-900">らくっぽリザーブ連携</h2>
+              <p className="text-sm text-gray-600 mb-4">
+                らくっぽリザーブ（予約管理）と連携する場合、シフト情報をリザーブ側に反映するための設定です。
+              </p>
+              <div className="mb-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.reserveIntegrationEnabled}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        reserveIntegrationEnabled: e.target.checked,
+                      })
+                    }
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    リザーブ連携を有効にする
+                  </span>
+                </label>
+                <p className="mt-1 text-sm text-gray-500 ml-6">
+                  ONにすると、リザーブ側でこの企業のシフトを取得・反映できます（リザーブ側でAPIキー等の設定が必要です）
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  リザーブ側テナントID（任意）
+                </label>
+                <input
+                  type="text"
+                  value={formData.reserveTenantId}
+                  onChange={(e) =>
+                    setFormData({ ...formData, reserveTenantId: e.target.value })
+                  }
+                  placeholder="例: リザーブの店舗ID"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                />
+                <p className="mt-1 text-sm text-gray-500">
+                  リザーブ側の店舗（テナント）を識別するID。リザーブで同期先を特定する場合に使用します。
                 </p>
               </div>
             </div>

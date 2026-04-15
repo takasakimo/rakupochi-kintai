@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit'
+import { isValidEmail } from '@/lib/validation'
 import bcrypt from 'bcryptjs'
 
 export const dynamic = 'force-dynamic'
@@ -7,6 +9,15 @@ export const dynamic = 'force-dynamic'
 // ステップ2: パスワードを設定
 export async function POST(request: NextRequest) {
   try {
+    const clientIP = getClientIP(request)
+    const rateLimitResult = checkRateLimit(`set-password:${clientIP}`, 10, 15 * 60 * 1000)
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'リクエストが多すぎます。しばらく時間をおいてから再度お試しください。' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)) } }
+      )
+    }
+
     const body = await request.json()
     const { email, password } = body
 
@@ -18,9 +29,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (password.length < 8) {
+    if (password.length < 8 || password.length > 128) {
       return NextResponse.json(
-        { error: 'パスワードは8文字以上で入力してください' },
+        { error: 'パスワードは8文字以上128文字以内で入力してください' },
+        { status: 400 }
+      )
+    }
+    if (!isValidEmail(email)) {
+      return NextResponse.json(
+        { error: '有効なメールアドレスを入力してください' },
         { status: 400 }
       )
     }

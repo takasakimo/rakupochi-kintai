@@ -113,12 +113,18 @@ export default function SignInPage() {
           </button>
         </form>
 
-        <div className="mt-6 text-center">
+        <div className="mt-6 space-y-2 text-center">
           <Link
             href="/auth/forgot-password"
-            className="text-sm text-blue-500 hover:text-blue-600"
+            className="block text-sm text-blue-500 hover:text-blue-600"
           >
             パスワードを忘れた場合
+          </Link>
+          <Link
+            href="/lp"
+            className="block text-sm text-gray-500 hover:text-gray-700"
+          >
+            トップ（サービス紹介）へ
           </Link>
         </div>
       </div>

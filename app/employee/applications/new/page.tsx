@@ -13,6 +13,7 @@ const APPLICATION_TYPES = [
   { value: 'expense_advance', label: '立替金精算', icon: null },
   { value: 'expense_transportation', label: '交通費精算', icon: null },
   { value: 'shift_request', label: 'シフト希望', icon: null },
+  { value: 'cleaning_check_omission', label: '入場/退場漏れ', icon: null },
 ]
 
 export default function NewApplicationPage() {
@@ -22,6 +23,7 @@ export default function NewApplicationPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [admins, setAdmins] = useState<any[]>([])
+  const [omissionProperties, setOmissionProperties] = useState<{ id: number; name: string }[]>([])
 
   // フォームデータ
   const [formData, setFormData] = useState<any>({
@@ -61,6 +63,12 @@ export default function NewApplicationPage() {
     requestSelectedDates: [] as string[], // 複数日選択用
     requestTimeSlots: {} as Record<string, { startTime: string; endTime: string }>, // 日付ごとの時間設定
     requestReason: '',
+    // チェックイン/チェックアウト漏れ用
+    omissionPropertyId: '',
+    omissionWorkDate: '',
+    omissionType: 'check_in' as 'check_in' | 'check_out',
+    omissionEstimatedTime: '',
+    omissionReason: '',
   })
 
   useEffect(() => {
@@ -69,6 +77,12 @@ export default function NewApplicationPage() {
     }
     if (status === 'authenticated' && selectedType === 'expense_advance') {
       fetchAdmins()
+    }
+    if (status === 'authenticated' && selectedType === 'cleaning_check_omission') {
+      fetch('/api/employee/properties')
+        .then(res => res.json())
+        .then(data => setOmissionProperties(data.properties || []))
+        .catch(() => setOmissionProperties([]))
     }
   }, [status, router, selectedType])
 
@@ -316,6 +330,24 @@ export default function NewApplicationPage() {
             reason: formData.requestReason || '',
           }
           reason = formData.requestReason || 'シフト希望申請'
+          break
+
+        case 'cleaning_check_omission':
+          if (!formData.omissionPropertyId || !formData.omissionWorkDate || !formData.omissionType) {
+            setError('物件・作業日・漏れ種別を入力してください')
+            setLoading(false)
+            return
+          }
+          const prop = omissionProperties.find((p: { id: number; name: string }) => p.id === Number(formData.omissionPropertyId))
+          content = {
+            propertyId: Number(formData.omissionPropertyId),
+            propertyName: prop?.name ?? '',
+            workDate: formData.omissionWorkDate,
+            omissionType: formData.omissionType,
+            estimatedTime: formData.omissionEstimatedTime || null,
+            reason: formData.omissionReason || null,
+          }
+          reason = formData.omissionReason || '入場/退場漏れ申請'
           break
 
         default:
@@ -1120,6 +1152,67 @@ export default function NewApplicationPage() {
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                     placeholder="シフト希望の理由を記入してください"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* 入場/退場漏れフォーム */}
+            {selectedType === 'cleaning_check_omission' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">物件 <span className="text-red-500">*</span></label>
+                  <select
+                    value={formData.omissionPropertyId}
+                    onChange={(e) => setFormData({ ...formData, omissionPropertyId: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  >
+                    <option value="">選択してください</option>
+                    {omissionProperties.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">作業日 <span className="text-red-500">*</span></label>
+                  <input
+                    type="date"
+                    value={formData.omissionWorkDate}
+                    onChange={(e) => setFormData({ ...formData, omissionWorkDate: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">漏れ種別 <span className="text-red-500">*</span></label>
+                  <select
+                    value={formData.omissionType}
+                    onChange={(e) => setFormData({ ...formData, omissionType: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  >
+                    <option value="check_in">入場</option>
+                    <option value="check_out">退場</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">想定時刻（任意）</label>
+                  <input
+                    type="time"
+                    value={formData.omissionEstimatedTime}
+                    onChange={(e) => setFormData({ ...formData, omissionEstimatedTime: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">理由（任意）</label>
+                  <textarea
+                    value={formData.omissionReason}
+                    onChange={(e) => setFormData({ ...formData, omissionReason: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                    placeholder="漏れの理由を記入してください"
                   />
                 </div>
               </>

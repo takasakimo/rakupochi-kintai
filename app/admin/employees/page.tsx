@@ -2658,7 +2658,7 @@ export default function EmployeesPage() {
                           download
                           className="px-3 py-1 bg-gray-200 text-gray-900 rounded text-sm hover:bg-gray-300"
                         >
-                          らくポチ形式テンプレート
+                          らくっぽ形式テンプレート
                         </a>
                         <a
                           href="/api/admin/employees/template?format=general"
@@ -2684,7 +2684,7 @@ export default function EmployeesPage() {
                           download
                           className="px-3 py-1 bg-blue-200 text-blue-900 rounded text-sm hover:bg-blue-300"
                         >
-                          らくポチ形式サンプル
+                          らくっぽ形式サンプル
                         </a>
                         <a
                           href="/samples/sample_employees_general.csv"

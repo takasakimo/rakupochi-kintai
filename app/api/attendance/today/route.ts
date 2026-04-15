@@ -33,12 +33,10 @@ export async function GET(request: NextRequest) {
       todayStartUTC = new Date(`${dateStr}T00:00:00.000Z`)
       todayEndUTC = new Date(`${dateStr}T23:59:59.999Z`)
     } else {
-      const now = new Date()
-      const todayYear = now.getFullYear()
-      const todayMonth = now.getMonth()
-      const todayDay = now.getDate()
-      todayStartUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 0, 0, 0, 0))
-      todayEndUTC = new Date(Date.UTC(todayYear, todayMonth, todayDay, 23, 59, 59, 999))
+      // フォールバック: JST の今日（Vercel は UTC のため +9h 補正）
+      const jstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+      todayStartUTC = new Date(Date.UTC(jstNow.getFullYear(), jstNow.getMonth(), jstNow.getDate(), 0, 0, 0, 0))
+      todayEndUTC = new Date(Date.UTC(jstNow.getFullYear(), jstNow.getMonth(), jstNow.getDate(), 23, 59, 59, 999))
     }
 
     // 削除されていない打刻データを取得

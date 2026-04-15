@@ -83,7 +83,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
   const router = useRouter()
   const pathname = usePathname()
   const [company, setCompany] = useState<Company | null>(null)
-  const [settings, setSettings] = useState<{ enableSalesVisit?: boolean; enableInvoice?: boolean } | null>(null)
+  const [settings, setSettings] = useState<{ enableSalesVisit?: boolean; enableInvoice?: boolean; enableCleaningCheck?: boolean } | null>(null)
 
   useEffect(() => {
     const isSuperAdmin = session?.user?.role === 'super_admin' || 
@@ -112,8 +112,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
         fetch('/api/settings/display')
           .then((res) => res.json())
           .then((data) => {
-            if (data.enableSalesVisit !== undefined) {
-              setSettings({ enableSalesVisit: data.enableSalesVisit })
+            if (data.enableSalesVisit !== undefined || data.enableCleaningCheck !== undefined) {
+              setSettings({
+                enableSalesVisit: data.enableSalesVisit,
+                enableCleaningCheck: data.enableCleaningCheck,
+              })
             }
           })
           .catch((err) => {
@@ -125,7 +128,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
           .then((res) => res.json())
           .then((data) => {
             if (data.settings) {
-              setSettings({ enableInvoice: data.settings.enableInvoice })
+              setSettings({
+                enableInvoice: data.settings.enableInvoice,
+                enableCleaningCheck: data.settings.enableCleaningCheck,
+              })
             }
           })
           .catch((err) => {
@@ -159,6 +165,38 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
     if (settings && settings.enableSalesVisit === false) {
       menuItems = menuItems.filter(item => item.href !== '/employee/sales-visit')
     }
+    // 清掃案件管理（入退場）機能が有効な場合はメニューに追加
+    if (settings?.enableCleaningCheck) {
+      const cleaningItem: MenuItem = {
+        href: '/employee/cleaning-check',
+        label: '入退場',
+        icon: '',
+        section: '勤怠',
+      }
+      const salesVisitIndex = menuItems.findIndex(item => item.href === '/employee/sales-visit')
+      const insertIndex = salesVisitIndex >= 0 ? salesVisitIndex + 1 : 1
+      menuItems.splice(insertIndex, 0, cleaningItem)
+    }
+  }
+
+  // 管理者メニューの場合、enableCleaningCheckがtrueの場合のみ清掃案件管理・入退場メニューを追加
+  if ((isAdmin || (isSuperAdmin && session.user.selectedCompanyId)) && settings?.enableCleaningCheck) {
+    const cleaningAdminItem: MenuItem = {
+      href: '/admin/cleaning-check',
+      label: '清掃案件管理',
+      icon: '',
+      section: '勤怠管理',
+    }
+    const cleaningCheckInOutItem: MenuItem = {
+      href: '/employee/cleaning-check',
+      label: '入退場',
+      icon: '',
+      section: '勤怠管理',
+    }
+    const salesVisitIndex = menuItems.findIndex(item => item.href === '/admin/sales-visit')
+    const insertIndex = salesVisitIndex >= 0 ? salesVisitIndex + 1 : 3
+    menuItems.splice(insertIndex, 0, cleaningAdminItem)
+    menuItems.splice(insertIndex + 1, 0, cleaningCheckInOutItem)
   }
 
   // 管理者メニューの場合、enableInvoiceがtrueの場合のみ請求書関連メニューを追加

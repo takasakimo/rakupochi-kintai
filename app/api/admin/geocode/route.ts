@@ -69,8 +69,8 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-    } catch (error) {
-      console.log('Nominatim failed, trying alternative service:', error)
+    } catch {
+      // 次のジオコーディングサービスを試す
     }
 
     // 方法2: Geocoding.jpを試す（日本の住所に特化）
@@ -105,8 +105,8 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-    } catch (error) {
-      console.log('Geocoding.jp failed:', error)
+    } catch {
+      // 次のジオコーディングサービスを試す
     }
 
     // 方法3: より詳細な検索を試す（都道府県名を追加）
@@ -139,8 +139,8 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-    } catch (error) {
-      console.log('Broad search failed:', error)
+    } catch {
+      // 次の処理へ
     }
 
     // すべての方法が失敗した場合

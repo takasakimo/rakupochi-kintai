@@ -11,6 +11,13 @@ interface Property {
   address: string
   latitude: number
   longitude: number
+  lockInfo?: string | null
+  hasManager?: boolean | null
+  parkingInfo?: string | null
+  keyAccessInfo?: string | null
+  contactInfo?: string | null
+  workRangeNotes?: string | null
+  buildingAccessInfo?: string | null
 }
 
 interface Assignment {
@@ -31,6 +38,7 @@ interface CleaningWorkRecord {
   dirtyAreas?: string | null
   handoverNotes?: string | null
   checkOutPhotoUrls?: { exterior?: string | null; garbage?: string[] } | null
+  durationMinutes?: number | null
   property?: Property
 }
 
@@ -64,11 +72,70 @@ export default function EmployeeCleaningCheckPage() {
   const [reportEditModal, setReportEditModal] = useState<{ assignment: Assignment; workRecord: CleaningWorkRecord } | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  // 履歴タブ用（勤怠の打刻履歴と同様のカレンダー表記）
+  const [activeView, setActiveView] = useState<'schedule' | 'history'>('schedule')
+  const [historyMonth, setHistoryMonth] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [historySelectedDate, setHistorySelectedDate] = useState<string | null>(null)
+  const [historyRecordsAll, setHistoryRecordsAll] = useState<CleaningWorkRecord[]>([])
+  const [historyAssignmentsAll, setHistoryAssignmentsAll] = useState<Array<{ assignmentDate: string; property?: { name: string } }>>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyDetailModal, setHistoryDetailModal] = useState<CleaningWorkRecord | null>(null)
+
+  const fetchHistoryRecords = async () => {
+    if (!historyMonth) return
+    setHistoryLoading(true)
+    try {
+      const [recordsRes, assignRes] = await Promise.all([
+        fetch(`/api/employee/cleaning-work-records?month=${historyMonth}`),
+        fetch(`/api/employee/cleaning-assignments?month=${historyMonth}`),
+      ])
+      const recordsData = await recordsRes.json()
+      const assignData = await assignRes.json()
+      const recs = recordsData.records || []
+      const assigns = assignData.assignments || []
+      setHistoryRecordsAll(recs)
+      setHistoryAssignmentsAll(assigns)
+      const normalizeWorkDate = (r: CleaningWorkRecord) =>
+        typeof r.workDate === 'string' ? r.workDate.split('T')[0] : String(r.workDate).split('T')[0]
+      const normalizeAssignDate = (a: { assignmentDate: string | Date }) =>
+        typeof a.assignmentDate === 'string' ? a.assignmentDate.split('T')[0] : String(a.assignmentDate).split('T')[0]
+      const allDates = new Set<string>([
+        ...recs.map((r: CleaningWorkRecord) => normalizeWorkDate(r)),
+        ...assigns.map((a: { assignmentDate: string | Date }) => normalizeAssignDate(a)),
+      ])
+      const firstDate = [...allDates].sort()[0] ?? null
+      const today = getCurrentDateString()
+      const [y, m] = historyMonth.split('-').map(Number)
+      const todayInMonth = today.startsWith(`${y}-${String(m).padStart(2, '0')}`)
+      const hasToday = todayInMonth && allDates.has(today)
+      const selInMonth = historySelectedDate && historySelectedDate.startsWith(`${y}-${String(m).padStart(2, '0')}`) && allDates.has(historySelectedDate)
+      if (!selInMonth) {
+        setHistorySelectedDate(hasToday ? today : firstDate)
+      }
+    } catch (err) {
+      console.error('Failed to fetch history:', err)
+      setHistoryRecordsAll([])
+      setHistoryAssignmentsAll([])
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/signin')
     }
   }, [status, router])
+
+  // 履歴タブ表示時・表示月変更時にAPI取得
+  useEffect(() => {
+    if (status === 'authenticated' && activeView === 'history' && historyMonth) {
+      fetchHistoryRecords()
+    }
+  }, [status, activeView, historyMonth])
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -113,6 +180,17 @@ export default function EmployeeCleaningCheckPage() {
   }
 
   const todayStr = getCurrentDateString()
+  const normalizeWorkDate = (r: CleaningWorkRecord) =>
+    typeof r.workDate === 'string' ? r.workDate.split('T')[0] : String(r.workDate).split('T')[0]
+  const normalizeAssignDate = (a: { assignmentDate: string | Date }) =>
+    typeof a.assignmentDate === 'string' ? a.assignmentDate.split('T')[0] : String(a.assignmentDate).split('T')[0]
+  const historyRecords = historySelectedDate
+    ? historyRecordsAll.filter((r) => normalizeWorkDate(r) === historySelectedDate)
+    : []
+  const historyAssignments = historySelectedDate
+    ? historyAssignmentsAll.filter((a) => normalizeAssignDate(a) === historySelectedDate)
+    : []
+
   const merged: MergedItem[] = assignments.map((a) => ({
     assignment: a,
     workRecord:
@@ -139,7 +217,7 @@ export default function EmployeeCleaningCheckPage() {
     })
 
   const handleCheckInClick = (a: Assignment) => {
-    if (!window.confirm(`${a.property.name}にチェックインしますか？`)) return
+    if (!window.confirm(`${a.property.name}に入場しますか？`)) return
     setCheckInModal(a)
     setError(null)
   }
@@ -171,14 +249,14 @@ export default function EmployeeCleaningCheckPage() {
       setCheckInModal(null)
       await fetchData()
     } catch (err) {
-      setError('チェックインに失敗しました')
+      setError('入場に失敗しました')
     } finally {
       setSubmitting(false)
     }
   }
 
   const handleCheckOutClick = (a: Assignment) => {
-    if (!window.confirm(`${a.property.name}にチェックアウトしますか？`)) return
+    if (!window.confirm(`${a.property.name}に退場しますか？`)) return
     setCheckOutModal(a)
     setError(null)
   }
@@ -226,7 +304,7 @@ export default function EmployeeCleaningCheckPage() {
       setCheckOutModal(null)
       await fetchData()
     } catch (err) {
-      setError('チェックアウトに失敗しました')
+      setError('退場に失敗しました')
     } finally {
       setSubmitting(false)
     }
@@ -238,7 +316,7 @@ export default function EmployeeCleaningCheckPage() {
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-bold mb-4">チェックイン/チェックアウト</h1>
+      <h1 className="text-2xl font-bold mb-4">入退場</h1>
       <p className="text-gray-600 mb-2">
         {currentTime.toLocaleDateString('ja-JP', {
           weekday: 'short',
@@ -249,6 +327,156 @@ export default function EmployeeCleaningCheckPage() {
         {'　'}
         <span className="font-mono">{getCurrentTimeString()}</span>
       </p>
+
+      {/* タブ: 今日のスケジュール | 履歴 */}
+      <div className="flex border-b border-gray-200 mb-4">
+        <button
+          type="button"
+          onClick={() => setActiveView('schedule')}
+          className={`px-4 py-2 font-medium text-sm ${
+            activeView === 'schedule' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          今日のスケジュール
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveView('history')}
+          className={`px-4 py-2 font-medium text-sm ${
+            activeView === 'history' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          履歴
+        </button>
+      </div>
+
+      {activeView === 'history' ? (
+        <div className="space-y-4">
+          <div className="bg-white rounded-lg shadow-md p-4 mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">表示月</label>
+            <input
+              type="month"
+              value={historyMonth}
+              onChange={(e) => setHistoryMonth(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+            />
+          </div>
+
+          {/* カレンダー（勤怠の打刻履歴と同様） */}
+          <div className="bg-white rounded-lg shadow-md p-4 mb-4">
+            <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-gray-600 mb-2">
+              {['日', '月', '火', '水', '木', '金', '土'].map((d) => (
+                <div key={d}>{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {(() => {
+                const [y, m] = historyMonth.split('-').map(Number)
+                const first = new Date(y, m - 1, 1)
+                const last = new Date(y, m, 0)
+                const startPad = first.getDay()
+                const daysInMonth = last.getDate()
+                const cells: (null | { date: string; day: number; hasRecords: boolean; propertyNames: string[] })[] = []
+                for (let i = 0; i < startPad; i++) cells.push(null)
+                const normalizeAssignDate = (a: { assignmentDate: string | Date }) =>
+                  typeof a.assignmentDate === 'string' ? a.assignmentDate.split('T')[0] : String(a.assignmentDate).split('T')[0]
+                for (let d = 1; d <= daysInMonth; d++) {
+                  const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+                  const dayRecords = historyRecordsAll.filter((r) => normalizeWorkDate(r) === dateStr)
+                  const dayAssignments = historyAssignmentsAll.filter((a) => normalizeAssignDate(a) === dateStr)
+                  const propertyNames = dayRecords.length > 0
+                    ? [...new Set(dayRecords.map((r) => r.property?.name ?? '').filter(Boolean))]
+                    : [...new Set(dayAssignments.map((a) => a.property?.name ?? '').filter(Boolean))]
+                  const hasContent = dayRecords.length > 0 || dayAssignments.length > 0
+                  cells.push({ date: dateStr, day: d, hasRecords: hasContent, propertyNames })
+                }
+                return cells.map((cell, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => cell && setHistorySelectedDate(cell.date)}
+                    className={`min-h-[4rem] rounded text-left p-1 flex flex-col ${
+                      !cell
+                        ? 'bg-transparent'
+                        : historySelectedDate === cell.date
+                          ? 'bg-blue-600 text-white'
+                          : cell.hasRecords
+                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                            : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <span className="text-sm font-medium shrink-0">{cell?.day ?? ''}</span>
+                    {cell?.hasRecords && cell.propertyNames.length > 0 && (
+                      <span className="text-xs leading-tight mt-0.5 line-clamp-4 break-words overflow-hidden">
+                        {cell.propertyNames.map((name, idx) => (
+                          <span key={idx} className="block truncate" title={name}>{name}</span>
+                        ))}
+                      </span>
+                    )}
+                  </button>
+                ))
+              })()}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <h3 className="px-4 py-3 bg-gray-50 text-sm font-semibold text-gray-800">
+              {historySelectedDate ? `${historySelectedDate} の記録` : '日付を選択してください'}
+            </h3>
+            <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">物件</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">入場</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">退場</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">所要時間</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">操作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {historyRecords.length > 0 ? (
+                    historyRecords.map(r => (
+                      <tr key={r.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-900">{r.property?.name ?? '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{formatTime(r.checkInAt)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{formatTime(r.checkOutAt)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {r.durationMinutes != null ? `${r.durationMinutes}分` : '-'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => setHistoryDetailModal(r)}
+                            className="text-blue-600 hover:underline text-sm"
+                          >
+                            詳細
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : historyAssignments.length > 0 ? (
+                    historyAssignments.map((a, idx) => (
+                      <tr key={`assign-${idx}`} className="hover:bg-gray-50 bg-amber-50/50">
+                        <td className="px-4 py-3 text-sm text-gray-900">{a.property?.name ?? '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">-</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">-</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">-</td>
+                        <td className="px-4 py-3 text-sm text-amber-600 font-medium">予定</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-6 text-center text-gray-600">
+                        この日の記録はありません
+                      </td>
+                    </tr>
+                  )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <>
       {assignments.length > 0 && (
         <button
           type="button"
@@ -285,16 +513,16 @@ export default function EmployeeCleaningCheckPage() {
                     <button
                       type="button"
                       onClick={() => setPropertyDetailModal(assignment.property)}
-                      className="text-left font-medium text-gray-900 hover:text-blue-600 hover:underline block"
+                      className="text-left font-medium text-blue-600 hover:text-blue-800 hover:underline block cursor-pointer"
                     >
                       {assignment.property.name}
                     </button>
                     <div className="text-sm text-gray-600">{assignment.property.address}</div>
                     <div className="flex items-center gap-4 mt-1 text-sm">
                       <span>
-                        チェックイン: {formatTime(workRecord?.checkInAt ?? null)}
+                        入場: {formatTime(workRecord?.checkInAt ?? null)}
                       </span>
-                      <span>チェックアウト: {formatTime(workRecord?.checkOutAt ?? null)}</span>
+                      <span>退場: {formatTime(workRecord?.checkOutAt ?? null)}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -330,7 +558,7 @@ export default function EmployeeCleaningCheckPage() {
                               : 'bg-gray-200 text-gray-500 cursor-not-allowed'
                           }`}
                         >
-                          チェックイン
+                          入場
                         </button>
                         <button
                           onClick={() => handleCheckOutClick(assignment)}
@@ -341,7 +569,7 @@ export default function EmployeeCleaningCheckPage() {
                               : 'bg-gray-200 text-gray-500 cursor-not-allowed'
                           }`}
                         >
-                          チェックアウト
+                          退場
                         </button>
                       </>
                     )}
@@ -351,6 +579,8 @@ export default function EmployeeCleaningCheckPage() {
             })}
           </ul>
         </div>
+      )}
+        </>
       )}
 
       {/* Check-in modal */}
@@ -391,6 +621,13 @@ export default function EmployeeCleaningCheckPage() {
             setReportEditModal(null)
             fetchData()
           }}
+        />
+      )}
+
+      {historyDetailModal && (
+        <HistoryDetailModal
+          record={historyDetailModal}
+          onClose={() => setHistoryDetailModal(null)}
         />
       )}
 
@@ -482,7 +719,7 @@ function CheckInModal({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-        <h3 className="text-lg font-bold mb-2">チェックイン - {propertyName}</h3>
+        <h3 className="text-lg font-bold mb-2">入場 - {propertyName}</h3>
         <p className="text-sm text-gray-600 mb-4">
           {currentDate} {currentTime}
         </p>
@@ -626,6 +863,72 @@ function RouteMapModal({ assignments, onClose }: { assignments: Assignment[]; on
   )
 }
 
+function HistoryDetailModal({ record, onClose }: { record: CleaningWorkRecord; onClose: () => void }) {
+  const urls = record.checkOutPhotoUrls
+  const exteriorUrl = urls && typeof urls === 'object' && (urls as any).exterior ? (urls as any).exterior : null
+  const garbageUrls = urls && typeof urls === 'object' && Array.isArray((urls as any).garbage) ? (urls as any).garbage : []
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white">
+          <h2 className="text-lg font-semibold text-gray-900">
+            作業記録詳細 - {record.property?.name ?? '-'}
+          </h2>
+          <button onClick={onClose} className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">閉じる</button>
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <p><span className="text-gray-600">入場:</span> {formatTime(record.checkInAt)}</p>
+            <p><span className="text-gray-600">退場:</span> {formatTime(record.checkOutAt)}</p>
+            <p><span className="text-gray-600">所要時間:</span> {(record as any).durationMinutes != null ? `${(record as any).durationMinutes}分` : '-'}</p>
+          </div>
+          {record.checkInPhotoUrl && (
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-1">入場写真</p>
+              <img src={record.checkInPhotoUrl} alt="入場" className="rounded border max-w-full max-h-48 object-contain" />
+            </div>
+          )}
+          {exteriorUrl && (
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-1">退場外観写真</p>
+              <img src={exteriorUrl} alt="外観" className="rounded border max-w-full max-h-48 object-contain" />
+            </div>
+          )}
+          {garbageUrls.length > 0 && (
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-1">ゴミ袋写真</p>
+              <div className="flex flex-wrap gap-2">
+                {garbageUrls.map((url: string, i: number) => (
+                  <img key={i} src={url} alt={`ゴミ袋${i + 1}`} className="rounded border max-w-full max-h-32 object-contain" />
+                ))}
+              </div>
+            </div>
+          )}
+          {record.impression && (
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-1">所感</p>
+              <p className="text-sm text-gray-900 whitespace-pre-wrap">{record.impression}</p>
+            </div>
+          )}
+          {record.dirtyAreas && (
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-1">特に汚れていた場所</p>
+              <p className="text-sm text-gray-900 whitespace-pre-wrap">{record.dirtyAreas}</p>
+            </div>
+          )}
+          {record.handoverNotes && (
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-1">次回への引き継ぎ事項</p>
+              <p className="text-sm text-gray-900 whitespace-pre-wrap">{record.handoverNotes}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function PropertyDetailModal({ property, onClose }: { property: Property; onClose: () => void }) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
@@ -684,24 +987,44 @@ function PropertyDetailModal({ property, onClose }: { property: Property; onClos
     }
   }, [property])
 
+  const detailItems: { label: string; value: string | boolean | null | undefined }[] = []
+  if (property.lockInfo) detailItems.push({ label: '施錠情報', value: property.lockInfo })
+  if (property.hasManager != null) detailItems.push({ label: '管理人有無', value: property.hasManager ? 'あり' : 'なし' })
+  if (property.parkingInfo) detailItems.push({ label: '駐車情報', value: property.parkingInfo })
+  if (property.keyAccessInfo) detailItems.push({ label: '鍵・アクセス方法', value: property.keyAccessInfo })
+  if (property.buildingAccessInfo) detailItems.push({ label: '建物の入り方', value: property.buildingAccessInfo })
+  if (property.workRangeNotes) detailItems.push({ label: '作業範囲・注意事項', value: property.workRangeNotes })
+  if (property.contactInfo) detailItems.push({ label: '連絡先', value: property.contactInfo })
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md my-8">
         <div className="p-4 border-b">
-          <h2 className="text-lg font-semibold">{property.name}</h2>
+          <h2 className="text-lg font-semibold text-gray-900">物件詳細</h2>
+          <p className="text-base font-medium text-gray-800 mt-2">{property.name}</p>
           <p className="text-sm text-gray-600 mt-1">{property.address}</p>
         </div>
-        <div ref={mapContainerRef} className="w-full h-[300px]" />
+        {detailItems.length > 0 && (
+          <div className="p-4 border-b space-y-3">
+            {detailItems.map(({ label, value }) => (
+              <div key={label}>
+                <span className="text-xs font-medium text-gray-500 block mb-0.5">{label}</span>
+                <p className="text-sm text-gray-900 whitespace-pre-wrap">{String(value)}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        <div ref={mapContainerRef} className="w-full h-[240px] bg-gray-100" />
         <div className="p-4 flex gap-2">
           <a
             href={`https://www.google.com/maps?q=${property.latitude},${property.longitude}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded text-center hover:bg-blue-700"
+            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded text-center hover:bg-blue-700 font-medium"
           >
             Googleマップで開く
           </a>
-          <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
+          <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 font-medium">
             閉じる
           </button>
         </div>
@@ -985,7 +1308,7 @@ function CheckOutModal({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 my-8">
-        <h3 className="text-lg font-bold mb-2">チェックアウト - {propertyName}</h3>
+        <h3 className="text-lg font-bold mb-2">退場 - {propertyName}</h3>
         <p className="text-sm text-gray-600 mb-4">
           {currentDate} {currentTime}
         </p>
@@ -1094,7 +1417,7 @@ function CheckOutModal({
             disabled={submitting}
             className="px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700 disabled:opacity-50"
           >
-            {submitting ? '送信中...' : 'チェックアウト'}
+            {submitting ? '送信中...' : '退場'}
           </button>
         </div>
       </div>

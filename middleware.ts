@@ -13,8 +13,8 @@ export function middleware(request: NextRequest) {
   // Content-Security-Policy
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Next.jsの開発モードで必要
-    "style-src 'self' 'unsafe-inline'", // Tailwind CSSで必要
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://unpkg.com", // Next.js・Leaflet用
+    "style-src 'self' 'unsafe-inline' https://unpkg.com", // Tailwind CSS・Leaflet用
     "img-src 'self' data: https:",
     "font-src 'self' data:",
     "connect-src 'self' https:",

@@ -23,6 +23,7 @@ interface CompanySettings {
   allowPreOvertime: boolean
   enableSalesVisit: boolean
   enableWakeUpDeparture: boolean
+  enableCleaningCheck: boolean
   enableInvoice: boolean
   includePaidLeaveInInvoice?: boolean
 }
@@ -193,6 +194,7 @@ export default function SuperAdminCompaniesPage() {
           allowPreOvertime: data.settings.allowPreOvertime ?? false,
           enableSalesVisit: data.settings.enableSalesVisit ?? true,
           enableWakeUpDeparture: data.settings.enableWakeUpDeparture ?? true,
+          enableCleaningCheck: data.settings.enableCleaningCheck ?? false,
           enableInvoice: data.settings.enableInvoice ?? false,
           includePaidLeaveInInvoice: data.settings.includePaidLeaveInInvoice ?? false,
         })
@@ -527,6 +529,28 @@ export default function SuperAdminCompaniesPage() {
                       </label>
                       <p className="mt-1 text-xs text-gray-500 ml-6">
                         チェックを入れると、管理者メニューに「請求先企業管理」や「請求書管理」が表示されます。
+                      </p>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={companySettings.enableCleaningCheck}
+                          onChange={(e) =>
+                            setCompanySettings({
+                              ...companySettings,
+                              enableCleaningCheck: e.target.checked,
+                            })
+                          }
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="ml-2 text-sm font-medium text-gray-700">
+                          清掃案件管理・入退場機能を表示する
+                        </span>
+                      </label>
+                      <p className="mt-1 text-xs text-gray-500 ml-6">
+                        チェックを入れると、管理者に「清掃案件管理」、スタッフに「入退場」メニューが表示されます。
                       </p>
                     </div>
 

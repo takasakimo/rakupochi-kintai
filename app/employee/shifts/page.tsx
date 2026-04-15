@@ -96,7 +96,7 @@ export default function ShiftManagePage() {
   const workLocations = ['店舗名', 'その他']
   const workTypes = ['出勤', '公休', '有給休暇']
   const timeSlots = ['-', '早番', '中番', '遅番']
-  const workHourOptions = ['2', '3', '4', '5', '6', '7', '8']
+  const workHourOptions = Array.from({ length: 23 }, (_, i) => String(i + 2)) // 2時間から24時間まで
   
   // 一括反映用の状態
   const [selectedShiftIds, setSelectedShiftIds] = useState<Set<number>>(new Set())

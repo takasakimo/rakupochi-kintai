@@ -1,25 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { validateCronRequest, allowCronInDevelopment } from '@/lib/cron-auth'
 
 export const dynamic = 'force-dynamic'
 
 // Cron用のアラート生成（全企業に対して自動実行）
 export async function GET(request: NextRequest) {
   try {
-    // Vercel Cronからのリクエストか確認
-    // Vercel Cron Jobsは自動的に認証ヘッダーを付与しますが、
-    // セキュリティのために環境変数での認証も可能にしています
-    const authHeader = request.headers.get('authorization')
-    const vercelSignature = request.headers.get('x-vercel-signature')
-    const cronSecret = process.env.CRON_SECRET
-
-    // Vercel Cronからのリクエストか、または正しい認証トークンがあるか確認
-    const isVercelCron = vercelSignature !== null
-    const hasValidAuth = cronSecret && authHeader === `Bearer ${cronSecret}`
-
-    if (!isVercelCron && !hasValidAuth) {
-      // 開発環境では認証をスキップ（オプション）
-      if (process.env.NODE_ENV === 'development' && !cronSecret) {
+    const isAuthorized = validateCronRequest(request)
+    if (!isAuthorized) {
+      if (allowCronInDevelopment()) {
         console.warn('Running in development mode without authentication')
       } else {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -34,7 +24,8 @@ export async function GET(request: NextRequest) {
     })
 
     const results = []
-    const now = new Date()
+    // JST の今月（Vercel は UTC のため +9h 補正）
+    const now = new Date(Date.now() + 9 * 60 * 60 * 1000)
     const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 

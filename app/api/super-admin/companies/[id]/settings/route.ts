@@ -93,13 +93,14 @@ export async function PATCH(
     const companyId = parseInt(params.id)
     const body = await request.json()
 
-    // スーパー管理者が更新できるのは以下の5つの設定のみ
+    // スーパー管理者が更新できるのは以下の設定のみ
     const updateData: {
       allowPreOvertime?: boolean
       enableSalesVisit?: boolean
       enableWakeUpDeparture?: boolean
       enableInvoice?: boolean
       includePaidLeaveInInvoice?: boolean
+      enableCleaningCheck?: boolean
     } = {}
 
     if (body.allowPreOvertime !== undefined) {
@@ -117,6 +118,9 @@ export async function PATCH(
     if (body.includePaidLeaveInInvoice !== undefined) {
       updateData.includePaidLeaveInInvoice = body.includePaidLeaveInInvoice
     }
+    if (body.enableCleaningCheck !== undefined) {
+      updateData.enableCleaningCheck = body.enableCleaningCheck
+    }
 
     const settings = await prisma.companySetting.upsert({
       where: { companyId },
@@ -133,6 +137,7 @@ export async function PATCH(
         enableSalesVisit: body.enableSalesVisit ?? true,
         enableWakeUpDeparture: body.enableWakeUpDeparture ?? true,
         enableInvoice: body.enableInvoice ?? false,
+        enableCleaningCheck: body.enableCleaningCheck ?? false,
         paidLeaveFirstGrantMonths: 6,
         paidLeaveGrantDays: {
           year1: 10,

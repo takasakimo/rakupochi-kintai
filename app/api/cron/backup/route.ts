@@ -1,23 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { validateCronRequest, allowCronInDevelopment } from '@/lib/cron-auth'
 
 export const dynamic = 'force-dynamic'
 
 // データベースバックアップ用のCronエンドポイント
 export async function GET(request: NextRequest) {
   try {
-    // Vercel Cronからのリクエストか確認
-    const authHeader = request.headers.get('authorization')
-    const vercelSignature = request.headers.get('x-vercel-signature')
-    const cronSecret = process.env.CRON_SECRET
-
-    // Vercel Cronからのリクエストか、または正しい認証トークンがあるか確認
-    const isVercelCron = vercelSignature !== null
-    const hasValidAuth = cronSecret && authHeader === `Bearer ${cronSecret}`
-
-    if (!isVercelCron && !hasValidAuth) {
-      // 開発環境では認証をスキップ（オプション）
-      if (process.env.NODE_ENV === 'development' && !cronSecret) {
+    const isAuthorized = validateCronRequest(request)
+    if (!isAuthorized) {
+      if (allowCronInDevelopment()) {
         console.warn('Running backup in development mode without authentication')
       } else {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

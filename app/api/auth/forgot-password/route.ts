@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendPasswordResetEmail } from '@/lib/email'
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit'
+import { isValidEmail } from '@/lib/validation'
 import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
@@ -29,9 +30,15 @@ export async function POST(request: NextRequest) {
     const { email } = body
 
     // バリデーション
-    if (!email) {
+    if (!email || typeof email !== 'string') {
       return NextResponse.json(
         { error: 'メールアドレスが必要です' },
+        { status: 400 }
+      )
+    }
+    if (!isValidEmail(email)) {
+      return NextResponse.json(
+        { error: '有効なメールアドレスを入力してください' },
         { status: 400 }
       )
     }
@@ -94,13 +101,14 @@ export async function POST(request: NextRequest) {
       resetUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/auth/reset-password?token=${token}`
     }
 
-    // メール送信が無効な場合や失敗した場合は、URLをレスポンスに含める
+    // 本番環境では resetUrl をレスポンスに含めない（トークン漏洩防止）
+    const isProduction = process.env.NODE_ENV === 'production'
     return NextResponse.json({
       success: true,
-      message: resetUrl 
+      message: resetUrl
         ? 'パスワードリセットリンクを生成しました。以下のリンクをクリックしてください。'
         : 'メールアドレスが登録されている場合、パスワードリセットリンクを送信しました。',
-      resetUrl, // 開発・テスト用にURLを含める
+      ...(!isProduction && resetUrl ? { resetUrl } : {}),
     })
   } catch (error: any) {
     console.error('Forgot password error:', error)

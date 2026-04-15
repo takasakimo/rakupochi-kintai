@@ -94,19 +94,19 @@ export async function POST(request: NextRequest) {
 
     if (!existing) {
       return NextResponse.json(
-        { error: 'チェックイン記録が見つかりません' },
+        { error: '入場記録が見つかりません' },
         { status: 404 }
       )
     }
     if (!existing.checkInAt) {
       return NextResponse.json(
-        { error: '先にチェックインしてください' },
+        { error: '先に入場してください' },
         { status: 400 }
       )
     }
     if (existing.checkOutAt) {
       return NextResponse.json(
-        { error: 'すでにチェックアウト済みです' },
+        { error: 'すでに退場済みです' },
         { status: 400 }
       )
     }
@@ -139,20 +139,27 @@ export async function POST(request: NextRequest) {
       garbage: garbageUrls,
     }
 
-    await prisma.cleaningWorkRecord.update({
-      where: { id: existing.id },
-      data: {
-        checkOutAt,
-        checkOutLocation: location ?? undefined,
-        checkOutPhotoUrls,
-        workType,
-        workTypeOtherComment: workTypeOtherComment || undefined,
-        impression: impression || undefined,
-        dirtyAreas: dirtyAreas || undefined,
-        handoverNotes: handoverNotes || undefined,
-        durationMinutes,
-      },
-    })
+    await prisma.$transaction([
+      prisma.cleaningWorkRecord.update({
+        where: { id: existing.id },
+        data: {
+          checkOutAt,
+          checkOutLocation: location ?? undefined,
+          checkOutPhotoUrls,
+          workType,
+          workTypeOtherComment: workTypeOtherComment || undefined,
+          impression: impression || undefined,
+          dirtyAreas: dirtyAreas || undefined,
+          handoverNotes: handoverNotes || undefined,
+          durationMinutes,
+        },
+      }),
+      // フェーズ5: 最終訪問日の自動更新
+      prisma.property.update({
+        where: { id: propertyId },
+        data: { lastVisitedAt: checkOutAt },
+      }),
+    ])
 
     return NextResponse.json({ success: true })
   } catch (error) {

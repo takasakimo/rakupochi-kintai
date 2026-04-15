@@ -32,17 +32,40 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams
     const dateStr = searchParams.get('date')
-    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      return NextResponse.json({ error: '無効な日付です（YYYY-MM-DD形式）' }, { status: 400 })
+    const monthStr = searchParams.get('month')
+
+    const useMonth = !!monthStr && /^\d{4}-\d{2}$/.test(monthStr)
+    const useDate = !!dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+
+    if (!useMonth && !useDate) {
+      return NextResponse.json(
+        { error: 'date（YYYY-MM-DD）または month（YYYY-MM）のいずれかを指定してください' },
+        { status: 400 }
+      )
     }
 
-    // PostgreSQL DATE型を確実に比較するため生SQLを使用（タイムゾーン問題を完全に回避）
-    const raw = await prisma.$queryRaw<Array<{ id: number; property_id: number; sort_order: number }>>`
-      SELECT id, property_id, sort_order FROM cleaning_assignments
-      WHERE company_id = ${companyId} AND employee_id = ${employeeId}
-        AND assignment_date = ${dateStr}::date
-      ORDER BY sort_order ASC
-    `
+    type AssignRow = { id: number; property_id: number; sort_order: number; assignment_date: Date }
+    let raw: AssignRow[]
+
+    if (useMonth) {
+      const [y, m] = monthStr!.split('-').map(Number)
+      const startDate = `${monthStr}-01`
+      const nextMonth = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
+      raw = await prisma.$queryRaw<AssignRow[]>`
+        SELECT id, property_id, sort_order, assignment_date FROM cleaning_assignments
+        WHERE company_id = ${companyId} AND employee_id = ${employeeId}
+          AND assignment_date >= ${startDate}::date
+          AND assignment_date < ${nextMonth}::date
+        ORDER BY assignment_date ASC, sort_order ASC
+      `
+    } else {
+      raw = await prisma.$queryRaw<AssignRow[]>`
+        SELECT id, property_id, sort_order, assignment_date FROM cleaning_assignments
+        WHERE company_id = ${companyId} AND employee_id = ${employeeId}
+          AND assignment_date = ${dateStr}::date
+        ORDER BY sort_order ASC
+      `
+    }
 
     if (raw.length === 0) {
       return NextResponse.json({ assignments: [] })
@@ -58,6 +81,7 @@ export async function GET(request: NextRequest) {
       id: r.id,
       propertyId: r.property_id,
       sortOrder: r.sort_order,
+      assignmentDate: r.assignment_date,
       property: propertyMap[r.property_id],
     })).filter((a) => a.property)
 
